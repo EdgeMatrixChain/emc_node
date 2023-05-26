@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "edge_call",
+  "params": [
+    "em-app",
+    {
+      "peerId": "16Uiu2HAmG1a6Aqag9noiPnwB6y1SHnMYDP3mdJoZtKLSvDMTFp5v",
+      "endpoint": "/echo",
+      "input": "hello"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "/application/proto";
+
+import "google/protobuf/empty.proto";
+
+service SyncApp {
+  // Returns stream of data beginning specified from
+  rpc GetData(GetDataRequest) returns (stream Data);
+  // Returns app peer's status
+  rpc GetStatus(google.protobuf.Empty) returns (AppStatus);
+}
+
+// GetDataRequest is a request for GetData
+message GetDataRequest {
+  // The hash of Data to sync
+  string dataHash = 1;
+}
+
+// Data contains app data as []byte
+message Data {
+  // map[string]*[]byte
+  map<string, bytes> data = 1;
+}
+
+// AppStatus contains app peer status
+message AppStatus {
+  // app name
+  string name = 1;
+  // app startup time
+  uint64 startup_time = 2;
+  // app uptime
+  uint64 uptime = 3;
+  // amount of slots currently occupying the app
+  uint64 guage_height = 4;
+  // max limit
+  uint64 guage_max = 5;
+}

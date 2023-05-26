@@ -1,0 +1,444 @@
+package ibft
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/emc-protocol/edge-matrix/consensus"
+	"github.com/emc-protocol/edge-matrix/consensus/ibft/signer"
+	"github.com/emc-protocol/edge-matrix/edge-ibft/messages"
+	"github.com/emc-protocol/edge-matrix/edge-ibft/messages/proto"
+	"github.com/emc-protocol/edge-matrix/helper/hex"
+	"github.com/emc-protocol/edge-matrix/state"
+	"github.com/emc-protocol/edge-matrix/types"
+)
+
+func (i *backendIBFT) BuildProposal(view *proto.View) []byte {
+	var (
+		latestHeader      = i.blockchain.Header()
+		latestBlockNumber = latestHeader.Number
+	)
+
+	if latestBlockNumber+1 != view.Height {
+		i.logger.Error(
+			"unable to build block, due to lack of parent block",
+			"num",
+			latestBlockNumber,
+		)
+
+		return nil
+	}
+
+	block, err := i.buildBlock(latestHeader)
+	if err != nil {
+		i.logger.Error("cannot build block", "num", view.Height, "err", err)
+
+		return nil
+	}
+
+	return block.MarshalRLP()
+}
+
+// InsertProposal inserts a proposal of which the consensus has been got
+func (i *backendIBFT) InsertProposal(
+	proposal *proto.Proposal,
+	committedSeals []*messages.CommittedSeal,
+) {
+	newBlock := &types.Block{}
+	if err := newBlock.UnmarshalRLP(proposal.RawProposal); err != nil {
+		i.logger.Error("cannot unmarshal proposal", "err", err)
+
+		return
+	}
+
+	committedSealsMap := make(map[types.Address][]byte, len(committedSeals))
+
+	for _, cm := range committedSeals {
+		committedSealsMap[types.BytesToAddress(cm.Signer)] = cm.Signature
+	}
+
+	// Copy extra data for debugging purposes
+	extraDataOriginal := newBlock.Header.ExtraData
+	extraDataBackup := make([]byte, len(extraDataOriginal))
+	copy(extraDataBackup, extraDataOriginal)
+
+	// Push the committed seals to the header
+	header, err := i.currentSigner.WriteCommittedSeals(newBlock.Header, proposal.Round, committedSealsMap)
+	if err != nil {
+		i.logger.Error("cannot write committed seals", "err", err)
+
+		return
+	}
+
+	// WriteCommittedSeals alters the extra data before writing the block
+	// It doesn't handle errors while pushing changes which can result in
+	// corrupted extra data.
+	// We don't know exact circumstance of the unmarshalRLP error
+	// This is a safety net to help us narrow down and also recover before
+	// writing the block
+	if err := i.ValidateExtraDataFormat(newBlock.Header); err != nil {
+		//Format committed seals to make them more readable
+		committedSealsStr := make([]string, len(committedSealsMap))
+		for i, seal := range committedSeals {
+			committedSealsStr[i] = fmt.Sprintf("{signer=%v signature=%v}",
+				hex.EncodeToHex(seal.Signer),
+				hex.EncodeToHex(seal.Signature))
+		}
+
+		i.logger.Error("cannot write block: corrupted extra data",
+			"err", err,
+			"before", hex.EncodeToHex(extraDataBackup),
+			"after", hex.EncodeToHex(header.ExtraData),
+			"committedSeals", committedSealsStr)
+
+		return
+	}
+
+	newBlock.Header = header
+
+	// Save the block locally
+	if err := i.blockchain.WriteBlock(newBlock, "consensus"); err != nil {
+		i.logger.Error("cannot write block", "err", err)
+
+		return
+	}
+
+	i.updateMetrics(newBlock)
+
+	i.logger.Info(
+		"block committed",
+		"number", newBlock.Number(),
+		"hash", newBlock.Hash(),
+		"validation_type", i.currentSigner.Type(),
+		"validators", i.currentValidators.Len(),
+		"committed", len(committedSeals),
+	)
+
+	if err := i.currentHooks.PostInsertBlock(newBlock); err != nil {
+		i.logger.Error(
+			"failed to call PostInsertBlock hook",
+			"height", newBlock.Number(),
+			"hash", newBlock.Hash(),
+			"err", err,
+		)
+
+		return
+	}
+
+	// after the block has been written we reset the txpool so that
+	// the old transactions are removed
+	i.telepool.ResetWithHeaders(newBlock.Header)
+}
+
+func (i *backendIBFT) ID() []byte {
+	return i.currentSigner.Address().Bytes()
+}
+
+func (i *backendIBFT) MaximumFaultyNodes() uint64 {
+	return uint64(CalcMaxFaultyNodes(i.currentValidators))
+}
+
+func (i *backendIBFT) HasQuorum(
+	blockNumber uint64,
+	messages []*proto.Message,
+	msgType proto.MessageType,
+) bool {
+	validators, err := i.forkManager.GetValidators(blockNumber)
+	if err != nil {
+		i.logger.Error(
+			"failed to get validators when calculation quorum",
+			"height", blockNumber,
+			"err", err,
+		)
+
+		return false
+	}
+
+	quorum := i.quorumSize(blockNumber)(validators)
+
+	switch msgType {
+	case proto.MessageType_PREPREPARE:
+		return len(messages) > 0
+	case proto.MessageType_PREPARE:
+		// two cases -> first message is MessageType_PREPREPARE, and other -> MessageType_PREPREPARE is not included
+		if len(messages) > 0 && messages[0].Type == proto.MessageType_PREPREPARE {
+			return len(messages) >= quorum
+		}
+
+		return len(messages) >= quorum-1
+	case proto.MessageType_COMMIT, proto.MessageType_ROUND_CHANGE:
+		return len(messages) >= quorum
+	default:
+		return false
+	}
+}
+
+// buildBlock builds the block, based on the passed in snapshot and parent header
+func (i *backendIBFT) buildBlock(parent *types.Header) (*types.Block, error) {
+	header := &types.Header{
+		ParentHash: parent.Hash,
+		Number:     parent.Number + 1,
+		Miner:      types.ZeroAddress.Bytes(),
+		Nonce:      types.Nonce{},
+		//MixHash:    signer.IstanbulDigest,
+		// this is required because blockchain needs difficulty to organize blocks and forks
+		//Difficulty: parent.Number + 1,
+		StateRoot: types.EmptyRootHash, // this avoids needing state for now
+		//Sha3Uncles: types.EmptyUncleHash,
+		GasLimit: parent.GasLimit, // Inherit from parent for now, will need to adjust dynamically later.
+	}
+
+	// calculate gas limit based on parent header
+	gasLimit, err := i.blockchain.CalculateGasLimit(header.Number)
+	if err != nil {
+		return nil, err
+	}
+
+	header.GasLimit = gasLimit
+
+	if err := i.currentHooks.ModifyHeader(header, i.currentSigner.Address()); err != nil {
+		return nil, err
+	}
+
+	// Set the header timestamp
+	potentialTimestamp := i.calcHeaderTimestamp(parent.Timestamp, time.Now())
+	header.Timestamp = uint64(potentialTimestamp.Unix())
+
+	parentCommittedSeals, err := i.extractParentCommittedSeals(parent)
+	if err != nil {
+		return nil, err
+	}
+
+	i.currentSigner.InitIBFTExtra(header, i.currentValidators, parentCommittedSeals)
+
+	transition, err := i.executor.BeginTxn(parent.StateRoot, header, i.currentSigner.Address())
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the block transactions
+	writeCtx, cancelFn := context.WithDeadline(context.Background(), potentialTimestamp)
+	defer cancelFn()
+
+	teles := i.writeTransactions(
+		writeCtx,
+		gasLimit,
+		header.Number,
+		transition,
+	)
+
+	if err := i.PreCommitState(header, transition); err != nil {
+		return nil, err
+	}
+
+	_, root := transition.Commit()
+	header.StateRoot = root
+	header.GasUsed = transition.TotalGas()
+
+	// build the block
+	block := consensus.BuildBlock(consensus.BuildBlockParams{
+		Header:   header,
+		Teles:    teles,
+		Receipts: transition.Receipts(),
+	})
+
+	// write the seal of the block after all the fields are completed
+	header, err = i.currentSigner.WriteProposerSeal(header)
+	if err != nil {
+		return nil, err
+	}
+
+	block.Header = header
+
+	// compute the hash, this is only a provisional hash since the final one
+	// is sealed after all the committed seals
+	block.Header.ComputeHash()
+
+	i.logger.Info("build block", "number", header.Number, "txs", len(teles))
+
+	return block, nil
+}
+
+// calcHeaderTimestamp calculates the new block timestamp, based
+// on the block time and parent timestamp
+func (i *backendIBFT) calcHeaderTimestamp(parentUnix uint64, currentTime time.Time) time.Time {
+	var (
+		parentTimestamp    = time.Unix(int64(parentUnix), 0)
+		potentialTimestamp = parentTimestamp.Add(i.blockTime)
+	)
+
+	if potentialTimestamp.Before(currentTime) {
+		// The deadline for creating this next block
+		// has passed, round it to the nearest
+		// multiple of block time
+		// t........t+blockT...x (t+blockT.x; now).....t+blockT (potential)
+		potentialTimestamp = roundUpTime(currentTime, i.blockTime)
+	}
+
+	return potentialTimestamp
+}
+
+// roundUpTime rounds up the specified time to the
+// nearest higher multiple
+func roundUpTime(t time.Time, roundOn time.Duration) time.Time {
+	return t.Add(roundOn / 2).Round(roundOn)
+}
+
+type status uint8
+
+const (
+	success status = iota
+	fail
+	skip
+)
+
+type txExeResult struct {
+	tx     *types.Telegram
+	status status
+}
+
+type transitionInterface interface {
+	Write(txn *types.Telegram) error
+	WriteFailedReceipt(txn *types.Telegram) error
+}
+
+func (i *backendIBFT) writeTransactions(
+	writeCtx context.Context,
+	gasLimit,
+	blockNumber uint64,
+	transition transitionInterface,
+) (executed []*types.Telegram) {
+	executed = make([]*types.Telegram, 0)
+
+	if !i.currentHooks.ShouldWriteTransactions(blockNumber) {
+		return
+	}
+
+	var (
+		successful = 0
+		failed     = 0
+		skipped    = 0
+	)
+
+	defer func() {
+		i.logger.Info(
+			"executed txs",
+			"successful", successful,
+			"failed", failed,
+			"skipped", skipped,
+			"remaining", i.telepool.Length(),
+		)
+	}()
+
+	i.telepool.Prepare()
+
+write:
+	for {
+		select {
+		case <-writeCtx.Done():
+			return
+		default:
+			// execute transactions one by one
+			result, ok := i.writeTransaction(
+				i.telepool.Peek(),
+				transition,
+				gasLimit,
+			)
+
+			if !ok {
+				break write
+			}
+
+			tx := result.tx
+
+			switch result.status {
+			case success:
+				executed = append(executed, tx)
+				successful++
+			case fail:
+				failed++
+			case skip:
+				skipped++
+			}
+		}
+	}
+
+	//	wait for the timer to expire
+	<-writeCtx.Done()
+
+	return
+}
+
+func (i *backendIBFT) writeTransaction(
+	tx *types.Telegram,
+	transition transitionInterface,
+	gasLimit uint64,
+) (*txExeResult, bool) {
+	if tx == nil {
+		return nil, false
+	}
+
+	if tx.ExceedsBlockGasLimit(gasLimit) {
+		i.telepool.Drop(tx)
+
+		if err := transition.WriteFailedReceipt(tx); err != nil {
+			i.logger.Error(
+				fmt.Sprintf(
+					"unable to write failed receipt for transaction %s",
+					tx.Hash,
+				),
+			)
+		}
+
+		// continue processing
+		return &txExeResult{tx, fail}, true
+	}
+
+	if err := transition.Write(tx); err != nil {
+		if _, ok := err.(*state.GasLimitReachedTransitionApplicationError); ok { //nolint:errorlint
+			// stop processing
+			return nil, false
+		} else if appErr, ok := err.(*state.TransitionApplicationError); ok && appErr.IsRecoverable { //nolint:errorlint
+			i.telepool.Demote(tx)
+
+			return &txExeResult{tx, skip}, true
+		} else {
+			i.telepool.Drop(tx)
+
+			return &txExeResult{tx, fail}, true
+		}
+	}
+
+	i.telepool.Pop(tx)
+
+	return &txExeResult{tx, success}, true
+}
+
+// extractCommittedSeals extracts CommittedSeals from header
+func (i *backendIBFT) extractCommittedSeals(
+	header *types.Header,
+) (signer.Seals, error) {
+	signer, err := i.forkManager.GetSigner(header.Number)
+	if err != nil {
+		return nil, err
+	}
+
+	extra, err := signer.GetIBFTExtra(header)
+	if err != nil {
+		return nil, err
+	}
+
+	return extra.CommittedSeals, nil
+}
+
+// extractParentCommittedSeals extracts ParentCommittedSeals from header
+func (i *backendIBFT) extractParentCommittedSeals(
+	header *types.Header,
+) (signer.Seals, error) {
+	if header.Number == 0 {
+		return nil, nil
+	}
+
+	return i.extractCommittedSeals(header)
+}

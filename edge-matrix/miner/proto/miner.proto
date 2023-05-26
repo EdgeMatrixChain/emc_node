@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "/miner/proto";
+
+import "google/protobuf/empty.proto";
+
+service Miner {
+  // GetInfo returns info about the miner
+  rpc GetMinerStatus(google.protobuf.Empty) returns (MinerStatus);
+
+  // Regiser set or remove a address
+  rpc MinerRegiser(MinerRegisterRequest) returns (MinerRegisterResponse);
+}
+
+message MinerStatus {
+  string contractBy = 1;
+
+  string principal = 2;
+
+  string netName = 3;
+
+  string peerId = 4;
+
+  string icPubKey = 5;
+}
+
+message MinerRegisterRequest {
+  string id = 1;
+}
+
+message MinerRegisterResponse {
+  string message = 1;
+}
