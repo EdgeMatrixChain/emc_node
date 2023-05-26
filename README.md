@@ -1,6 +1,7 @@
 # EMC Node
 
 ![](https://edgematrix.pro/_nuxt/logo.661b4f8c.png)
+
 Beyond #ICP Layer2, serving as an entry of Computing power and Web3 in AI era
 
 ## Build
