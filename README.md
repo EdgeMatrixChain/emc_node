@@ -5,7 +5,7 @@
 Beyond #ICP Layer2, serving as an entry of Computing power and Web3 in AI era
 
 ## Build
-Execute the following command to compile 4 different versions of the EMC node for linux_x64, windows_x64, mac(intel), mac_arm64(m1/m2) to directory ../dist.
+Execute the following command to compile the EMC node for linux_x64, windows_x64, mac(intel), mac_arm64(m1/m2)
 
 ```shell
 cd edge-matrix
@@ -24,6 +24,4 @@ cd ../dist/{linux|mac|mac_arm64}/emc
 
 
 ## Tutorials
-
-
 For EMC SDK examples, check https://github.com/EMCProtocol
