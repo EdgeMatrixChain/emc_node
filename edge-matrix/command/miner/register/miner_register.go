@@ -24,21 +24,21 @@ func GetCommand() *cobra.Command {
 
 func setFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
-		&params.addressRaw,
-		addressFlag,
+		&params.principal,
+		principalFlag,
 		"",
-		"the address of the miner to be register for",
+		"the principal of the miner to be register for",
 	)
 
 	cmd.Flags().StringVar(
-		&params.commit,
+		&params.nodeType,
 		nodeFlag,
 		"",
 		fmt.Sprintf(
-			"requested node type to the miner's address. Possible values: [%s, %s, %s]",
+			"requested node type to the miner's principal. Possible values: [%s, %s, %s]",
 			validatorNodeOpt,
 			routeNodeOpt,
-			edgeNodeOpt,
+			computingNodeOpt,
 		),
 	)
 
@@ -47,13 +47,13 @@ func setFlags(cmd *cobra.Command) {
 		commitFlag,
 		"",
 		fmt.Sprintf(
-			"requested change to the miner's address. Possible values: [%s, %s]",
+			"requested change to the miner's principal. Possible values: [%s, %s]",
 			setOpt,
 			removeOpt,
 		),
 	)
 
-	cmd.MarkFlagsRequiredTogether(addressFlag, commitFlag)
+	cmd.MarkFlagsRequiredTogether(principalFlag, commitFlag)
 }
 
 func runPreRun(_ *cobra.Command, _ []string) error {
@@ -61,7 +61,7 @@ func runPreRun(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	return params.initRawParams()
+	return nil
 }
 
 func runCommand(cmd *cobra.Command, _ []string) {

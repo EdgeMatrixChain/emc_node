@@ -1,8 +1,11 @@
 package idl_test
 
-import "github.com/emc-protocol/edge-matrix/helper/ic/utils/idl"
+import (
+	"github.com/emc-protocol/edge-matrix/helper/ic/utils/idl"
+	"testing"
+)
 
-func ExampleVariant() {
+func Test_ExampleVariant(t *testing.T) {
 	result := map[string]idl.Type{
 		"ok":  new(idl.Text),
 		"err": new(idl.Text),

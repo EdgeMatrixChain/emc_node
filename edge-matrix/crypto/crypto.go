@@ -482,17 +482,17 @@ func GenerateAndEncodeBLSSecretKey() (*bls_sig.SecretKey, []byte, error) {
 }
 
 func GenerateAndEncodeICPIdentitySecretKey() (ed25519.PrivateKey, []byte, error) {
-	keyBuff, err := keystore.CreatePrivateKey(generateICPIdentityKeyAndMarshal)
+	keyHexString, err := keystore.CreatePrivateKey(generateICPIdentityKeyAndMarshal)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	decodeBytes, err := hex.DecodeString(string(keyBuff))
+	decodeBytes, err := hex.DecodeString(string(keyHexString))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return decodeBytes, keyBuff, nil
+	return decodeBytes, keyHexString, nil
 }
 
 func ReadConsensusKey(manager secrets.SecretsManager) (*ecdsa.PrivateKey, error) {

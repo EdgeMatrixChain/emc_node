@@ -30,10 +30,10 @@ func runCommand(cmd *cobra.Command, _ []string) {
 	}
 
 	outputter.SetCommandResult(&MinerStatusResult{
-		NetName:   statusResponse.NetName,
-		Principal: statusResponse.Principal,
-		ICPubKey:  statusResponse.IcPubKey,
-		PeerID:    statusResponse.PeerId,
+		NetName:      statusResponse.NetName,
+		Principal:    statusResponse.Principal,
+		NodeIdentity: statusResponse.NodeIdentity,
+		NodeID:       statusResponse.NodeId,
 	})
 }
 

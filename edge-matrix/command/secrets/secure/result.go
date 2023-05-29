@@ -1,4 +1,4 @@
-package enscure
+package secure
 
 import (
 	"bytes"

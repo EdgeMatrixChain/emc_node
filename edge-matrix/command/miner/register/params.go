@@ -5,13 +5,14 @@ import (
 	"errors"
 	"github.com/emc-protocol/edge-matrix/command"
 	"github.com/emc-protocol/edge-matrix/command/helper"
+	"github.com/emc-protocol/edge-matrix/miner"
 	minerOp "github.com/emc-protocol/edge-matrix/miner/proto"
 )
 
 const (
-	commitFlag  = "commit"
-	addressFlag = "addr"
-	nodeFlag    = "node"
+	commitFlag    = "commit"
+	principalFlag = "principal"
+	nodeFlag      = "node"
 )
 
 const (
@@ -22,13 +23,13 @@ const (
 const (
 	validatorNodeOpt = "validator"
 	routeNodeOpt     = "router"
-	edgeNodeOpt      = "edge"
+	computingNodeOpt = "computing"
 )
 
 var (
-	errInvalidCommitType    = errors.New("invalid register type")
-	errInvalidNodeType      = errors.New("invalid node type")
-	errInvalidAddressFormat = errors.New("invalid address format")
+	errInvalidCommitType      = errors.New("invalid commit type")
+	errInvalidNodeType        = errors.New("invalid node type")
+	errInvalidPrincipalFormat = errors.New("invalid principal format")
 )
 
 var (
@@ -36,18 +37,16 @@ var (
 )
 
 type registerParams struct {
-	addressRaw string
-
-	commit   string
-	nodeType string
-	address  string
-	message  string
+	commit    string
+	nodeType  string
+	principal string
+	message   string
 }
 
 func (p *registerParams) getRequiredFlags() []string {
 	return []string{
 		commitFlag,
-		addressFlag,
+		principalFlag,
 		nodeFlag,
 	}
 }
@@ -57,22 +56,9 @@ func (p *registerParams) validateFlags() error {
 		return errInvalidCommitType
 	}
 	if !isValidNodeType(p.nodeType) {
-		return errInvalidCommitType
+		return errInvalidNodeType
 	}
 
-	return nil
-}
-
-func (p *registerParams) initRawParams() error {
-	if err := p.initAddress(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *registerParams) initAddress() error {
-	p.address = p.addressRaw
 	return nil
 }
 
@@ -81,7 +67,7 @@ func isValidCommitType(commit string) bool {
 }
 
 func isValidNodeType(node string) bool {
-	return node == routeNodeOpt || node == edgeNodeOpt || node == validatorNodeOpt
+	return node == routeNodeOpt || node == computingNodeOpt || node == validatorNodeOpt
 }
 
 func (p *registerParams) registerMinerAddress(grpcAddress string) error {
@@ -103,15 +89,24 @@ func (p *registerParams) registerMinerAddress(grpcAddress string) error {
 }
 
 func (p *registerParams) getRegisterUpdate() *minerOp.MinerRegisterRequest {
+	nodeType := miner.NodeTypeComputing
+	if p.nodeType == routeNodeOpt {
+		nodeType = miner.NodeTypeRouter
+	} else if p.nodeType == computingNodeOpt {
+		nodeType = miner.NodeTypeComputing
+	} else if p.nodeType == validatorNodeOpt {
+		nodeType = miner.NodeTypeValidator
+	}
 	req := &minerOp.MinerRegisterRequest{
-		Id: p.address,
+		Principal: p.principal,
+		Type:      uint64(nodeType),
 	}
 	return req
 }
 
 func (p *registerParams) getResult() command.CommandResult {
 	return &MinerRegisterResult{
-		Address:      p.address,
+		Address:      p.principal,
 		Commit:       p.commit,
 		NodeType:     p.nodeType,
 		ResultMessge: p.message,

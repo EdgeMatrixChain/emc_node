@@ -75,14 +75,6 @@ func setFlags(cmd *cobra.Command) {
 	)
 
 	cmd.Flags().StringVar(
-		&params.rawConfig.Telemetry.PrometheusAddr,
-		prometheusAddressFlag,
-		"",
-		"the address and port for the prometheus instrumentation service (address:port). "+
-			"If only port is defined (:port) it will bind to 0.0.0.0:port",
-	)
-
-	cmd.Flags().StringVar(
 		&params.rawConfig.Network.NatAddr,
 		natFlag,
 		"",
@@ -182,15 +174,19 @@ func setFlags(cmd *cobra.Command) {
 		"the url used for application native api calling",
 	)
 
-	//cmd.Flags().Uint64Var(
-	//	&params.rawConfig.TelePool.PriceLimit,
-	//	priceLimitFlag,
-	//	defaultConfig.TelePool.PriceLimit,
-	//	fmt.Sprintf(
-	//		"the minimum gas price limit to enforce for acceptance into the pool (default %d)",
-	//		defaultConfig.TelePool.PriceLimit,
-	//	),
-	//)
+	cmd.Flags().StringVar(
+		&params.rawConfig.IcHost,
+		icHostFlag,
+		"https://ic0.app",
+		"the url used for IC api calling",
+	)
+
+	cmd.Flags().StringVar(
+		&params.rawConfig.MinerCanister,
+		minerCanistertFlag,
+		"",
+		"the canister used for miner",
+	)
 
 	cmd.Flags().Uint64Var(
 		&params.rawConfig.TelePool.MaxSlots,

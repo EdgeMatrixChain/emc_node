@@ -21,13 +21,14 @@ message MinerStatus {
 
   string netName = 3;
 
-  string peerId = 4;
+  string nodeId = 4;
 
-  string icPubKey = 5;
+  string nodeIdentity = 5;
 }
 
 message MinerRegisterRequest {
-  string id = 1;
+  string principal = 1;
+  uint64 type = 2;
 }
 
 message MinerRegisterResponse {

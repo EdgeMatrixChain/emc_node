@@ -11,6 +11,8 @@ import (
 	"github.com/emc-protocol/edge-matrix/crypto"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
 	"github.com/emc-protocol/edge-matrix/helper/ic/agent"
+	"github.com/emc-protocol/edge-matrix/helper/ic/utils/identity"
+	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
 	"github.com/emc-protocol/edge-matrix/helper/progress"
 	"github.com/emc-protocol/edge-matrix/miner"
 	minerProto "github.com/emc-protocol/edge-matrix/miner/proto"
@@ -247,11 +249,13 @@ func NewServer(config *Config) (*Server, error) {
 		return nil, err
 	}
 	decodedPrivKey, err := crypto.BytesToEd25519PrivateKey(icPrivKey)
-
-	icAgent := agent.New(false, hex.EncodeToString(decodedPrivKey.Seed()))
-
+	identity := identity.New(false, decodedPrivKey.Seed())
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	m.logger.Info("Init IC Agent", "Node Identity", p.Encode())
 	// init miner grpc service
-	minerService, err := m.initMinerService(icAgent, network.GetHost(), m.secretsManager)
+	icAgent := agent.NewWithHost(config.IcHost, false, hex.EncodeToString(decodedPrivKey.Seed()))
+	minerAgent := miner.NewMinerAgent(m.logger, icAgent, config.MinerCanister)
+	minerService, err := m.initMinerService(minerAgent, network.GetHost(), m.secretsManager)
 	if err != nil {
 		return nil, err
 	}
@@ -491,9 +495,9 @@ func (s *Server) setupConsensus() error {
 }
 
 // initMinerService sets up the Miner grpc service
-func (s *Server) initMinerService(icAgent *agent.Agent, host host.Host, secretsManager secrets.SecretsManager) (*miner.MinerService, error) {
+func (s *Server) initMinerService(minerAgent *miner.MinerAgent, host host.Host, secretsManager secrets.SecretsManager) (*miner.MinerService, error) {
 	if s.grpcServer != nil {
-		minerService := miner.NewMinerService(icAgent, host, secretsManager)
+		minerService := miner.NewMinerService(s.logger, minerAgent, host, secretsManager)
 		minerProto.RegisterMinerServer(s.grpcServer, minerService)
 		return minerService, nil
 	}

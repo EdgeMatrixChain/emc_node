@@ -25,7 +25,7 @@ func (r *MinerRegisterResult) GetOutput() string {
 func (r *MinerRegisterResult) Message() string {
 	if r.Commit == setOpt {
 		return fmt.Sprintf(
-			"Commit for the add/update the address [%s] to the miner set, %s",
+			"Commit for the add/update the principal [%s] to the miner set, %s",
 			r.NodeType,
 			r.Address,
 			r.ResultMessge,
@@ -33,7 +33,7 @@ func (r *MinerRegisterResult) Message() string {
 	}
 
 	return fmt.Sprintf(
-		"Commit for the removal of miner at address [%s] from the miner set, %s",
+		"Commit for the removal of miner at principal [%s] from the miner set, %s",
 		r.Address,
 		r.ResultMessge,
 	)

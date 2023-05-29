@@ -42,9 +42,11 @@ const (
 	relayerFlag               = "relayer"
 	numBlockConfirmationsFlag = "num-block-confirmations"
 
-	runningModeFlag = "running-mode"
-	appNameFlag     = "app-name"
-	appUrlFlag      = "app-url"
+	runningModeFlag    = "running-mode"
+	appNameFlag        = "app-name"
+	appUrlFlag         = "app-url"
+	icHostFlag         = "ic-host"
+	minerCanistertFlag = "miner-canister"
 )
 
 // Flags that are deprecated, but need to be preserved for
@@ -191,8 +193,10 @@ func (p *serverParams) generateConfig() *server.Config {
 		Relayer:               p.relayer,
 		NumBlockConfirmations: p.rawConfig.NumBlockConfirmations,
 
-		RunningMode: p.rawConfig.RunningMode,
-		AppName:     p.rawConfig.AppName,
-		AppUrl:      p.rawConfig.AppUrl,
+		RunningMode:   p.rawConfig.RunningMode,
+		AppName:       p.rawConfig.AppName,
+		AppUrl:        p.rawConfig.AppUrl,
+		IcHost:        p.rawConfig.IcHost,
+		MinerCanister: p.rawConfig.MinerCanister,
 	}
 }

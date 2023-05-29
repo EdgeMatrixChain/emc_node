@@ -2,53 +2,47 @@ package miner
 
 import (
 	"context"
-	"crypto/ed25519"
 	"github.com/emc-protocol/edge-matrix/crypto"
-	"github.com/emc-protocol/edge-matrix/helper/hex"
-	"github.com/emc-protocol/edge-matrix/helper/ic/agent"
-	"github.com/emc-protocol/edge-matrix/helper/ic/utils/idl"
+	"github.com/emc-protocol/edge-matrix/helper/ic/utils/identity"
+	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
 	"github.com/emc-protocol/edge-matrix/miner/proto"
 	"github.com/emc-protocol/edge-matrix/secrets"
-	"github.com/emc-protocol/edge-matrix/secrets/helper"
+	"github.com/hashicorp/go-hclog"
 	"github.com/libp2p/go-libp2p/core/host"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type MinerService struct {
 	proto.UnimplementedMinerServer
-
+	logger         hclog.Logger
+	icHost         string
 	host           host.Host
-	agent          *agent.Agent
 	secretsManager secrets.SecretsManager
+
+	minerAgent *MinerAgent
 }
 
-func NewMinerService(agent *agent.Agent, host host.Host, secretsManager secrets.SecretsManager) *MinerService {
+func NewMinerService(logger hclog.Logger, minerAgent *MinerAgent, host host.Host, secretsManager secrets.SecretsManager) *MinerService {
 	return &MinerService{
-		agent:          agent,
+		logger:         logger,
+		minerAgent:     minerAgent,
 		host:           host,
 		secretsManager: secretsManager,
 	}
 }
 
-// PeersStatus implements the 'peers status' operator service
+// GetMiner return miner's status from secretsManager and IC canister
 func (s *MinerService) GetMiner() (*proto.MinerStatus, error) {
-	if !s.secretsManager.HasSecret(secrets.ICPIdentityKey) {
-		helper.InitICPIdentityKey(s.secretsManager)
-	}
-	icPrivKey, err := s.secretsManager.GetSecret(secrets.ICPIdentityKey)
-	if err != nil {
-		return nil, err
-	}
-	decodedPrivKey, err := crypto.BytesToEd25519PrivateKey(icPrivKey)
-	decodedPubKey := make([]byte, ed25519.PublicKeySize)
-	copy(decodedPubKey, decodedPrivKey[ed25519.PublicKeySize:])
+	identity := s.GetIdentity()
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	s.logger.Debug("MinerRegiser", "node_identity", p.Encode())
 
 	// TODO query status from IC canister
 
 	status := proto.MinerStatus{
-		NetName:  "IC",
-		PeerId:   s.host.ID().String(),
-		IcPubKey: hex.EncodeToString(decodedPubKey),
+		NetName:      "IC",
+		NodeId:       s.host.ID().String(),
+		NodeIdentity: p.Encode(),
 	}
 
 	return &status, nil
@@ -59,27 +53,29 @@ func (s *MinerService) GetMinerStatus(context.Context, *emptypb.Empty) (*proto.M
 	return s.GetMiner()
 }
 
-// Regiser set or remove a address
+func (s *MinerService) GetIdentity() *identity.Identity {
+	icPrivKey, err := s.secretsManager.GetSecret(secrets.ICPIdentityKey)
+	if err != nil {
+		return nil
+	}
+	decodedPrivKey, err := crypto.BytesToEd25519PrivateKey(icPrivKey)
+	identity := identity.New(false, decodedPrivKey.Seed())
+	return identity
+}
+
+// Regiser set or remove a principal for miner
 func (s *MinerService) MinerRegiser(ctx context.Context, req *proto.MinerRegisterRequest) (*proto.MinerRegisterResponse, error) {
-	// TODO call IC canister
-	// principalId := req.Id
-	// peerId :=s.Host.ID().String()
-	canister := "xb3xh-uaaaa-aaaam-abi3a-cai"
-	methodName := "greet"
+	identity := s.GetIdentity()
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	s.logger.Info("MinerRegiser", "node identity", p.Encode())
 
-	var argType []idl.Type
-	argType = append(argType, new(idl.Text))
-
-	var argValue []interface{}
-	argValue = append(argValue, req.Id)
-
-	result := ""
-	arg, _ := idl.Encode(argType, argValue)
-	_, resp, _, err := s.agent.Query(canister, methodName, arg)
+	result := "register ok"
+	err := s.minerAgent.RegisterNode(NodeType(req.Type), s.host.ID().String(), req.Principal)
 	if err != nil {
 		result = err.Error()
 	}
-	result = resp[0].(string)
+	// TODO update minerFlag in application endpoint
+
 	response := proto.MinerRegisterResponse{
 		Message: result,
 	}

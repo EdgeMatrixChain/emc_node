@@ -35,9 +35,11 @@ type Config struct {
 	Relayer               bool   `json:"relayer" yaml:"relayer"`
 	NumBlockConfirmations uint64 `json:"num_block_confirmations" yaml:"num_block_confirmations"`
 
-	RunningMode string `json:"running_mode,omitempty" yaml:"running_mode,omitempty"`
-	AppUrl      string `json:"app_url,omitempty" yaml:"app_url,omitempty"`
-	AppName     string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
+	RunningMode   string `json:"running_mode,omitempty" yaml:"running_mode,omitempty"`
+	AppUrl        string `json:"app_url,omitempty" yaml:"app_url,omitempty"`
+	AppName       string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
+	IcHost        string `json:"ic_host,omitempty" yaml:"ic_host,omitempty"`
+	MinerCanister string `json:"miner_canister,omitempty" yaml:"miner_canister,omitempty"`
 }
 
 // Telemetry holds the config details for metric services.

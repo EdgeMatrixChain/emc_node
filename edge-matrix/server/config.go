@@ -49,6 +49,9 @@ type Config struct {
 	AppName     string
 	AppUrl      string
 	RunningMode string
+
+	IcHost        string
+	MinerCanister string
 }
 
 // Telemetry holds the config details for metric services

@@ -2,10 +2,10 @@ package secrets
 
 import (
 	"github.com/emc-protocol/edge-matrix/command/helper"
-	"github.com/emc-protocol/edge-matrix/command/secrets/enscure"
 	"github.com/emc-protocol/edge-matrix/command/secrets/generate"
 	initCmd "github.com/emc-protocol/edge-matrix/command/secrets/init"
 	"github.com/emc-protocol/edge-matrix/command/secrets/output"
+	"github.com/emc-protocol/edge-matrix/command/secrets/secure"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +30,7 @@ func registerSubcommands(baseCmd *cobra.Command) {
 		generate.GetCommand(),
 		// secrets output public data
 		output.GetCommand(),
-		// secrets enscure
-		enscure.GetCommand(),
+		// secrets encrypt
+		secure.GetCommand(),
 	)
 }

@@ -39,7 +39,7 @@
         "/ip4/183.60.189.253/tcp/50001/p2p/16Uiu2HAmR9NtepZJgrVffDgE5b5yTNynQ8EXKmaPwMSZhh3WmRga",
         "/ip4/183.207.184.184/tcp/40003/p2p/16Uiu2HAm14xAsnJHDqnQNQ2Qqo1SapdRk9j8mBKY6mghVDP9B9u5",
         "/ip4/183.207.184.184/tcp/40004/p2p/16Uiu2HAkwaui8LKmt4B9XkhB5ET5tbSApVB89awUvrXSfPh6KFy5",
-        "/dns4/node-oregon-51d1616aef7f6caa.elb.us-west-2.amazonaws.com/tcp/50001/p2p/16Uiu2HAmLXLpzFbJZ8SkUMPXoWEcdg9Zzwve2DQgrVNXPHaXzR6B"
+        "/dns4/node-oregon-51d1616aef7f6caa.elb.us-west-2.amazonaws.com/tcp/50001/p2p/16Uiu2HAmLXLpzFbJZ8SkUMPXoWEcdg9Zzwve2DQgrVNXPHaXzR6B",
+        "/dns4/node-paulo-ce9322b0990609ad.elb.sa-east-1.amazonaws.com/tcp/50001/p2p/16Uiu2HAmTETP3PuYwqyW1TQu5K738xVhYgYV8T3FS8immrvPukSF"
     ]
-
 }

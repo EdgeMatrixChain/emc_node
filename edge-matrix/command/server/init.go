@@ -20,6 +20,7 @@ import (
 var (
 	errInvalidBlockTime       = errors.New("invalid block time specified")
 	errDataDirectoryUndefined = errors.New("data directory not defined")
+	errMinerCanisterUndefined = errors.New("miner canister not defined")
 )
 
 func (p *serverParams) initConfigFromFile() error {
@@ -49,13 +50,13 @@ func (p *serverParams) initRawParams() error {
 		return err
 	}
 
-	if err := p.initBlockTime(); err != nil {
+	if err := p.initMinerCanisterId(); err != nil {
 		return err
 	}
 
-	//if p.isDevMode {
-	//	p.initDevMode()
-	//}
+	if err := p.initBlockTime(); err != nil {
+		return err
+	}
 
 	p.initPeerLimits()
 	p.initLogFileLocation()
@@ -76,6 +77,14 @@ func (p *serverParams) initBlockTime() error {
 func (p *serverParams) initDataDirLocation() error {
 	if p.rawConfig.DataDir == "" {
 		return errDataDirectoryUndefined
+	}
+
+	return nil
+}
+
+func (p *serverParams) initMinerCanisterId() error {
+	if p.rawConfig.MinerCanister == "" {
+		return errMinerCanisterUndefined
 	}
 
 	return nil

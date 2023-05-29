@@ -63,6 +63,21 @@ func New(anonymous bool, privKey string) *Agent {
 	}
 }
 
+func NewWithHost(host string, anonymous bool, privKey string) *Agent {
+	c := NewClient(host)
+	status, _ := c.Status()
+	pbBytes, _ := hex.DecodeString(privKey)
+	id := identity.New(anonymous, pbBytes)
+
+	ingressExpiry := time.Second * 10
+	return &Agent{
+		client:        &c,
+		identity:      id,
+		ingressExpiry: ingressExpiry,
+		rootKey:       status.RootKey,
+	}
+}
+
 func (agent *Agent) Sender() principal.Principal {
 	if agent.identity.Anonymous == true {
 		return principal.AnonymousID

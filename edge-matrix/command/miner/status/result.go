@@ -8,10 +8,10 @@ import (
 )
 
 type MinerStatusResult struct {
-	NetName   string `json:"net_name"`
-	PeerID    string `json:"peer_id"`
-	ICPubKey  string `json:"peer_ic_pubkey"`
-	Principal string `json:"principal"`
+	NetName      string `json:"net_name"`
+	NodeID       string `json:"node_id"`
+	NodeIdentity string `json:"node_identity"`
+	Principal    string `json:"principal"`
 }
 
 func (r *MinerStatusResult) GetOutput() string {
@@ -20,8 +20,8 @@ func (r *MinerStatusResult) GetOutput() string {
 	buffer.WriteString("\n[MINER STATUS]\n")
 	buffer.WriteString(helper.FormatKV([]string{
 		fmt.Sprintf("NetName |%s", r.NetName),
-		fmt.Sprintf("PeerID |%s", r.PeerID),
-		fmt.Sprintf("ICPubKey |%s", r.ICPubKey),
+		fmt.Sprintf("NodeID |%s", r.NodeID),
+		fmt.Sprintf("NodeIdentity |%s", r.NodeIdentity),
 		fmt.Sprintf("Principal |%s", r.Principal),
 	}))
 	buffer.WriteString("\n")
