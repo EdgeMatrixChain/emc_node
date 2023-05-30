@@ -3,6 +3,7 @@ package local
 import (
 	"errors"
 	"fmt"
+	"github.com/emc-protocol/edge-matrix/crypto"
 	"os"
 	"path/filepath"
 	"sync"
@@ -26,6 +27,8 @@ type LocalSecretsManager struct {
 
 	// Mux for the secretPathMap
 	secretPathMapLock sync.RWMutex
+
+	secretPass string
 }
 
 // SecretsManagerFactory implements the factory method
@@ -48,6 +51,14 @@ func SecretsManagerFactory(
 	localManager.path, ok = path.(string)
 	if !ok {
 		return nil, errors.New("invalid type assertion")
+	}
+
+	pass, ok := params.Extra[secrets.Pass]
+	if ok {
+		localManager.secretPass, ok = pass.(string)
+		if !ok {
+			return nil, errors.New("invalid type assertion")
+		}
 	}
 
 	// Run the initial setup
@@ -126,6 +137,13 @@ func (l *LocalSecretsManager) GetSecret(name string) ([]byte, error) {
 			secretPath,
 			err,
 		)
+	}
+	if l.secretPass != "" {
+		decryptedSecret, err := crypto.CFBDecrypt(string(secret), l.secretPass)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("error decrypting your encrypted key: %s", err))
+		}
+		secret = []byte(decryptedSecret)
 	}
 
 	return secret, nil

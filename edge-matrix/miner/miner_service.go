@@ -19,6 +19,7 @@ type MinerService struct {
 	host           host.Host
 	secretsManager secrets.SecretsManager
 
+	// agent for communicating with IC Miner Canister
 	minerAgent *MinerAgent
 }
 
@@ -37,14 +38,31 @@ func (s *MinerService) GetMiner() (*proto.MinerStatus, error) {
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	s.logger.Debug("MinerRegiser", "node_identity", p.Encode())
 
-	// TODO query status from IC canister
+	// query node from IC canister
+	wallet, ntype, err := s.minerAgent.MyNode(s.host.ID().String())
+	if err != nil {
+		return nil, err
+	}
+	nodeType := ""
+	if ntype > -1 {
+		switch NodeType(ntype) {
+		case NodeTypeRouter:
+			nodeType = "router"
+		case NodeTypeValidator:
+			nodeType = "validator"
+		case NodeTypeComputing:
+			nodeType = "computing"
+		default:
+		}
+	}
 
 	status := proto.MinerStatus{
 		NetName:      "IC",
 		NodeId:       s.host.ID().String(),
 		NodeIdentity: p.Encode(),
+		Principal:    wallet,
+		NodeType:     nodeType,
 	}
-
 	return &status, nil
 }
 
@@ -67,7 +85,7 @@ func (s *MinerService) GetIdentity() *identity.Identity {
 func (s *MinerService) MinerRegiser(ctx context.Context, req *proto.MinerRegisterRequest) (*proto.MinerRegisterResponse, error) {
 	identity := s.GetIdentity()
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
-	s.logger.Info("MinerRegiser", "node identity", p.Encode())
+	s.logger.Info("MinerRegiser", "node identity", p.Encode(), "NodeId", s.host.ID().String(), "Principal", req.Principal)
 
 	result := "register ok"
 	err := s.minerAgent.RegisterNode(NodeType(req.Type), s.host.ID().String(), req.Principal)

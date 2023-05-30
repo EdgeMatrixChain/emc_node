@@ -17,7 +17,7 @@ func (r *GenesisPredeployResult) GetOutput() string {
 	buffer.WriteString("\n[SMART CONTRACT PREDEPLOYMENT]\n")
 
 	outputs := []string{
-		fmt.Sprintf("Address|%s", r.Address),
+		fmt.Sprintf("Principal|%s", r.Address),
 	}
 
 	buffer.WriteString(helper.FormatKV(outputs))

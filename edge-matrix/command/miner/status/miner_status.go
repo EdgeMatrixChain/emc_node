@@ -34,6 +34,7 @@ func runCommand(cmd *cobra.Command, _ []string) {
 		Principal:    statusResponse.Principal,
 		NodeIdentity: statusResponse.NodeIdentity,
 		NodeID:       statusResponse.NodeId,
+		NodeType:     statusResponse.NodeType,
 	})
 }
 

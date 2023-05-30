@@ -34,14 +34,14 @@ func createExampleECDSASnapshotJSON(
 			{
 				"Authorize": %t,
 				"Candidate": {
-					"Address": "%s"
+					"Principal": "%s"
 				},
 				"Validator": "%s"
 			}
 		],
 		"Set": [
 			{
-				"Address": "%s"
+				"Principal": "%s"
 			}
 		]
 	}`,
@@ -71,7 +71,7 @@ func createExampleBLSSnapshotJSON(
 			{
 				"Authorize": %t,
 				"Candidate": {
-					"Address": "%s",
+					"Principal": "%s",
 					"BLSPublicKey": "%s"
 				},
 				"Validator": "%s"
@@ -79,7 +79,7 @@ func createExampleBLSSnapshotJSON(
 		],
 		"Set": [
 			{
-				"Address": "%s",
+				"Principal": "%s",
 				"BLSPublicKey": "%s"
 			}
 		]
@@ -241,7 +241,7 @@ func TestSnapshotUnmarshalJSON(t *testing.T) {
 				"Votes": [
 					{
 						"Validator": "%s",
-						"Address": "%s",
+						"Principal": "%s",
 						"Authorize": %t
 					}
 				],

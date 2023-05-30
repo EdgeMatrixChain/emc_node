@@ -67,7 +67,7 @@ func Test_local_whoAmI(t *testing.T) {
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
 
-	agent := NewWithHost("http://127.0.0.1:8080", false, privKeyHexString)
+	agent := NewWithHost("http://127.0.0.1:8081", false, privKeyHexString)
 	t.Log("agent.identity.PubKey: ", hex.EncodeToString(agent.identity.PubKeyBytes()))
 	p1 := principal.NewSelfAuthenticating(agent.identity.PubKeyBytes())
 	t.Log("agent.identity: ", p1.Encode(), len(agent.identity.PubKeyBytes()))

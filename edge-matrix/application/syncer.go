@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application/proof"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
-	"github.com/emc-protocol/edge-matrix/helper/ic/agent"
+	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/types"
 	"github.com/emc-protocol/edge-matrix/validators"
 	"github.com/hashicorp/go-hclog"
@@ -41,13 +41,10 @@ type blockchainStore interface {
 
 type syncer struct {
 	logger hclog.Logger
-	//syncProgression Progression
 
 	peerMap            *PeerMap
 	syncAppPeerClient  SyncAppPeerClient
 	syncAppPeerService SyncAppPeerService
-
-	icAgent *agent.Agent
 
 	// Timeout for syncing a block
 	blockTimeout time.Duration
@@ -59,6 +56,9 @@ type syncer struct {
 	blockchainStore blockchainStore
 	host            host.Host
 	address         types.Address
+
+	// agent for communicating with IC Miner Canister
+	minerAgent *miner.MinerAgent
 
 	peersBlockNumMap map[peer.ID]uint64
 }
@@ -73,7 +73,7 @@ type ValidatorStore interface {
 
 type Syncer interface {
 	// Start starts syncer processes
-	Start(s Subscription) error
+	Start(s Subscription, topicSubFlag bool) error
 	// Close terminates syncer process
 	Close() error
 }
@@ -85,7 +85,7 @@ func NewSyncer(
 	host host.Host,
 	blockchainStore blockchainStore,
 	validatorStore ValidatorStore,
-	icAgent *agent.Agent,
+	minerAgent *miner.MinerAgent,
 ) Syncer {
 	return &syncer{
 		logger:             logger.Named(syncerName),
@@ -97,7 +97,7 @@ func NewSyncer(
 		address:            validatorStore.GetSignerAddress(),
 		blockchainStore:    blockchainStore,
 		validatorStore:     validatorStore,
-		icAgent:            icAgent,
+		minerAgent:         minerAgent,
 		peersBlockNumMap:   make(map[peer.ID]uint64),
 	}
 }
@@ -121,8 +121,8 @@ func (s *syncer) Close() error {
 	return nil
 }
 
-func (s *syncer) Start(sub Subscription) error {
-	if err := s.syncAppPeerClient.Start(sub); err != nil {
+func (s *syncer) Start(sub Subscription, topicSubFlag bool) error {
+	if err := s.syncAppPeerClient.Start(sub, topicSubFlag); err != nil {
 		return err
 	}
 
@@ -211,9 +211,15 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 					s.logger.Debug(fmt.Sprintf("validate success\t\t\t: %d/%d", validateSuccess, loops))
 					if validateSuccess >= proof.DefaultHashProofCount {
 						// valid proof
-						s.logger.Debug("Submit proof to IC", "usedTime", usedTime, "blockNumber", blockNumberFixed, "peerId", peerStatus.ID)
-						// TODO submit proof result to IC canister with (usedTime:nat64, blockNumber:nat64, peerId:text)
-
+						s.logger.Debug("Submit proof to IC", "usedTime", usedTime, "blockNumber", blockNumberFixed, "peerId", peerStatus.ID.String())
+						// submit proof result to IC canister
+						s.minerAgent.SubmitValidation(
+							int64(blockNumberFixed),
+							s.minerAgent.GetIdentity(),
+							validateUsedTime,
+							peerStatus.ID.String(),
+							miner.NodeTypeComputing, // TODO remove this parameter
+						)
 					}
 				}
 			}

@@ -30,7 +30,7 @@ func createExampleECDSAVoteJSON(
 	return fmt.Sprintf(`{
 		"Authorize": %t,
 		"Candidate": {
-			"Address": "%s"
+			"Principal": "%s"
 		},
 		"Validator": "%s"
 	}`,
@@ -47,7 +47,7 @@ func createExampleLegacyECDSAVoteJSON(
 ) string {
 	return fmt.Sprintf(`{
 		"Authorize": %t,
-		"Address": "%s",
+		"Principal": "%s",
 		"Validator": "%s"
 	}`,
 		authorize,
@@ -65,7 +65,7 @@ func createExampleBLSVoteJSON(
 	{
 		"Authorize": %t,
 		"Candidate": {
-			"Address": "%s",
+			"Principal": "%s",
 			"BLSPublicKey": "%s"
 		},
 		"Validator": "%s"

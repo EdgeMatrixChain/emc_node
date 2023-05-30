@@ -10,6 +10,7 @@ import (
 type MinerStatusResult struct {
 	NetName      string `json:"net_name"`
 	NodeID       string `json:"node_id"`
+	NodeType     string `json:"node_type"`
 	NodeIdentity string `json:"node_identity"`
 	Principal    string `json:"principal"`
 }
@@ -21,6 +22,7 @@ func (r *MinerStatusResult) GetOutput() string {
 	buffer.WriteString(helper.FormatKV([]string{
 		fmt.Sprintf("NetName |%s", r.NetName),
 		fmt.Sprintf("NodeID |%s", r.NodeID),
+		fmt.Sprintf("NodeType |%s", r.NodeType),
 		fmt.Sprintf("NodeIdentity |%s", r.NodeIdentity),
 		fmt.Sprintf("Principal |%s", r.Principal),
 	}))

@@ -28,10 +28,10 @@ func TestECDSAValidatorsMarshalJSON(t *testing.T) {
 		fmt.Sprintf(
 			`[
 				{
-					"Address": "%s"
+					"Principal": "%s"
 				},
 				{
-					"Address": "%s"
+					"Principal": "%s"
 				}
 			]`,
 			addr1.String(),
@@ -47,10 +47,10 @@ func TestECDSAValidatorsUnmarshalJSON(t *testing.T) {
 	inputStr := fmt.Sprintf(
 		`[
 			{
-				"Address": "%s"
+				"Principal": "%s"
 			},
 			{
-				"Address": "%s"
+				"Principal": "%s"
 			}
 		]`,
 		addr1.String(),
@@ -97,11 +97,11 @@ func TestBLSValidatorsMarshalJSON(t *testing.T) {
 		fmt.Sprintf(
 			`[
 				{
-					"Address": "%s",
+					"Principal": "%s",
 					"BLSPublicKey": "%s"
 				},
 				{
-					"Address": "%s",
+					"Principal": "%s",
 					"BLSPublicKey": "%s"
 				}
 			]`,
@@ -120,11 +120,11 @@ func TestBLSValidatorsUnmarshalJSON(t *testing.T) {
 	inputStr := fmt.Sprintf(
 		`[
 			{
-				"Address": "%s",
+				"Principal": "%s",
 				"BLSPublicKey": "%s"
 			},
 			{
-				"Address": "%s",
+				"Principal": "%s",
 				"BLSPublicKey": "%s"
 			}
 		]`,

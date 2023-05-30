@@ -202,7 +202,7 @@ func TestRLPMarshall_Unmarshall_Missing_Data(t *testing.T) {
 				fromAddrSet: false,
 			},
 			{
-				name:          "Address set for state tx only",
+				name:          "Principal set for state tx only",
 				expectedErr:   false,
 				ommitedValues: map[string]bool{},
 				fromAddrSet:   TeleType == StateTx,

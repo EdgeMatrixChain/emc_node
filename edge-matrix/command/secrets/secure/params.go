@@ -60,7 +60,7 @@ func (ip *initParams) encryptSecrets(secretsPass string) error {
 		return err
 	}
 
-	return ip.encryptNetworkingKey()
+	return ip.encryptNetworkingKey(secretsPass)
 }
 
 func (ip *initParams) initSecretsManager() error {
@@ -108,18 +108,18 @@ func (ip *initParams) encryptLocalSecretsManager() error {
 func (ip *initParams) encryptValidatorKey(secretsPass string) error {
 	var err error
 
-	//if ip.generatesECDSA {
-	//	if _, err = helper.InitECDSAValidatorKey(ip.secretsManager); err != nil {
-	//		return err
-	//	}
-	//}
-	//
-	//if ip.generatesBLS {
-	//	if _, err = helper.InitBLSValidatorKey(ip.secretsManager); err != nil {
-	//		return err
-	//	}
-	//}
-	//
+	if ip.generatesECDSA {
+		if err = helper.EncryptECDSAValidatorKey(ip.secretsManager, secretsPass); err != nil {
+			return err
+		}
+	}
+
+	if ip.generatesBLS {
+		if err = helper.EncryptBLSValidatorKey(ip.secretsManager, secretsPass); err != nil {
+			return err
+		}
+	}
+
 	if ip.generatesICPIdentity {
 		if err = helper.EncryptICPIdentityKey(ip.secretsManager, secretsPass); err != nil {
 			return err
@@ -129,12 +129,12 @@ func (ip *initParams) encryptValidatorKey(secretsPass string) error {
 	return nil
 }
 
-func (ip *initParams) encryptNetworkingKey() error {
-	//if ip.generatesNetwork {
-	//	if _, err := helper.InitNetworkingPrivateKey(ip.secretsManager); err != nil {
-	//		return err
-	//	}
-	//}
+func (ip *initParams) encryptNetworkingKey(secretsPass string) error {
+	if ip.generatesNetwork {
+		if err := helper.EncryptNetworkingPrivateKey(ip.secretsManager, secretsPass); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

@@ -58,7 +58,7 @@ func (v *BLSValidator) Type() ValidatorType {
 }
 
 // String returns string representation of BLSValidator
-// Format => [Address]:[BLSPublicKey]
+// Format => [Principal]:[BLSPublicKey]
 func (v *BLSValidator) String() string {
 	return fmt.Sprintf(
 		"%s:%s",
@@ -115,7 +115,7 @@ func (v *BLSValidator) UnmarshalRLPFrom(p *fastrlp.Parser, val *fastrlp.Value) e
 	}
 
 	if err := elems[0].GetAddr(v.Address[:]); err != nil {
-		return fmt.Errorf("failed to decode Address: %w", err)
+		return fmt.Errorf("failed to decode Principal: %w", err)
 	}
 
 	if v.BLSPublicKey, err = elems[1].GetBytes(v.BLSPublicKey); err != nil {

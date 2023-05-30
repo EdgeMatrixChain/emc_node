@@ -107,11 +107,6 @@ func (e *Event) LatestApp() *Application {
 	return e.NewApp[len(e.NewApp)-1]
 }
 
-//// SetDifficulty sets the event difficulty
-//func (e *Event) SetDifficulty(b *big.Int) {
-//	e.Difficulty = new(big.Int).Set(b)
-//}
-
 // AddNewHeader appends a header to the event's NewChain array
 func (e *Event) AddNewApp(newApp *Application) {
 	app := newApp.Copy()

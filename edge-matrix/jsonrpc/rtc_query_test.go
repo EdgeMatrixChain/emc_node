@@ -47,7 +47,7 @@ func TestRtcFilterDecode(t *testing.T) {
 			`{
 				"Applications": 
 					"` + app1 + `",
-				"Address": 
+				"Principal": 
 					"` + sub1.String() + `"
 			}`,
 			&RtcQuery{

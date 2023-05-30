@@ -86,8 +86,8 @@ func Test_decodeValidators(t *testing.T) {
 			value: appendAll(
 				leftPad([]byte{0x20}, 32), // Offset of the beginning of array
 				leftPad([]byte{0x02}, 32), // Number of addresses
-				leftPad(addr1[:], 32),     // Address 1
-				leftPad(addr2[:], 32),     // Address 2
+				leftPad(addr1[:], 32),     // Principal 1
+				leftPad(addr2[:], 32),     // Principal 2
 			),
 			succeed: true,
 			expected: []types.Address{

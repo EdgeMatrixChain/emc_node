@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	ErrInvalidBLSValidatorFormat = errors.New("invalid validator format, expected [Validator Address]:[BLS Public Key]")
+	ErrInvalidBLSValidatorFormat = errors.New("invalid validator format, expected [Validator Principal]:[BLS Public Key]")
 )
 
 // NewValidatorFromType instantiates a validator by specified type

@@ -62,8 +62,8 @@ func (o teleOrigin) String() (s string) {
 }
 
 const (
-	txSlotSize  = 32 * 1024  // 32kB
-	txMaxSize   = 128 * 1024 // 128Kb
+	txSlotSize  = 32 * 1024   // 32kB
+	txMaxSize   = 1024 * 1024 // 1Mb
 	topicNameV1 = "tele/0.1"
 
 	// maximum allowed number of times an account
@@ -72,7 +72,7 @@ const (
 
 	// maximum allowed number of consecutive blocks that don't have the account's transaction
 	maxAccountSkips = uint64(10)
-	pruningCooldown = 5000 * time.Millisecond
+	pruningCooldown = 2000 * time.Millisecond
 
 	// txPoolMetrics is a prefix used for txpool-related metrics
 	txPoolMetrics = "telepool"

@@ -11,6 +11,9 @@ const (
 	// Path is the path to the base working directory
 	Path = "path"
 
+	// Pass is the password for seretss
+	Pass = "pass"
+
 	// Token is the token used for authenticating with a KMS
 	Token = "token"
 

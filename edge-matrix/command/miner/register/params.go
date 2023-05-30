@@ -106,7 +106,7 @@ func (p *registerParams) getRegisterUpdate() *minerOp.MinerRegisterRequest {
 
 func (p *registerParams) getResult() command.CommandResult {
 	return &MinerRegisterResult{
-		Address:      p.principal,
+		Principal:    p.principal,
 		Commit:       p.commit,
 		NodeType:     p.nodeType,
 		ResultMessge: p.message,

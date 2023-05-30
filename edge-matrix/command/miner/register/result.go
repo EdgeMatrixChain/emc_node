@@ -6,7 +6,7 @@ import (
 )
 
 type MinerRegisterResult struct {
-	Address      string `json:"-"`
+	Principal    string `json:"-"`
 	Commit       string `json:"-"`
 	NodeType     string `json:"-"`
 	ResultMessge string `json:"-"`
@@ -25,16 +25,17 @@ func (r *MinerRegisterResult) GetOutput() string {
 func (r *MinerRegisterResult) Message() string {
 	if r.Commit == setOpt {
 		return fmt.Sprintf(
-			"Commit for the add/update the principal [%s] to the miner set, %s",
+			"Commit for the add/update node [%s] principal [%s] to the miner set\n%s",
 			r.NodeType,
-			r.Address,
+			r.Principal,
 			r.ResultMessge,
 		)
 	}
 
 	return fmt.Sprintf(
-		"Commit for the removal of miner at principal [%s] from the miner set, %s",
-		r.Address,
+		"Commit for the removal of node [%s] miner at principal [%s] from the miner set\n%s",
+		r.NodeType,
+		r.Principal,
 		r.ResultMessge,
 	)
 }

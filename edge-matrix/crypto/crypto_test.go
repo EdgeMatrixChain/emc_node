@@ -460,7 +460,6 @@ func TestEncrpt(t *testing.T) {
 	}
 	t.Log("encText: ", encText)
 
-	// 对密文进行解密
 	decText, err := CFBDecrypt(encText, secretPass)
 	if err != nil {
 		t.Fatalf("error decrypting your encrypted text: %s", err)

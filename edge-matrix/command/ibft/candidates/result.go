@@ -51,7 +51,7 @@ func (r *IBFTCandidatesResult) GetOutput() string {
 func formatCandidates(candidates []IBFTCandidate) string {
 	generatedCandidates := make([]string, 0, len(candidates)+1)
 
-	generatedCandidates = append(generatedCandidates, "Address|Vote")
+	generatedCandidates = append(generatedCandidates, "Principal|Vote")
 	for _, c := range candidates {
 		generatedCandidates = append(generatedCandidates, fmt.Sprintf("%s|%s", c.Address, c.Vote))
 	}

@@ -193,9 +193,10 @@ func (p *serverParams) generateConfig() *server.Config {
 		Relayer:               p.relayer,
 		NumBlockConfirmations: p.rawConfig.NumBlockConfirmations,
 
-		RunningMode:   p.rawConfig.RunningMode,
-		AppName:       p.rawConfig.AppName,
-		AppUrl:        p.rawConfig.AppUrl,
+		RunningMode: p.rawConfig.RunningMode,
+		AppName:     p.rawConfig.AppName,
+		AppUrl:      p.rawConfig.AppUrl,
+
 		IcHost:        p.rawConfig.IcHost,
 		MinerCanister: p.rawConfig.MinerCanister,
 	}

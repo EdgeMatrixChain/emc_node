@@ -1862,7 +1862,7 @@ func TestSnapshotValidatorStore_addCandidate(t *testing.T) {
 				blsValidator1,
 				blsValidator2,
 			),
-			// candidate just has to have the Address field only
+			// candidate just has to have the Principal field only
 			candidate:   validators.NewBLSValidator(blsValidator2.Addr(), nil),
 			authorize:   false,
 			expectedErr: nil,

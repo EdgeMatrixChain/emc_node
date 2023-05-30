@@ -595,7 +595,7 @@ func processVote(
 func validatorToMiner(validator validators.Validator) ([]byte, error) {
 	switch validator.(type) {
 	case *validators.ECDSAValidator:
-		// Return Address directly
+		// Return Principal directly
 		// to support backward compatibility
 		return validator.Addr().Bytes(), nil
 	case *validators.BLSValidator:

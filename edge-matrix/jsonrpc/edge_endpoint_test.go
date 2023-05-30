@@ -168,7 +168,7 @@ func TestEth_DecodeTxn(t *testing.T) {
 //
 //	// Set up the mock accounts
 //	accounts := []struct {
-//		address types.Address
+//		address types.Principal
 //		account *Account
 //	}{
 //		{
@@ -189,7 +189,7 @@ func TestEth_DecodeTxn(t *testing.T) {
 //
 //	testTable := []struct {
 //		name          string
-//		account       types.Address
+//		account       types.Principal
 //		number        BlockNumber
 //		expectedNonce uint64
 //	}{

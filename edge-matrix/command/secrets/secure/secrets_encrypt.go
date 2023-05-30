@@ -24,7 +24,7 @@ var (
 func GetCommand() *cobra.Command {
 	secretsInitCmd := &cobra.Command{
 		Use: "encrypt",
-		Short: "Encrypt private keys for the Edge Matrix " +
+		Short: "Encrypt private keys for the Edge Matrix node " +
 			"to the encrypted Secrets Manager",
 		PreRunE: runPreRun,
 		Run:     runCommand,
@@ -117,9 +117,10 @@ func runCommand(cmd *cobra.Command, _ []string) {
 	}
 
 	if secretsPass1 != secretsPass2 {
-		outputter.SetError(errors.New("assword did not match!"))
+		outputter.SetError(errors.New("password did not match!"))
 		return
 	}
+	// TODO remove in future
 	outputter.SetError(errors.New("encrypt complete!(this subcommand is a test command, it does not work yet!)"))
 	return
 

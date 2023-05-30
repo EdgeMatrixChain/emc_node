@@ -85,7 +85,7 @@ func DecodeValidators(method *abi.Method, returnValue []byte) ([]types.Address, 
 	web3Addresses, ok := results["0"].([]ethgo.Address)
 
 	if !ok {
-		return nil, errors.New("failed type assertion from results[0] to []ethgo.Address")
+		return nil, errors.New("failed type assertion from results[0] to []ethgo.Principal")
 	}
 
 	addresses := make([]types.Address, len(web3Addresses))

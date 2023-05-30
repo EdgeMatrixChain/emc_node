@@ -24,6 +24,9 @@ message MinerStatus {
   string nodeId = 4;
 
   string nodeIdentity = 5;
+
+  string nodeType = 6;
+
 }
 
 message MinerRegisterRequest {

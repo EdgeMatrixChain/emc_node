@@ -289,7 +289,7 @@ func TestParseBLSValidator(t *testing.T) {
 			expectedErr:       ErrInvalidBLSValidatorFormat,
 		},
 		{
-			name:              "should return error for incorrect Address format",
+			name:              "should return error for incorrect Principal format",
 			validatorStr:      fmt.Sprintf("%s:%s", "aaaaa", testBLSPubKey1.String()),
 			expectedValidator: nil,
 			expectedErr:       errors.New("failed to parse address:"),

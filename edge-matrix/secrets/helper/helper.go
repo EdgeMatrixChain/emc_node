@@ -66,6 +66,52 @@ func setupGCPSSM(
 	)
 }
 
+func isEncrypted(secretsManager secrets.SecretsManager, name string) (bool, error) {
+	if secretsManager.HasSecret(secrets.SecureFlag + name) {
+		secureFlag, err := secretsManager.GetSecret(
+			secrets.SecureFlag + name,
+		)
+		if err != nil {
+			return false, err
+		}
+		if secureFlag != nil {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func validateByPass(secretsManager secrets.SecretsManager, pass string) (bool, error) {
+	// TODO validate by pass
+	// generate random data
+	// encrypt data by secretsManager
+	// decrypt data by pass
+	// validate 2 data
+	return false, nil
+}
+
+func SetEncryptedKey(secretsManager secrets.SecretsManager, name string, secretsPass string, privKey string) error {
+	// encrypt key
+	encryptedKey, err := crypto.CFBEncrypt(privKey, secretsPass)
+	if err != nil {
+		return err
+	}
+	// Write the ICP identity private key to the secrets manager storage
+	if setErr := secretsManager.SetSecret(
+		name,
+		[]byte(encryptedKey),
+	); setErr != nil {
+		return setErr
+	}
+	if setErr := secretsManager.SetSecret(
+		secrets.SecureFlag+name,
+		[]byte(secrets.SecureTrue),
+	); setErr != nil {
+		return setErr
+	}
+	return nil
+}
+
 // InitECDSAValidatorKey creates new ECDSA key and set as a validator key
 func InitECDSAValidatorKey(secretsManager secrets.SecretsManager) (types.Address, error) {
 	if secretsManager.HasSecret(secrets.ValidatorKey) {
@@ -90,6 +136,36 @@ func InitECDSAValidatorKey(secretsManager secrets.SecretsManager) (types.Address
 	return address, nil
 }
 
+func EncryptECDSAValidatorKey(secretsManager secrets.SecretsManager, secretsPass string) error {
+	//encryptFlag, err := isEncrypted(secretsManager, secrets.ValidatorKey)
+	//if err != nil {
+	//	return err
+	//}
+	//if encryptFlag {
+	//	// TODO need update confirm and show tips for retype old pass
+	//}
+	privKey := ""
+	if secretsManager.HasSecret(secrets.ValidatorKey) {
+		validatorKey, err := secretsManager.GetSecret(secrets.ValidatorKey)
+		if err != nil {
+			return err
+		}
+		privKey = string(validatorKey)
+	} else {
+		// generate validator key
+		_, validatorKeyEncoded, err := crypto.GenerateAndEncodeECDSAPrivateKey()
+		if err != nil {
+			return err
+		}
+		privKey = string(validatorKeyEncoded)
+	}
+	err2 := SetEncryptedKey(secretsManager, secrets.ValidatorKey, secretsPass, privKey)
+	if err2 != nil {
+		return err2
+	}
+	return nil
+}
+
 func InitICPIdentityKey(secretsManager secrets.SecretsManager) ([]byte, error) {
 	if secretsManager.HasSecret(secrets.ICPIdentityKey) {
 		return nil, fmt.Errorf(`secrets "%s" has been already initialized`, secrets.ICPIdentityKey)
@@ -112,65 +188,24 @@ func InitICPIdentityKey(secretsManager secrets.SecretsManager) ([]byte, error) {
 }
 
 func EncryptICPIdentityKey(secretsManager secrets.SecretsManager, secretsPass string) error {
-	if secretsManager.HasSecret(secrets.SecureFlag + secrets.ICPIdentityKey) {
-		secureFlag, err := secretsManager.GetSecret(
-			secrets.SecureFlag + secrets.ICPIdentityKey,
-		)
-		if err != nil {
-			return err
-		}
-		if string(secureFlag) == secrets.SecureTrue {
-			return fmt.Errorf(`secrets "%s" has been already encrypted`, secrets.ICPIdentityKey)
-		}
-	}
-
+	privKey := ""
 	if secretsManager.HasSecret(secrets.ICPIdentityKey) {
-		// encrypt ed25519 key for ICP identity
 		icPrivKey, err := secretsManager.GetSecret(secrets.ICPIdentityKey)
 		if err != nil {
 			return err
 		}
-		encryptedKey, err := crypto.CFBEncrypt(string(icPrivKey), secretsPass)
-		if err != nil {
-			return err
-		}
-		// Write the ICP identity private key to the secrets manager storage
-		if setErr := secretsManager.SetSecret(
-			secrets.ICPIdentityKey,
-			[]byte(encryptedKey),
-		); setErr != nil {
-			return setErr
-		}
-		if setErr := secretsManager.SetSecret(
-			secrets.SecureFlag+secrets.ICPIdentityKey,
-			[]byte(secrets.SecureTrue),
-		); setErr != nil {
-			return setErr
-		}
+		privKey = string(icPrivKey)
 	} else {
 		// generate ed25519 key for ICP identity
 		_, ed25519PrivKey, err := crypto.GenerateAndEncodeICPIdentitySecretKey()
 		if err != nil {
 			return err
 		}
-		encryptedKey, err := crypto.CFBEncrypt(string(ed25519PrivKey), secretsPass)
-		if err != nil {
-			return err
-		}
-
-		// Write the ICP identity private key to the secrets manager storage
-		if setErr := secretsManager.SetSecret(
-			secrets.ICPIdentityKey,
-			[]byte(encryptedKey),
-		); setErr != nil {
-			return setErr
-		}
-		if setErr := secretsManager.SetSecret(
-			secrets.SecureFlag+secrets.ICPIdentityKey,
-			[]byte(secrets.SecureTrue),
-		); setErr != nil {
-			return setErr
-		}
+		privKey = string(ed25519PrivKey)
+	}
+	err2 := SetEncryptedKey(secretsManager, secrets.ICPIdentityKey, secretsPass, privKey)
+	if err2 != nil {
+		return err2
 	}
 	return nil
 }
@@ -201,6 +236,29 @@ func InitBLSValidatorKey(secretsManager secrets.SecretsManager) ([]byte, error) 
 	return pubkeyBytes, nil
 }
 
+func EncryptBLSValidatorKey(secretsManager secrets.SecretsManager, secretsPass string) error {
+	privKey := ""
+	if secretsManager.HasSecret(secrets.ValidatorBLSKey) {
+		validatorKey, err := secretsManager.GetSecret(secrets.ValidatorBLSKey)
+		if err != nil {
+			return err
+		}
+		privKey = string(validatorKey)
+	} else {
+		// generate BLS key private key for validator
+		_, blsSecretKeyEncoded, err := crypto.GenerateAndEncodeBLSSecretKey()
+		if err != nil {
+			return err
+		}
+		privKey = string(blsSecretKeyEncoded)
+	}
+	err2 := SetEncryptedKey(secretsManager, secrets.ValidatorBLSKey, secretsPass, privKey)
+	if err2 != nil {
+		return err2
+	}
+	return nil
+}
+
 func InitNetworkingPrivateKey(secretsManager secrets.SecretsManager) (libp2pCrypto.PrivKey, error) {
 	if secretsManager.HasSecret(secrets.NetworkKey) {
 		return nil, fmt.Errorf(`secrets "%s" has been already initialized`, secrets.NetworkKey)
@@ -223,38 +281,28 @@ func InitNetworkingPrivateKey(secretsManager secrets.SecretsManager) (libp2pCryp
 	return libp2pKey, keyErr
 }
 
-//func InitValidatorBLSSignature(
-//	secretsManager secrets.SecretsManager, account *wallet.Account, chainID int64) ([]byte, error) {
-//	if secretsManager.HasSecret(secrets.ValidatorBLSSignature) {
-//		return nil, fmt.Errorf(`secrets "%s" has been already initialized`, secrets.ValidatorBLSSignature)
-//	}
-//
-//	// Generate the signature
-//	s, err := MakeKOSKSignature(
-//		account.Bls,
-//		types.Address(account.Ecdsa.Address()),
-//		chainID,
-//		bls.DomainValidatorSet,
-//	)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	sb, err := s.Marshal()
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	// Write the signature to the secrets manager storage
-//	if err := secretsManager.SetSecret(
-//		secrets.ValidatorBLSSignature,
-//		[]byte(hex.EncodeToString(sb)),
-//	); err != nil {
-//		return nil, err
-//	}
-//
-//	return sb, nil
-//}
+func EncryptNetworkingPrivateKey(secretsManager secrets.SecretsManager, secretsPass string) error {
+	privKey := ""
+	if secretsManager.HasSecret(secrets.NetworkKey) {
+		p2pKey, err := secretsManager.GetSecret(secrets.NetworkKey)
+		if err != nil {
+			return err
+		}
+		privKey = string(p2pKey)
+	} else {
+		// generate network key for node
+		_, libp2pKeyEncoded, err := network.GenerateAndEncodeLibp2pKey()
+		if err != nil {
+			return err
+		}
+		privKey = string(libp2pKeyEncoded)
+	}
+	err2 := SetEncryptedKey(secretsManager, secrets.NetworkKey, secretsPass, privKey)
+	if err2 != nil {
+		return err2
+	}
+	return nil
+}
 
 // LoadValidatorAddress loads ECDSA key by SecretsManager and returns validator address
 func LoadValidatorAddress(secretsManager secrets.SecretsManager) (types.Address, error) {
@@ -369,7 +417,7 @@ func InitCloudSecretsManager(secretsConfig *secrets.SecretsManagerConfig) (secre
 
 // MakeKOSKSignature creates KOSK signature which prevents rogue attack
 //func MakeKOSKSignature(
-//	privateKey *bls.PrivateKey, address types.Address, chainID int64, domain []byte) (*bls.Signature, error) {
+//	privateKey *bls.PrivateKey, address types.Principal, chainID int64, domain []byte) (*bls.Signature, error) {
 //	message, err := abi.Encode(
 //		[]interface{}{address, big.NewInt(chainID)},
 //		abi.MustNewType("tuple(address, uint256)"))

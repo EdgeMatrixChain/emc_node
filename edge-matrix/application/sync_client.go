@@ -41,13 +41,14 @@ type syncAppPeerClient struct {
 }
 
 // Start processes for SyncAppPeerClient
-func (m *syncAppPeerClient) Start(subscription Subscription) error {
+func (m *syncAppPeerClient) Start(subscription Subscription, topicSubFlag bool) error {
 	// Mark client active.
 	atomic.StoreUint64(m.closed, 0)
 
-	if err := m.startGossip(); err != nil {
+	if err := m.startGossip(topicSubFlag); err != nil {
 		return err
 	}
+	m.logger.Info("startGossip", "topicSubFlag", topicSubFlag)
 
 	go m.startApplicationEventProcess(subscription)
 	go m.startPeerEventProcess()
@@ -162,17 +163,20 @@ func (m *syncAppPeerClient) GetPeerConnectionUpdateEventCh() <-chan *event.PeerE
 }
 
 // startGossip creates new topic and starts subscribing
-func (m *syncAppPeerClient) startGossip() error {
+func (m *syncAppPeerClient) startGossip(topicSubFlag bool) error {
 	topic, err := m.network.NewTopic(statusTopicName, &proto.AppStatus{})
 	if err != nil {
 		return err
 	}
 
-	if err := topic.Subscribe(m.handleStatusUpdate); err != nil {
-		return fmt.Errorf("unable to subscribe to gossip topic, %w", err)
-	}
-
 	m.topic = topic
+
+	if topicSubFlag {
+		if err := topic.Subscribe(m.handleStatusUpdate); err != nil {
+			return fmt.Errorf("unable to subscribe to gossip topic, %w", err)
+		}
+		m.logger.Info("subscribe to gossip topic=AppStatus")
+	}
 
 	return nil
 }
@@ -350,7 +354,7 @@ func dataStreamToChannel(stream proto.SyncApp_GetDataClient) (chan map[string][]
 
 type SyncAppPeerClient interface {
 	// Start processes for SyncAppPeerClient
-	Start(subscription Subscription) error
+	Start(subscription Subscription, topicSubFlag bool) error
 	// Close terminates running processes for SyncAppPeerClient
 	Close()
 	// GetPeerStatus fetches peer status

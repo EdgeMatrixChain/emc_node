@@ -313,7 +313,7 @@ func (agent *Agent) GetCanisterModule(canisterID string) ([]byte, error) {
 	return agent.GetCanisterInfo(canisterID, "module_hash")
 }
 
-func (agent Agent) GetCanisterInfo(canisterID, subPath string) ([]byte, error) {
+func (agent *Agent) GetCanisterInfo(canisterID, subPath string) ([]byte, error) {
 	canisterBytes, err := principal.Decode(canisterID)
 	if err != nil {
 		return nil, err
@@ -327,7 +327,7 @@ func (agent Agent) GetCanisterInfo(canisterID, subPath string) ([]byte, error) {
 	return LookUp(path, cert)
 }
 
-func (agent Agent) GetCanisterTime(canisterID string) ([]byte, error) {
+func (agent *Agent) GetCanisterTime(canisterID string) ([]byte, error) {
 	paths := [][][]byte{{[]byte("time")}}
 	cert, err := agent.readStateRaw(canisterID, paths)
 	if err != nil {
@@ -335,4 +335,8 @@ func (agent Agent) GetCanisterTime(canisterID string) ([]byte, error) {
 	}
 	path := [][]byte{[]byte("time")}
 	return LookUp(path, cert)
+}
+func (agent *Agent) GetIdentity() string {
+	p := principal.NewSelfAuthenticating(agent.identity.PubKeyBytes())
+	return p.Encode()
 }

@@ -252,9 +252,10 @@ func NewServer(config *Config) (*Server, error) {
 	identity := identity.New(false, decodedPrivKey.Seed())
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	m.logger.Info("Init IC Agent", "Node Identity", p.Encode())
-	// init miner grpc service
 	icAgent := agent.NewWithHost(config.IcHost, false, hex.EncodeToString(decodedPrivKey.Seed()))
 	minerAgent := miner.NewMinerAgent(m.logger, icAgent, config.MinerCanister)
+
+	// init miner grpc service
 	minerService, err := m.initMinerService(minerAgent, network.GetHost(), m.secretsManager)
 	if err != nil {
 		return nil, err
@@ -265,7 +266,9 @@ func NewServer(config *Config) (*Server, error) {
 	}
 	// check miner status
 	minerFlag := false
-	if minerStatus.GetPrincipal() != "" {
+	minerPrincipal := minerStatus.GetPrincipal()
+	if minerPrincipal != "" {
+		m.logger.Info("miner", "principal", minerPrincipal)
 		minerFlag = true
 	}
 
@@ -304,6 +307,7 @@ func NewServer(config *Config) (*Server, error) {
 
 	// setup edge application
 	{
+		topicSubFlag := m.consensus.GetCurrentValidators().Includes(m.consensus.GetSignerAddress())
 		keyBytes, err := m.secretsManager.GetSecret(secrets.ValidatorKey)
 		if err != nil {
 			return nil, err
@@ -328,10 +332,10 @@ func NewServer(config *Config) (*Server, error) {
 			m.network.GetHost(),
 			m.blockchain,
 			m.consensus,
-			icAgent)
+			minerAgent)
 
 		// start app status syncer
-		err = syncer.Start(endpoint.SubscribeEvents())
+		err = syncer.Start(endpoint.SubscribeEvents(), topicSubFlag)
 		if err != nil {
 			return nil, err
 		}
@@ -515,7 +519,7 @@ func (s *Server) initMinerService(minerAgent *miner.MinerAgent, host host.Host, 
 //	relayer := statesyncrelayer.NewRelayer(
 //		s.config.DataDir,
 //		s.config.JSONRPC.JSONRPCAddr.String(),
-//		ethgo.Address(contracts.StateReceiverContract),
+//		ethgo.Principal(contracts.StateReceiverContract),
 //		s.logger.Named("relayer"),
 //		wallet.NewEcdsaSigner(wallet.NewKey(account, bls.DomainCheckpointManager)),
 //	)

@@ -6,8 +6,6 @@ import (
 	"github.com/emc-protocol/edge-matrix/chain"
 	"github.com/emc-protocol/edge-matrix/crypto"
 	"github.com/emc-protocol/edge-matrix/helper/keccak"
-	"github.com/emc-protocol/edge-matrix/secrets"
-	"github.com/emc-protocol/edge-matrix/secrets/helper"
 	"github.com/emc-protocol/edge-matrix/types"
 	"github.com/umbracle/fastrlp"
 	"math/big"
@@ -151,20 +149,4 @@ func encodeSignature(R, S, V *big.Int, isHomestead bool) ([]byte, error) {
 	sig[64] = byte(V.Int64()) // here is safe to convert it since ValidateSignatureValues will validate the v value
 
 	return sig, nil
-}
-
-// getOrCreateECDSAKey loads ECDSA key or creates a new key
-func GetOrCreateECDSAKey(manager secrets.SecretsManager) (*ecdsa.PrivateKey, error) {
-	if !manager.HasSecret(secrets.ValidatorKey) {
-		if _, err := helper.InitECDSAValidatorKey(manager); err != nil {
-			return nil, err
-		}
-	}
-
-	keyBytes, err := manager.GetSecret(secrets.ValidatorKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return crypto.BytesToECDSAPrivateKey(keyBytes)
 }

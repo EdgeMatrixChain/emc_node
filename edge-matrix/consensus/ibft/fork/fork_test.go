@@ -64,10 +64,10 @@ func TestIBFTForkUnmarshalJSON(t *testing.T) {
 				"validator_type": "%s",
 				"validators": [
 					{
-						"Address": "%s"
+						"Principal": "%s"
 					},
 					{
-						"Address": "%s"
+						"Principal": "%s"
 					}
 				],
 				"from": %d,
