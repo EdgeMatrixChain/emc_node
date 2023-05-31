@@ -21,8 +21,8 @@ cd ../dist/{linux|mac|mac_arm64}/emc
 ```
 ## Run
 Execute the following command to run a EMC node.
+Command with "--miner-canister nk6pr-3qaaa-aaaam-abnrq-cai" to works with the Testnet miner canister
 ```shell
-# start node with "--miner-canister nk6pr-3qaaa-aaaam-abnrq-cai" to works with the Testnet miner canister 
 ./edge-matrix server --chain genesis.json --data-dir edge_data  --grpc-address 0.0.0.0:50000 --libp2p 0.0.0.0:50001 --jsonrpc 0.0.0.0:50002 --miner-canister nk6pr-3qaaa-aaaam-abnrq-cai 
 ```
 
