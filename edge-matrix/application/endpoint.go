@@ -150,18 +150,6 @@ func NewApplicationEndpoint(logger hclog.Logger,
 	// TODO check miner status
 	if endpoint.miner {
 		go func() {
-			event := &Event{}
-			event.AddNewApp(&Application{
-				Name:        endpoint.application.Name,
-				PeerID:      endpoint.application.PeerID,
-				StartupTime: endpoint.application.StartupTime,
-				Uptime:      uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime,
-				GuageHeight: endpoint.application.GuageHeight,
-				GuageMax:    endpoint.application.GuageMax,
-			})
-			endpoint.stream.push(event)
-			endpoint.logger.Info("endpoint.miner---->", "start push", event)
-
 			ticker := time.NewTicker(proof.DefaultProofDuration)
 			for {
 				<-ticker.C

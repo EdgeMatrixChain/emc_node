@@ -11,11 +11,12 @@ import (
 )
 
 const (
-	privKeyHexString = "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42"
-	NodeRouter       = 0
-	NodeValidator    = 1
-	NodeComputing    = 2
+	NodeRouter    = 0
+	NodeValidator = 1
+	NodeComputing = 2
 )
+
+var privKeyHexString = "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42"
 
 func TestHello_QueryRaw(t *testing.T) {
 	//EXT canister
@@ -51,13 +52,16 @@ func Test_local_whoAmI(t *testing.T) {
 	//t.Log("ed25519PrivKeyString: ", string(ed25519PrivKeyStringBytes))
 	//decodedPrivKey, err := crypto.BytesToEd25519PrivateKey(ed25519PrivKeyStringBytes)
 	//
-	//decodedPrivKey, _ = crypto.BytesToEd25519PrivateKey(ed25519PrivKeyStringBytes)
-	//decodedPubKey := make([]byte, ed25519.PublicKeySize)
-	//copy(decodedPubKey, decodedPrivKey[ed25519.PublicKeySize:])
+
+	//ed25519PrivKeyString := "xxx"
+	//decodedPrivKey, _ := crypto.BytesToEd25519PrivateKey([]byte(ed25519PrivKeyString))
+	////decodedPubKey := make([]byte, ed25519.PublicKeySize)
+	////copy(decodedPubKey, decodedPrivKey[ed25519.PublicKeySize:])
 	//t.Log("decodedPrivKey.Seed: ", hex.EncodeToString(decodedPrivKey.Seed()))
-	//t.Log("decodedPrivKey: ", hex.EncodeToString(decodedPrivKey))
-	//t.Log("decodedPubKey: ", hex.EncodeToString(decodedPubKey))
-	//agent := NewWithHost("http://127.0.0.1:8081", false, hex.EncodeToString(decodedPrivKey.Seed()))
+	////t.Log("decodedPrivKey: ", hex.EncodeToString(decodedPrivKey))
+	////t.Log("decodedPubKey: ", hex.EncodeToString(decodedPubKey))
+	////agent := NewWithHost("http://127.0.0.1:8081", false, hex.EncodeToString(decodedPrivKey.Seed()))
+	//privKeyHexString = hex.EncodeToString(decodedPrivKey.Seed())
 
 	privKey, err := hex.DecodeHex(privKeyHexString)
 	if err != nil {

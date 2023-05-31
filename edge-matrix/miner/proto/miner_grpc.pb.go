@@ -25,6 +25,8 @@ const _ = grpc.SupportPackageIsVersion7
 type MinerClient interface {
 	// GetInfo returns info about the miner
 	GetMinerStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MinerStatus, error)
+	// GetCurrentEPower returns current E-Power
+	GetCurrentEPower(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CurrentEPower, error)
 	// Regiser set or remove a address
 	MinerRegiser(ctx context.Context, in *MinerRegisterRequest, opts ...grpc.CallOption) (*MinerRegisterResponse, error)
 }
@@ -46,6 +48,15 @@ func (c *minerClient) GetMinerStatus(ctx context.Context, in *emptypb.Empty, opt
 	return out, nil
 }
 
+func (c *minerClient) GetCurrentEPower(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CurrentEPower, error) {
+	out := new(CurrentEPower)
+	err := c.cc.Invoke(ctx, "/v1.Miner/GetCurrentEPower", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *minerClient) MinerRegiser(ctx context.Context, in *MinerRegisterRequest, opts ...grpc.CallOption) (*MinerRegisterResponse, error) {
 	out := new(MinerRegisterResponse)
 	err := c.cc.Invoke(ctx, "/v1.Miner/MinerRegiser", in, out, opts...)
@@ -61,6 +72,8 @@ func (c *minerClient) MinerRegiser(ctx context.Context, in *MinerRegisterRequest
 type MinerServer interface {
 	// GetInfo returns info about the miner
 	GetMinerStatus(context.Context, *emptypb.Empty) (*MinerStatus, error)
+	// GetCurrentEPower returns current E-Power
+	GetCurrentEPower(context.Context, *emptypb.Empty) (*CurrentEPower, error)
 	// Regiser set or remove a address
 	MinerRegiser(context.Context, *MinerRegisterRequest) (*MinerRegisterResponse, error)
 	mustEmbedUnimplementedMinerServer()
@@ -72,6 +85,9 @@ type UnimplementedMinerServer struct {
 
 func (UnimplementedMinerServer) GetMinerStatus(context.Context, *emptypb.Empty) (*MinerStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMinerStatus not implemented")
+}
+func (UnimplementedMinerServer) GetCurrentEPower(context.Context, *emptypb.Empty) (*CurrentEPower, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentEPower not implemented")
 }
 func (UnimplementedMinerServer) MinerRegiser(context.Context, *MinerRegisterRequest) (*MinerRegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MinerRegiser not implemented")
@@ -107,6 +123,24 @@ func _Miner_GetMinerStatus_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Miner_GetCurrentEPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MinerServer).GetCurrentEPower(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.Miner/GetCurrentEPower",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MinerServer).GetCurrentEPower(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Miner_MinerRegiser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MinerRegisterRequest)
 	if err := dec(in); err != nil {
@@ -135,6 +169,10 @@ var Miner_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMinerStatus",
 			Handler:    _Miner_GetMinerStatus_Handler,
+		},
+		{
+			MethodName: "GetCurrentEPower",
+			Handler:    _Miner_GetCurrentEPower_Handler,
 		},
 		{
 			MethodName: "MinerRegiser",

@@ -66,7 +66,7 @@ func (s *syncAppService) GetData(
 	i := 0
 	for i < loops {
 		seed := fmt.Sprintf("%s,%d", req.GetDataHash(), i)
-		_, bytes, err := proof.ProofByCalcHash(seed, target, time.Second*3)
+		_, bytes, err := proof.ProofByCalcHash(seed, target, time.Second*5)
 		if err != nil {
 			break
 		}

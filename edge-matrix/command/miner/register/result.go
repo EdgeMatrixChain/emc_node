@@ -33,9 +33,7 @@ func (r *MinerRegisterResult) Message() string {
 	}
 
 	return fmt.Sprintf(
-		"Commit for the removal of node [%s] miner at principal [%s] from the miner set\n%s",
-		r.NodeType,
-		r.Principal,
+		"Commit for the removal node from the miner set\n%s",
 		r.ResultMessge,
 	)
 }

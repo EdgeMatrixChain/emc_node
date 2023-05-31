@@ -251,7 +251,7 @@ func NewServer(config *Config) (*Server, error) {
 	decodedPrivKey, err := crypto.BytesToEd25519PrivateKey(icPrivKey)
 	identity := identity.New(false, decodedPrivKey.Seed())
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
-	m.logger.Info("Init IC Agent", "Node Identity", p.Encode())
+	m.logger.Info("Init IC Agent", "node identity", p.Encode())
 	icAgent := agent.NewWithHost(config.IcHost, false, hex.EncodeToString(decodedPrivKey.Seed()))
 	minerAgent := miner.NewMinerAgent(m.logger, icAgent, config.MinerCanister)
 
@@ -260,16 +260,20 @@ func NewServer(config *Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	minerStatus, err := minerService.GetMiner()
-	if err != nil {
-		return nil, err
-	}
+
 	// check miner status
 	minerFlag := false
-	minerPrincipal := minerStatus.GetPrincipal()
-	if minerPrincipal != "" {
-		m.logger.Info("miner", "principal", minerPrincipal)
-		minerFlag = true
+	minerStatus, err := minerService.GetMiner()
+	if err != nil {
+		m.logger.Warn("Init Miner", "get miner status", err)
+	} else {
+		minerPrincipal := minerStatus.GetPrincipal()
+		if minerPrincipal != "" {
+			minerFlag = true
+			m.logger.Info("Init Miner", "principal", minerPrincipal)
+		} else {
+			m.logger.Warn("Init Miner", "principal", nil)
+		}
 	}
 
 	// setup and start grpc server
@@ -308,6 +312,8 @@ func NewServer(config *Config) (*Server, error) {
 	// setup edge application
 	{
 		topicSubFlag := m.consensus.GetCurrentValidators().Includes(m.consensus.GetSignerAddress())
+		m.logger.Info("setup edge application", "topicSubFlag", topicSubFlag)
+
 		keyBytes, err := m.secretsManager.GetSecret(secrets.ValidatorKey)
 		if err != nil {
 			return nil, err

@@ -13,11 +13,15 @@ type MinerStatusResult struct {
 	NodeType     string `json:"node_type"`
 	NodeIdentity string `json:"node_identity"`
 	Principal    string `json:"principal"`
+	Registered   bool   `json:"registerd"`
 }
 
 func (r *MinerStatusResult) GetOutput() string {
 	var buffer bytes.Buffer
-
+	registerFlag := "no"
+	if r.Registered {
+		registerFlag = "yes"
+	}
 	buffer.WriteString("\n[MINER STATUS]\n")
 	buffer.WriteString(helper.FormatKV([]string{
 		fmt.Sprintf("NetName |%s", r.NetName),
@@ -25,6 +29,7 @@ func (r *MinerStatusResult) GetOutput() string {
 		fmt.Sprintf("NodeType |%s", r.NodeType),
 		fmt.Sprintf("NodeIdentity |%s", r.NodeIdentity),
 		fmt.Sprintf("Principal |%s", r.Principal),
+		fmt.Sprintf("Registered |%s", registerFlag),
 	}))
 	buffer.WriteString("\n")
 

@@ -1,4 +1,4 @@
-package status
+package power
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 
 func GetCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
-		Short: "Returns the current miner status of the IC",
+		Use:   "power",
+		Short: "Returns the miner's e-power be generated today",
 		Run:   runCommand,
 	}
 }
@@ -22,24 +22,20 @@ func runCommand(cmd *cobra.Command, _ []string) {
 	outputter := command.InitializeOutputter(cmd)
 	defer outputter.WriteOutput()
 
-	statusResponse, err := getMinerStatus(helper.GetGRPCAddress(cmd))
+	response, err := getCurrentEPower(helper.GetGRPCAddress(cmd))
 	if err != nil {
 		outputter.SetError(err)
 
 		return
 	}
 
-	outputter.SetCommandResult(&MinerStatusResult{
-		NetName:      statusResponse.NetName,
-		Principal:    statusResponse.Principal,
-		NodeIdentity: statusResponse.NodeIdentity,
-		NodeID:       statusResponse.NodeId,
-		NodeType:     statusResponse.NodeType,
-		Registered:   statusResponse.Registered > 0,
+	outputter.SetCommandResult(&CurrentEPowerResult{
+		Round: response.Round,
+		Total: response.Total,
 	})
 }
 
-func getMinerStatus(grpcAddress string) (*minerOp.MinerStatus, error) {
+func getCurrentEPower(grpcAddress string) (*minerOp.CurrentEPower, error) {
 	client, err := helper.GetMinerClientConnection(
 		grpcAddress,
 	)
@@ -47,5 +43,5 @@ func getMinerStatus(grpcAddress string) (*minerOp.MinerStatus, error) {
 		return nil, err
 	}
 
-	return client.GetMinerStatus(context.Background(), &empty.Empty{})
+	return client.GetCurrentEPower(context.Background(), &empty.Empty{})
 }

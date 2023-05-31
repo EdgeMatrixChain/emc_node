@@ -23,14 +23,31 @@ func Test_RegisterNode(t *testing.T) {
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
 
-	//minerAgent := NewMinerAgentWithICKey(hclog.NewNullLogger(), "http://127.0.0.1:8081", privKey, DEFAULT_MINER_CANISTER_ID)
-
 	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
 
 	err = minerAgent.RegisterNode(
 		NodeTypeRouter,
 		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
 		"rlqvd-pzz7a-wluee-rmro3-m6zrt-gjs3v-uwfxq-o3wcu-r2bav-lcsye-yae")
+	if err != nil {
+		t.Log(err)
+	}
+}
+
+func Test_UnRegisterNode(t *testing.T) {
+	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	privKeyBytes, err := hex.DecodeHex(privKey)
+	if err != nil {
+		return
+	}
+	identity := identity.New(false, privKeyBytes)
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
+
+	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
+
+	err = minerAgent.UnRegisterNode(
+		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC")
 	if err != nil {
 		t.Log(err)
 	}
@@ -47,16 +64,20 @@ func Test_MyNode(t *testing.T) {
 	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
 
 	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
-	wp, nodeType, err := minerAgent.MyNode(
+
+	nodeId, nodeIdentity, wp, registered, nodeType, err := minerAgent.MyNode(
 		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC")
 	if err != nil {
 		t.Log(err)
 	}
+	t.Log("nodeId:", nodeId)
+	t.Log("nodeIdentity:", nodeIdentity)
 	t.Log("wallet:", wp)
+	t.Log("registered:", registered > 0)
 	t.Log("nodeType:", nodeType)
 }
 
-func Test_SubmitValidation(t *testing.T) {
+func Test_MyCurrentEPower(t *testing.T) {
 	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
 	privKeyBytes, err := hex.DecodeHex(privKey)
 	if err != nil {
@@ -67,12 +88,36 @@ func Test_SubmitValidation(t *testing.T) {
 	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
 
 	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
+
+	count, e, err := minerAgent.MyCurrentEPower(
+		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC")
+	if err != nil {
+		t.Log(err)
+	}
+	t.Log("count:", count)
+	t.Log("e:", e)
+}
+
+func Test_SubmitValidation(t *testing.T) {
+	validatorPrivKey := "8031dda21dd9a138a93c9c60ac866608c6f0f8d1a8a79ffbd7faf59faeb2b1d7"
+	//validatorPrivKey := privKey
+	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, validatorPrivKey)
+	privKeyBytes, err := hex.DecodeHex(validatorPrivKey)
+
+	if err != nil {
+		return
+	}
+	identity := identity.New(false, privKeyBytes)
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
+
+	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
+
 	err = minerAgent.SubmitValidation(
 		1000,
 		p.Encode(),
 		150000,
 		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
-		NodeTypeRouter,
 	)
 	if err != nil {
 		t.Log(err)

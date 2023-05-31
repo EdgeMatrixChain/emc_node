@@ -12,6 +12,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const (
+	setOpt    = "set"
+	removeOpt = "remove"
+)
+
 type MinerService struct {
 	proto.UnimplementedMinerServer
 	logger         hclog.Logger
@@ -34,12 +39,8 @@ func NewMinerService(logger hclog.Logger, minerAgent *MinerAgent, host host.Host
 
 // GetMiner return miner's status from secretsManager and IC canister
 func (s *MinerService) GetMiner() (*proto.MinerStatus, error) {
-	identity := s.GetIdentity()
-	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
-	s.logger.Debug("MinerRegiser", "node_identity", p.Encode())
-
 	// query node from IC canister
-	wallet, ntype, err := s.minerAgent.MyNode(s.host.ID().String())
+	nodeId, nodeIdentity, wallet, registered, ntype, err := s.minerAgent.MyNode(s.host.ID().String())
 	if err != nil {
 		return nil, err
 	}
@@ -58,12 +59,25 @@ func (s *MinerService) GetMiner() (*proto.MinerStatus, error) {
 
 	status := proto.MinerStatus{
 		NetName:      "IC",
-		NodeId:       s.host.ID().String(),
-		NodeIdentity: p.Encode(),
+		NodeId:       nodeId,
+		NodeIdentity: nodeIdentity,
 		Principal:    wallet,
 		NodeType:     nodeType,
+		Registered:   registered,
 	}
 	return &status, nil
+}
+
+func (s *MinerService) GetCurrentEPower(context.Context, *emptypb.Empty) (*proto.CurrentEPower, error) {
+	round, power, err := s.minerAgent.MyCurrentEPower(s.host.ID().String())
+	if err != nil {
+		return nil, err
+	}
+	ePower := proto.CurrentEPower{
+		Round: round,
+		Total: power,
+	}
+	return &ePower, nil
 }
 
 // PeersStatus implements the 'peers status' operator service
@@ -87,10 +101,19 @@ func (s *MinerService) MinerRegiser(ctx context.Context, req *proto.MinerRegiste
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	s.logger.Info("MinerRegiser", "node identity", p.Encode(), "NodeId", s.host.ID().String(), "Principal", req.Principal)
 
-	result := "register ok"
-	err := s.minerAgent.RegisterNode(NodeType(req.Type), s.host.ID().String(), req.Principal)
-	if err != nil {
-		result = err.Error()
+	result := ""
+	if req.Commit == setOpt {
+		result = "register ok"
+		err := s.minerAgent.RegisterNode(NodeType(req.Type), s.host.ID().String(), req.Principal)
+		if err != nil {
+			result = err.Error()
+		}
+	} else if req.Commit == removeOpt {
+		result = "unregister ok"
+		err := s.minerAgent.UnRegisterNode(s.host.ID().String())
+		if err != nil {
+			result = err.Error()
+		}
 	}
 	// TODO update minerFlag in application endpoint
 

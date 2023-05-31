@@ -27,9 +27,9 @@ const (
 )
 
 var (
-	errInvalidCommitType      = errors.New("invalid commit type")
-	errInvalidNodeType        = errors.New("invalid node type")
-	errInvalidPrincipalFormat = errors.New("invalid principal format")
+	errInvalidCommitType   = errors.New("invalid commit type")
+	errInvalidNodeType     = errors.New("invalid node type")
+	errInvalidPrincipalLen = errors.New("invalid principal length")
 )
 
 var (
@@ -46,8 +46,6 @@ type registerParams struct {
 func (p *registerParams) getRequiredFlags() []string {
 	return []string{
 		commitFlag,
-		principalFlag,
-		nodeFlag,
 	}
 }
 
@@ -55,10 +53,14 @@ func (p *registerParams) validateFlags() error {
 	if !isValidCommitType(p.commit) {
 		return errInvalidCommitType
 	}
-	if !isValidNodeType(p.nodeType) {
-		return errInvalidNodeType
+	if p.commit == setOpt {
+		if !isValidNodeType(p.nodeType) {
+			return errInvalidNodeType
+		}
+		if !isValidPrincipal(p.principal) {
+			return errInvalidPrincipalLen
+		}
 	}
-
 	return nil
 }
 
@@ -70,20 +72,36 @@ func isValidNodeType(node string) bool {
 	return node == routeNodeOpt || node == computingNodeOpt || node == validatorNodeOpt
 }
 
+func isValidPrincipal(principal string) bool {
+	return len(principal) == 63
+}
+
 func (p *registerParams) registerMinerAddress(grpcAddress string) error {
 	minerClient, err := helper.GetMinerClientConnection(grpcAddress)
 	if err != nil {
 		return err
 	}
 
-	result, err := minerClient.MinerRegiser(
-		context.Background(),
-		p.getRegisterUpdate(),
-	)
-	if err != nil {
-		p.message = err.Error()
-	} else {
-		p.message = result.Message
+	if p.commit == setOpt {
+		result, err := minerClient.MinerRegiser(
+			context.Background(),
+			p.getRegisterUpdate(),
+		)
+		if err != nil {
+			p.message = err.Error()
+		} else {
+			p.message = result.Message
+		}
+	} else if p.commit == removeOpt {
+		result, err := minerClient.MinerRegiser(
+			context.Background(),
+			p.getRegisterUpdate(),
+		)
+		if err != nil {
+			p.message = err.Error()
+		} else {
+			p.message = result.Message
+		}
 	}
 	return nil
 }
@@ -100,6 +118,7 @@ func (p *registerParams) getRegisterUpdate() *minerOp.MinerRegisterRequest {
 	req := &minerOp.MinerRegisterRequest{
 		Principal: p.principal,
 		Type:      uint64(nodeType),
+		Commit:    p.commit,
 	}
 	return req
 }

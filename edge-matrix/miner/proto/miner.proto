@@ -10,8 +10,17 @@ service Miner {
   // GetInfo returns info about the miner
   rpc GetMinerStatus(google.protobuf.Empty) returns (MinerStatus);
 
+  // GetCurrentEPower returns current E-Power
+  rpc GetCurrentEPower(google.protobuf.Empty) returns (CurrentEPower);
+
   // Regiser set or remove a address
   rpc MinerRegiser(MinerRegisterRequest) returns (MinerRegisterResponse);
+}
+
+message CurrentEPower {
+  uint64 round = 1;
+
+  uint64 total = 2;
 }
 
 message MinerStatus {
@@ -27,11 +36,13 @@ message MinerStatus {
 
   string nodeType = 6;
 
+  int64 registered = 7;
 }
 
 message MinerRegisterRequest {
   string principal = 1;
   uint64 type = 2;
+  string commit = 3;
 }
 
 message MinerRegisterResponse {

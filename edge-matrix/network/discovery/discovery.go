@@ -172,7 +172,7 @@ func (d *DiscoveryService) addToTable(node *peer.AddrInfo) error {
 	// we have to add them to the peer store so that they are
 	// available to all the libp2p services
 	d.baseServer.AddToPeerStore(node)
-	d.logger.Debug("service-->addToTable", "node", node.String())
+	//d.logger.Debug("service-->addToTable", "node", node.String())
 	if _, err := d.routingTable.TryAddPeer(
 		node.ID,
 		false,
@@ -181,7 +181,7 @@ func (d *DiscoveryService) addToTable(node *peer.AddrInfo) error {
 		// Since the routing table addition failed,
 		// the peer can be removed from the libp2p peer store
 		// in the base networking server
-		d.logger.Debug("service-->RemoveFromPeerStore", "node", node.String())
+		//d.logger.Debug("service-->RemoveFromPeerStore", "node", node.String())
 		d.baseServer.RemoveFromPeerStore(node)
 
 		return err
@@ -192,7 +192,7 @@ func (d *DiscoveryService) addToTable(node *peer.AddrInfo) error {
 
 // addPeersToTable adds the passed in peers to the peer store and the routing table
 func (d *DiscoveryService) addPeersToTable(nodeAddrStrs []string) {
-	d.logger.Debug("service-->addPeersToTable", "nodeAddrsStrs", nodeAddrStrs)
+	//d.logger.Debug("service-->addPeersToTable", "nodeAddrsStrs", nodeAddrStrs)
 	for _, nodeAddrStr := range nodeAddrStrs {
 		// Convert the string address info to a working type
 		nodeInfo, err := common.StringToAddrInfo(nodeAddrStr)
@@ -206,7 +206,7 @@ func (d *DiscoveryService) addPeersToTable(nodeAddrStrs []string) {
 			continue
 		}
 
-		d.logger.Debug("service-->addPeersToTable:", "nodeInfo", nodeInfo.String())
+		//d.logger.Debug("service-->addPeersToTable:", "nodeInfo", nodeInfo.String())
 		if err := d.addToTable(nodeInfo); err != nil {
 			d.logger.Error(
 				"Failed to add new peer to routing table",

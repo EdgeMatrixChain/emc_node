@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application/proof"
-	"github.com/emc-protocol/edge-matrix/helper/hex"
 	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/types"
 	"github.com/emc-protocol/edge-matrix/validators"
@@ -152,7 +151,7 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 				s.logger.Error("Failed to close stream: ", err)
 			}
 		}()
-		// if current node is a validator
+		// to get a proof result as a validator
 		validators := s.validatorStore.GetCurrentValidators()
 		if validators.Includes(s.address) {
 			// get latest block number
@@ -170,6 +169,9 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 					start := time.Now()
 
 					//  get data from peer
+					s.logger.Debug("------------------------------------------")
+					s.logger.Debug(fmt.Sprintf("GetPeerData: %s", peerStatus.ID.String()))
+					s.logger.Debug("------------------------------------------")
 					dataMap, err := s.syncAppPeerClient.GetPeerData(peerStatus.ID, header.Hash.String(), time.Second*30)
 					if err != nil {
 						s.logger.Error(err.Error())
@@ -178,13 +180,13 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 					s.logger.Debug(fmt.Sprintf("used time for proof\t\t: %fs", usedTime))
 
 					// validate data
-					if s.logger.IsDebug() {
-						s.logger.Debug("PeerData: {")
-						for dataKey, bytes := range dataMap {
-							s.logger.Debug(dataKey, hex.EncodeToString(bytes))
-						}
-						s.logger.Debug("}")
-					}
+					//if s.logger.IsDebug() {
+					//	s.logger.Debug("PeerData: {")
+					//	for dataKey, bytes := range dataMap {
+					//		s.logger.Debug(dataKey, hex.EncodeToString(bytes))
+					//	}
+					//	s.logger.Debug("}")
+					//}
 
 					var hashArray = make([]string, proof.DefaultHashProofCount)
 					target := proof.DefaultHashProofTarget
@@ -207,19 +209,26 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 					}
 
 					validateUsedTime := time.Since(validateStart).Microseconds()
+					rate := float32(validateSuccess) / float32(proof.DefaultHashProofCount)
 					s.logger.Debug(fmt.Sprintf("used time for validate\t\t: %dms", validateUsedTime))
-					s.logger.Debug(fmt.Sprintf("validate success\t\t\t: %d/%d", validateSuccess, loops))
-					if validateSuccess >= proof.DefaultHashProofCount {
+					s.logger.Debug(fmt.Sprintf("validate success\t\t\t: %d/%d rate:%f", validateSuccess, loops, rate))
+					if rate >= 0.95 {
 						// valid proof
-						s.logger.Debug("Submit proof to IC", "usedTime", usedTime, "blockNumber", blockNumberFixed, "peerId", peerStatus.ID.String())
+						s.logger.Debug("------------------------------------------")
+						s.logger.Debug("----->Submit proof to IC", "usedTime", usedTime, "blockNumber", blockNumberFixed, "peerId", peerStatus.ID.String())
+						s.logger.Debug("------------------------------------------")
 						// submit proof result to IC canister
-						s.minerAgent.SubmitValidation(
+						err := s.minerAgent.SubmitValidation(
 							int64(blockNumberFixed),
 							s.minerAgent.GetIdentity(),
 							validateUsedTime,
 							peerStatus.ID.String(),
-							miner.NodeTypeComputing, // TODO remove this parameter
 						)
+						s.logger.Debug("------------------------------------------")
+						if err != nil {
+							s.logger.Error("SubmitValidation:", "err", err)
+						}
+						s.logger.Debug("------------------------------------------")
 					}
 				}
 			}

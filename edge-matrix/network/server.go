@@ -50,7 +50,7 @@ const (
 	DefaultLibp2pPort int = 50001
 
 	MinimumBootNodes       int   = 1
-	MinimumPeerConnections int64 = 2
+	MinimumPeerConnections int64 = 1
 )
 
 var (
@@ -329,7 +329,7 @@ func (s *Server) keepAliveMinimumPeerConnections() {
 	for {
 		select {
 		case <-ticker.C:
-			s.logger.Debug("---->keepAliveMinimumPeerConnections<----", "numPeers", s.numPeers())
+			//s.logger.Debug("---->keepAliveMinimumPeerConnections<----", "numPeers", s.numPeers())
 			if s.numPeers() < MinimumPeerConnections {
 				if s.config.NoDiscover || !s.bootnodes.hasBootnodes() {
 					// dial unconnected peer
@@ -358,7 +358,7 @@ func (s *Server) keepAliveMinimumPeerConnections() {
 }
 
 func (s *Server) closeDial() {
-	s.logger.Warn("----runDial---- closeDial!!!")
+	//s.logger.Warn("----runDial---- closeDial!!!")
 }
 
 // runDial starts the networking server's dial loop.
@@ -379,7 +379,6 @@ func (s *Server) runDial() {
 
 	if err := s.SubscribeFn(ctx, func(event *peerEvent.PeerEvent) {
 		// Only concerned about the listed event types
-		s.logger.Debug("----runDial----", "SubscribeFn_event", event)
 		switch event.Type {
 		case
 			peerEvent.PeerConnected,
@@ -388,21 +387,20 @@ func (s *Server) runDial() {
 			peerEvent.PeerDialCompleted,
 			peerEvent.PeerAddedToDialQueue:
 		default:
-			s.logger.Warn("----runDial----", "event!!!", event)
 			return
 		}
 
 		select {
 		case <-ctx.Done():
-			s.logger.Warn("----runDial----ctx.Done()")
+			//s.logger.Warn("----runDial----ctx.Done()")
 			return
 		case notifyCh <- struct{}{}:
-			s.logger.Debug("----runDial----", "notifyCh", notifyCh)
+			//s.logger.Debug("----runDial----", "notifyCh", notifyCh)
 		default:
 		}
 	}); err != nil {
 		s.logger.Error(
-			"----runDial----Cannot instantiate an event subscription for the dial manager",
+			"Cannot instantiate an event subscription for the dial manager",
 			"err",
 			err,
 		)
@@ -416,39 +414,34 @@ func (s *Server) runDial() {
 		// TODO: Right now the dial task are done sequentially because Connect
 		// is a blocking request. In the future we should try to make up to
 		// maxDials requests concurrently
-		s.logger.Debug("----runDial----", "connectionCounts", s.connectionCounts)
 		for {
-			s.logger.Debug("----runDial---- check HasFreeOutboundConn")
-			freeOutboundConn := s.connectionCounts.HasFreeOutboundConn()
-			s.logger.Debug("----runDial----", "freeOutboundConn", freeOutboundConn, "dialQueueLen", s.dialQueue.Len())
+			//s.logger.Debug("----runDial---- check HasFreeOutboundConn")
+			//freeOutboundConn := s.connectionCounts.HasFreeOutboundConn()
+			//s.logger.Debug("----runDial----", "freeOutboundConn", freeOutboundConn, "dialQueueLen", s.dialQueue.Len())
 
 			tt := s.dialQueue.PopTask()
-			s.logger.Debug("----runDial----", "dialQueue.PopTask()", tt, "dialQueueLen", s.dialQueue.Len())
+			//s.logger.Debug("----runDial----", "dialQueue.PopTask()", tt, "dialQueueLen", s.dialQueue.Len())
 
 			if tt == nil {
 				// The dial queue is closed,
 				// no further dial tasks are incoming
-				s.logger.Error("----runDial------The dial queue is closed")
+				s.logger.Error("The dial queue is closed")
 				return
 			}
 
 			peerInfo := tt.GetAddrInfo()
 
-			s.logger.Debug(fmt.Sprintf("----runDial----Dialing peer [%s] as local [%s]", peerInfo.String(), s.host.ID()))
+			s.logger.Debug(fmt.Sprintf("Dialing peer [%s] as local [%s]", peerInfo.String(), s.host.ID()))
 
-			if !s.IsConnected(peerInfo.ID) {
-				// the connection process is async because it involves connection (here) +
-				// the handshake done in the identity service.
-				if err := s.host.Connect(context.Background(), *peerInfo); err != nil {
-					s.logger.Debug("----runDial----failed to dial", "addr", peerInfo.String(), "err", err.Error())
-					//s.emitEvent(peerInfo.ID, peerEvent.PeerFailedToConnect)
-					s.discovery.HandleNetworkEvent(&peerEvent.PeerEvent{
-						PeerID: peerInfo.ID,
-						Type:   peerEvent.PeerDisconnected,
-					})
-				}
-			} else {
-				s.logger.Debug(fmt.Sprintf("----runDial---- peer [%s] IsConnected", peerInfo.String()))
+			// the connection process is async because it involves connection (here) +
+			// the handshake done in the identity service.
+			if err := s.host.Connect(context.Background(), *peerInfo); err != nil {
+				s.logger.Debug("failed to dial", "addr", peerInfo.String(), "err", err.Error())
+				//s.emitEvent(peerInfo.ID, peerEvent.PeerFailedToConnect)
+				s.discovery.HandleNetworkEvent(&peerEvent.PeerEvent{
+					PeerID: peerInfo.ID,
+					Type:   peerEvent.PeerDisconnected,
+				})
 			}
 		}
 
@@ -457,7 +450,6 @@ func (s *Server) runDial() {
 		select {
 		case <-notifyCh:
 		case <-s.closeCh:
-			s.logger.Error("----runDial----", "closeCh!!!", s.closeCh)
 			return
 		}
 	}
@@ -761,11 +753,9 @@ func (s *Server) SubscribeFn(ctx context.Context, handler func(evnt *peerEvent.P
 		for {
 			select {
 			case <-ctx.Done():
-				s.logger.Warn("---->SubscribeFn<---- Done!!!")
 				return
 
 			case <-s.closeCh:
-				s.logger.Warn("---->SubscribeFn<---- closeCh!!!")
 				return
 
 			case evnt := <-sub.GetCh():
