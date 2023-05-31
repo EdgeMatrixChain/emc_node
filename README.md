@@ -1,6 +1,6 @@
 # EMC Node
 
-![](https://edgematrix.pro/_nuxt/logo.661b4f8c.png)
+![](https://www.edgematrix.pro/requester/static/images/4c67f2b1e2.png)
 
 Beyond #ICP Layer2, serving as an entry of Computing power and Web3 in AI era
 
@@ -17,6 +17,8 @@ Execute the following command to init a EMC node.
 
 ```shell
 cd ../dist/{linux|mac|mac_arm64}/emc
+```
+```shell
 ./edge-matrix secrets init --data-dir edge_data 
 ```
 ## Run
@@ -38,7 +40,7 @@ https://github.com/EMCprotocol/emc_java_sdk
 ## Js-monorepo
 https://github.com/EMCProtocol-dev/edgematrixjs-monorepo
 
-## Sample
+##  AI Sample for Stable Diffusion nodes
 https://6tq33-2iaaa-aaaap-qbhpa-cai.icp0.io/
 
 ## Computing Node Test Tools
