@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/emc-protocol/edge-matrix/miner"
 
 	"github.com/emc-protocol/edge-matrix/command"
 	"github.com/emc-protocol/edge-matrix/command/helper"
@@ -184,7 +185,7 @@ func setFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
 		&params.rawConfig.MinerCanister,
 		minerCanistertFlag,
-		"",
+		miner.DEFAULT_MINER_CANISTER_ID,
 		"the canister used for miner",
 	)
 
