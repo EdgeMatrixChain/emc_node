@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	DEFAULT_MINER_CANISTER_ID = "bw4dl-smaaa-aaaaa-qaacq-cai"
+	DEFAULT_MINER_CANISTER_ID = "nk6pr-3qaaa-aaaam-abnrq-cai"
 )
 
 type MinerAgent struct {
