@@ -36,10 +36,13 @@
         "blockGasTarget": 0
     },
     "bootnodes": [
-        "/ip4/183.60.189.253/tcp/50001/p2p/16Uiu2HAmR9NtepZJgrVffDgE5b5yTNynQ8EXKmaPwMSZhh3WmRga",
-        "/ip4/183.207.184.184/tcp/40003/p2p/16Uiu2HAm14xAsnJHDqnQNQ2Qqo1SapdRk9j8mBKY6mghVDP9B9u5",
         "/ip4/183.207.184.184/tcp/40004/p2p/16Uiu2HAkwaui8LKmt4B9XkhB5ET5tbSApVB89awUvrXSfPh6KFy5",
+        "/ip4/183.207.184.183/tcp/60001/p2p/16Uiu2HAmKtxgX8cBuab9gSju7aZDHtxFsB4NYKXvSrZ5Qd5cb4bU",
+        "/ip4/43.154.157.172/tcp/50001/p2p/16Uiu2HAkzcNueGyMKfQTigBY2TZPXqqVsCeXrF2xyt1NchmPyMhP",
+        "/dns4/node-london-d817e31b1bd2ff94.elb.eu-west-2.amazonaws.com/tcp/50001/p2p/16Uiu2HAm9ZBLgJrF94DtEsJpJjgzxwJhiQmVibkCzvpinsenDshR",
         "/dns4/node-oregon-51d1616aef7f6caa.elb.us-west-2.amazonaws.com/tcp/50001/p2p/16Uiu2HAmLXLpzFbJZ8SkUMPXoWEcdg9Zzwve2DQgrVNXPHaXzR6B",
-        "/dns4/node-paulo-ce9322b0990609ad.elb.sa-east-1.amazonaws.com/tcp/50001/p2p/16Uiu2HAmTETP3PuYwqyW1TQu5K738xVhYgYV8T3FS8immrvPukSF"
+        "/dns4/node-paulo-ce9322b0990609ad.elb.sa-east-1.amazonaws.com/tcp/50001/p2p/16Uiu2HAmTETP3PuYwqyW1TQu5K738xVhYgYV8T3FS8immrvPukSF",
+        "/dns4/node-singapore-f99e8ea9b3fe5b59.elb.ap-southeast-1.amazonaws.com/tcp/50001/p2p/16Uiu2HAmNz2vXiustf7bLSjEEjU4D9oKKGRbQQYbttp44SyLtgkg",
+        "/dns4/node-tokyo-9703ed757f882cb4.elb.ap-northeast-1.amazonaws.com/tcp/50001/p2p/16Uiu2HAm7tTDZzj6VGe2wqYj76fhuZfpjSPt2FxWUL2sUsvmTwDG"
     ]
 }
