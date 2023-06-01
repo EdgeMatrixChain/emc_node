@@ -37,11 +37,13 @@ Execute the following command to get help.
 ## Java_sdk
 GitHub repository: https://github.com/EMCProtocol-dev/emc_java_sdk
 
-## Js-monorepo
+## Js-monorepo sdk
 GitHub repository: https://github.com/EMCProtocol-dev/edgematrixjs-monorepo
 
 ##  AI Sample for Stable Diffusion nodes
-GitHub repository: https://6tq33-2iaaa-aaaap-qbhpa-cai.icp0.io/
+Address: https://6tq33-2iaaa-aaaap-qbhpa-cai.icp0.io/
+
+GitHub repository: https://github.com/EMCProtocol-dev/EMC-SD
 
 ## Computing Node Test Tools
 Address: https://57hlm-riaaa-aaaap-qbhfa-cai.icp0.io
