@@ -35,16 +35,18 @@ Execute the following command to get help.
 ```
 
 ## Java_sdk
-https://github.com/EMCprotocol/emc_java_sdk
+GitHub repository: https://github.com/EMCProtocol-dev/emc_java_sdk
 
 ## Js-monorepo
-https://github.com/EMCProtocol-dev/edgematrixjs-monorepo
+GitHub repository: https://github.com/EMCProtocol-dev/edgematrixjs-monorepo
 
 ##  AI Sample for Stable Diffusion nodes
-https://6tq33-2iaaa-aaaap-qbhpa-cai.icp0.io/
+GitHub repository: https://6tq33-2iaaa-aaaap-qbhpa-cai.icp0.io/
 
 ## Computing Node Test Tools
-https://57hlm-riaaa-aaaap-qbhfa-cai.icp0.io
+Address: https://57hlm-riaaa-aaaap-qbhfa-cai.icp0.io
+
+GitHub repository: https://github.com/EMCProtocol-dev/EMC-Requester
 
 ## Tutorials
 For tutorials, check https://edgematrix.pro/start
