@@ -193,7 +193,7 @@ func NewApplicationEndpoint(logger hclog.Logger,
 				http.Error(w, err.Error(), 500)
 			}
 			if obj.Method == "GET" {
-				resp, err := endpoint.httpClient.sendGetRequest(endpoint.appUrl)
+				resp, err := endpoint.httpClient.sendGetRequest(endpoint.appUrl + obj.Path)
 				if err != nil {
 					resp = []byte("endpoint err: " + err.Error())
 				}

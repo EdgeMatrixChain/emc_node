@@ -15,6 +15,8 @@ const (
 	DEFAULT_MINER_CANISTER_ID = "nk6pr-3qaaa-aaaam-abnrq-cai"
 )
 
+var DEFAULT_IC_HOST = "https://ic0.app"
+
 type MinerAgent struct {
 	logger hclog.Logger
 

@@ -55,7 +55,7 @@ func (s *syncAppService) registerAppSyncerService() {
 	s.network.RegisterProtocol(appSyncerProto, s.stream)
 }
 
-// GetBlocks is a gRPC endpoint to return blocks from the specific height via stream
+// GetData is a gRPC endpoint to return Data
 func (s *syncAppService) GetData(
 	req *proto.GetDataRequest,
 	stream proto.SyncApp_GetDataServer,
