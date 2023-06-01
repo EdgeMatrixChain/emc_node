@@ -52,3 +52,7 @@ GitHub repository: https://github.com/EMCProtocol-dev/EMC-Requester
 
 ## Tutorials
 For tutorials, check https://edgematrix.pro/start
+
+License
+------
+Apache 2.0

@@ -292,11 +292,6 @@ func NewServer(config *Config) (*Server, error) {
 		}
 	}
 
-	// restore archive data before starting
-	//if err := m.restoreChain(); err != nil {
-	//	return nil, err
-	//}
-
 	// start consensus
 	if err := m.consensus.Start(); err != nil {
 		return nil, err
@@ -311,9 +306,6 @@ func NewServer(config *Config) (*Server, error) {
 
 	// setup edge application
 	{
-		topicSubFlag := m.consensus.GetCurrentValidators().Includes(m.consensus.GetSignerAddress())
-		m.logger.Info("setup edge application", "topicSubFlag", topicSubFlag)
-
 		keyBytes, err := m.secretsManager.GetSecret(secrets.ValidatorKey)
 		if err != nil {
 			return nil, err
@@ -341,7 +333,7 @@ func NewServer(config *Config) (*Server, error) {
 			minerAgent)
 
 		// start app status syncer
-		err = syncer.Start(endpoint.SubscribeEvents(), topicSubFlag)
+		err = syncer.Start(endpoint.SubscribeEvents())
 		if err != nil {
 			return nil, err
 		}
