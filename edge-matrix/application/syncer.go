@@ -1,7 +1,6 @@
 package application
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application/proof"
 	"github.com/emc-protocol/edge-matrix/miner"
@@ -137,13 +136,7 @@ func (s *syncer) Start(sub Subscription, topicSubFlag bool) error {
 // startPeerStatusUpdateProcess subscribes peer status change event and updates peer map
 func (s *syncer) startPeerStatusUpdateProcess() {
 	for peerStatus := range s.syncAppPeerClient.GetPeerStatusUpdateCh() {
-		if s.logger.IsDebug() {
-			bytes, err := json.Marshal(peerStatus)
-			if err != nil {
-				return
-			}
-			s.logger.Debug("AppPeerStatus updated: " + string(bytes))
-		}
+		s.logger.Info("AppPeerStatus updated ", "NodeID", peerStatus.ID.String())
 
 		defer func() {
 			err := s.syncAppPeerClient.CloseStream(peerStatus.ID)
@@ -211,12 +204,12 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 					validateUsedTime := time.Since(validateStart).Microseconds()
 					rate := float32(validateSuccess) / float32(proof.DefaultHashProofCount)
 					s.logger.Debug(fmt.Sprintf("used time for validate\t\t: %dms", validateUsedTime))
-					s.logger.Debug(fmt.Sprintf("validate success\t\t\t: %d/%d rate:%f", validateSuccess, loops, rate))
+					s.logger.Info(fmt.Sprintf("validate success\t\t\t: %d/%d rate:%f nodeID:%s", validateSuccess, loops, rate, peerStatus.ID.String()))
 					if rate >= 0.95 {
 						// valid proof
-						s.logger.Debug("------------------------------------------")
-						s.logger.Debug("----->Submit proof to IC", "usedTime", usedTime, "blockNumber", blockNumberFixed, "peerId", peerStatus.ID.String())
-						s.logger.Debug("------------------------------------------")
+						s.logger.Info("------------------------------------------")
+						s.logger.Info("----->Submit proof to IC", "usedTime", usedTime, "blockNumber", blockNumberFixed, "NodeID", peerStatus.ID.String())
+						s.logger.Info("------------------------------------------")
 						// submit proof result to IC canister
 						err := s.minerAgent.SubmitValidation(
 							int64(blockNumberFixed),
@@ -224,11 +217,11 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 							validateUsedTime,
 							peerStatus.ID.String(),
 						)
-						s.logger.Debug("------------------------------------------")
+						s.logger.Info("------------------------------------------")
 						if err != nil {
 							s.logger.Error("SubmitValidation:", "err", err)
 						}
-						s.logger.Debug("------------------------------------------")
+						s.logger.Info("------------------------------------------")
 					}
 				}
 			}
