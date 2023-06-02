@@ -244,6 +244,7 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 			}); err != nil {
 				m.logger.Warn("failed to publish status", "err", err)
 			}
+			m.logger.Info("endpoint.miner---->Publish AppStatus ok")
 		}
 	}
 }

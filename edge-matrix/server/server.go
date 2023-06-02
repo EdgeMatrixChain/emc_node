@@ -261,21 +261,6 @@ func NewServer(config *Config) (*Server, error) {
 		return nil, err
 	}
 
-	// check miner status
-	minerFlag := false
-	minerStatus, err := minerService.GetMiner()
-	if err != nil {
-		m.logger.Warn("Init Miner", "get miner status", err)
-	} else {
-		minerPrincipal := minerStatus.GetPrincipal()
-		if minerPrincipal != "" {
-			minerFlag = true
-			m.logger.Info("Init Miner", "principal", minerPrincipal)
-		} else {
-			m.logger.Warn("Init Miner", "principal", nil)
-		}
-	}
-
 	// setup and start grpc server
 	if err := m.setupGRPC(); err != nil {
 		return nil, err
@@ -297,13 +282,6 @@ func NewServer(config *Config) (*Server, error) {
 		return nil, err
 	}
 
-	// start relayer
-	//if config.Relayer {
-	//	if err := m.setupRelayer(); err != nil {
-	//		return nil, err
-	//	}
-	//}
-
 	// setup edge application
 	{
 		keyBytes, err := m.secretsManager.GetSecret(secrets.ValidatorKey)
@@ -314,6 +292,21 @@ func NewServer(config *Config) (*Server, error) {
 		key, err := crypto.BytesToECDSAPrivateKey(keyBytes)
 		if err != nil {
 			return nil, err
+		}
+
+		// check miner status
+		minerFlag := false
+		minerStatus, err := minerService.GetMiner()
+		if err != nil {
+			m.logger.Warn("Init Miner", "get miner status", err)
+		} else {
+			minerPrincipal := minerStatus.GetPrincipal()
+			if minerPrincipal != "" {
+				minerFlag = true
+				m.logger.Info("Init Miner", "principal", minerPrincipal)
+			} else {
+				m.logger.Warn("Init Miner", "principal", nil)
+			}
 		}
 
 		endpoint, err := application.NewApplicationEndpoint(m.logger, key, network.GetHost(), m.config.AppName, m.config.AppUrl, minerFlag)
@@ -333,7 +326,7 @@ func NewServer(config *Config) (*Server, error) {
 			minerAgent)
 
 		// start app status syncer
-		err = syncer.Start(endpoint.SubscribeEvents())
+		err = syncer.Start(endpoint.SubscribeEvents(), m.config.RunningMode == "full")
 		if err != nil {
 			return nil, err
 		}
