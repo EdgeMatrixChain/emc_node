@@ -297,7 +297,7 @@ func (m *MinerAgent) SubmitValidation(validationTicket int64, validator string, 
 		updateResult := UpdateResult{}
 		utils.Decode(&updateResult, respVariant)
 		if updateResult.Ok.Int64() > 0 {
-			m.logger.Info("SubmitValidation ok", "targetNodeID", targetNodeID)
+			m.logger.Info("\n------------------------------------------\nSubmitValidation ok", "targetNodeID", targetNodeID)
 			return nil
 		} else {
 			return errors.New(updateResult.Err.Index)

@@ -14,7 +14,7 @@ type CurrentEPowerResult struct {
 
 func (r *CurrentEPowerResult) GetOutput() string {
 	var buffer bytes.Buffer
-	buffer.WriteString("\n[MINER E-Power]\n")
+	buffer.WriteString("\n[MINER e-Power]\n")
 	buffer.WriteString(helper.FormatKV([]string{
 		fmt.Sprintf("Round |%d", r.Round),
 		fmt.Sprintf("Total |%d", r.Total),

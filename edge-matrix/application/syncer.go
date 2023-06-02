@@ -156,21 +156,20 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 				if !ok {
 					latestProofNum = 0
 				}
+				var blockNumberFixed uint64 = 0
 				if (blockNumber - latestProofNum) > proof.DefaultProofBlockMinDuration {
 					// send proof task to peer node
-					blockNumberFixed := (blockNumber / proof.DefaultProofBlockRange) * proof.DefaultProofBlockRange
+					blockNumberFixed = (blockNumber / proof.DefaultProofBlockRange) * proof.DefaultProofBlockRange
+					s.peersBlockNumMap[peerStatus.ID] = blockNumberFixed // commet this line for disable check blocknum
 					start := time.Now()
 
 					//  get data from peer
-					s.logger.Debug("------------------------------------------")
-					s.logger.Debug(fmt.Sprintf("GetPeerData: %s", peerStatus.ID.String()))
-					s.logger.Debug("------------------------------------------")
+					s.logger.Info(fmt.Sprintf("\n------------------------------------------\nGetPeerData: %s", peerStatus.ID.String()))
 					dataMap, err := s.syncAppPeerClient.GetPeerData(peerStatus.ID, header.Hash.String(), time.Second*30)
 					if err != nil {
 						s.logger.Error(err.Error())
 					}
-					usedTime := time.Since(start).Microseconds()
-					s.logger.Debug(fmt.Sprintf("used time for proof\t\t: %fms", usedTime))
+					usedTime := time.Since(start).Milliseconds()
 
 					// validate data
 					//if s.logger.IsDebug() {
@@ -201,15 +200,13 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 						}
 					}
 
-					validateUsedTime := time.Since(validateStart).Microseconds()
+					validateUsedTime := time.Since(validateStart).Milliseconds()
 					rate := float32(validateSuccess) / float32(proof.DefaultHashProofCount)
 					s.logger.Debug(fmt.Sprintf("used time for validate\t\t: %dms", validateUsedTime))
 					s.logger.Info(fmt.Sprintf("validate success\t\t\t: %d/%d rate:%f nodeID:%s", validateSuccess, loops, rate, peerStatus.ID.String()))
 					if rate >= 0.95 {
 						// valid proof
-						s.logger.Info("------------------------------------------")
-						s.logger.Info("----->Submit proof to IC", "usedTime(ms)", usedTime, "blockNumber", blockNumberFixed, "NodeID", peerStatus.ID.String())
-						s.logger.Info("------------------------------------------")
+						s.logger.Info("\n------------------------------------------\nSubmit proof to IC", "usedTime(ms)", usedTime, "blockNumber", blockNumberFixed, "NodeID", peerStatus.ID.String())
 						// submit proof result to IC canister
 						err := s.minerAgent.SubmitValidation(
 							int64(blockNumberFixed),
@@ -217,12 +214,12 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 							usedTime,
 							peerStatus.ID.String(),
 						)
-						s.logger.Info("------------------------------------------")
 						if err != nil {
-							s.logger.Error("SubmitValidation:", "err", err)
+							s.logger.Error("\n------------------------------------------\nSubmitValidation:", "err", err)
 						}
-						s.logger.Info("------------------------------------------")
 					}
+				} else {
+					s.logger.Warn(fmt.Sprintf("\n------------------------------------------\ninvalid blockNum: %d, NodeId:%s", blockNumberFixed, peerStatus.ID.String()))
 				}
 			}
 		}
