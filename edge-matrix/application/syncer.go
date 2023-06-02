@@ -169,8 +169,8 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 					if err != nil {
 						s.logger.Error(err.Error())
 					}
-					usedTime := time.Since(start).Seconds()
-					s.logger.Debug(fmt.Sprintf("used time for proof\t\t: %fs", usedTime))
+					usedTime := time.Since(start).Microseconds()
+					s.logger.Debug(fmt.Sprintf("used time for proof\t\t: %fms", usedTime))
 
 					// validate data
 					//if s.logger.IsDebug() {
@@ -208,13 +208,13 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 					if rate >= 0.95 {
 						// valid proof
 						s.logger.Info("------------------------------------------")
-						s.logger.Info("----->Submit proof to IC", "usedTime", usedTime, "blockNumber", blockNumberFixed, "NodeID", peerStatus.ID.String())
+						s.logger.Info("----->Submit proof to IC", "usedTime(ms)", usedTime, "blockNumber", blockNumberFixed, "NodeID", peerStatus.ID.String())
 						s.logger.Info("------------------------------------------")
 						// submit proof result to IC canister
 						err := s.minerAgent.SubmitValidation(
 							int64(blockNumberFixed),
 							s.minerAgent.GetIdentity(),
-							validateUsedTime,
+							usedTime,
 							peerStatus.ID.String(),
 						)
 						s.logger.Info("------------------------------------------")
