@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SyncAppClient interface {
+	PostAppStatus(ctx context.Context, in *PostPeerStatusRequest, opts ...grpc.CallOption) (SyncApp_PostAppStatusClient, error)
 	// Returns stream of data beginning specified from
 	GetData(ctx context.Context, in *GetDataRequest, opts ...grpc.CallOption) (SyncApp_GetDataClient, error)
 	// Returns app peer's status
@@ -37,8 +38,40 @@ func NewSyncAppClient(cc grpc.ClientConnInterface) SyncAppClient {
 	return &syncAppClient{cc}
 }
 
+func (c *syncAppClient) PostAppStatus(ctx context.Context, in *PostPeerStatusRequest, opts ...grpc.CallOption) (SyncApp_PostAppStatusClient, error) {
+	stream, err := c.cc.NewStream(ctx, &SyncApp_ServiceDesc.Streams[0], "/v1.SyncApp/PostAppStatus", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &syncAppPostAppStatusClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type SyncApp_PostAppStatusClient interface {
+	Recv() (*Result, error)
+	grpc.ClientStream
+}
+
+type syncAppPostAppStatusClient struct {
+	grpc.ClientStream
+}
+
+func (x *syncAppPostAppStatusClient) Recv() (*Result, error) {
+	m := new(Result)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *syncAppClient) GetData(ctx context.Context, in *GetDataRequest, opts ...grpc.CallOption) (SyncApp_GetDataClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SyncApp_ServiceDesc.Streams[0], "/v1.SyncApp/GetData", opts...)
+	stream, err := c.cc.NewStream(ctx, &SyncApp_ServiceDesc.Streams[1], "/v1.SyncApp/GetData", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +115,7 @@ func (c *syncAppClient) GetStatus(ctx context.Context, in *emptypb.Empty, opts .
 // All implementations must embed UnimplementedSyncAppServer
 // for forward compatibility
 type SyncAppServer interface {
+	PostAppStatus(*PostPeerStatusRequest, SyncApp_PostAppStatusServer) error
 	// Returns stream of data beginning specified from
 	GetData(*GetDataRequest, SyncApp_GetDataServer) error
 	// Returns app peer's status
@@ -93,6 +127,9 @@ type SyncAppServer interface {
 type UnimplementedSyncAppServer struct {
 }
 
+func (UnimplementedSyncAppServer) PostAppStatus(*PostPeerStatusRequest, SyncApp_PostAppStatusServer) error {
+	return status.Errorf(codes.Unimplemented, "method PostAppStatus not implemented")
+}
 func (UnimplementedSyncAppServer) GetData(*GetDataRequest, SyncApp_GetDataServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetData not implemented")
 }
@@ -110,6 +147,27 @@ type UnsafeSyncAppServer interface {
 
 func RegisterSyncAppServer(s grpc.ServiceRegistrar, srv SyncAppServer) {
 	s.RegisterService(&SyncApp_ServiceDesc, srv)
+}
+
+func _SyncApp_PostAppStatus_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(PostPeerStatusRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SyncAppServer).PostAppStatus(m, &syncAppPostAppStatusServer{stream})
+}
+
+type SyncApp_PostAppStatusServer interface {
+	Send(*Result) error
+	grpc.ServerStream
+}
+
+type syncAppPostAppStatusServer struct {
+	grpc.ServerStream
+}
+
+func (x *syncAppPostAppStatusServer) Send(m *Result) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _SyncApp_GetData_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -164,6 +222,11 @@ var SyncApp_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "PostAppStatus",
+			Handler:       _SyncApp_PostAppStatus_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "GetData",
 			Handler:       _SyncApp_GetData_Handler,

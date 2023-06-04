@@ -129,52 +129,6 @@ func Test_local_RegisterNode(t *testing.T) {
 	// (variant {Err=variant {NodeAlreadyExist}})-> [map[3456837:map[440058177:<nil> EnumIndex:440058177] EnumIndex:3456837]]
 }
 
-func Test_local_ListNodes(t *testing.T) {
-	canister := "bw4dl-smaaa-aaaaa-qaacq-cai"
-	methodName := "listNodes"
-	agent := NewWithHost("http://127.0.0.1:8081", false, privKeyHexString)
-
-	var argType []idl.Type
-	argType = append(argType, new(idl.Nat))
-	argType = append(argType, new(idl.Nat))
-	argType = append(argType, new(idl.Nat))
-
-	argValue := []interface{}{
-		big.NewInt(2),
-		big.NewInt(0),
-		big.NewInt(10)}
-	arg, _ := idl.Encode(argType, argValue)
-	t.Log("argType", argType)
-	t.Log("argValue", argValue)
-	t.Log(arg)
-
-	types, result, str, err := agent.Query(canister, methodName, arg)
-	if err != nil {
-		panic(err)
-	}
-	t.Log(str, types[0].String(), "\n ->", result)
-	// (vec {record {"16Uiu2HAm9kJriTsrV85UVnULzEqu7adzhxYg5wkUoMQc5PBYe5n3"; record {nodeID="16Uiu2HAm9kJriTsrV85UVnULzEqu7adzhxYg5wkUoMQc5PBYe5n3"; owner=principal "ov7pu-7jnok-6xopc-2vt5n-k7kmj-7mkjx-z2zo5-hudbj-6h3b7-ox4aq-rae"; lastActiveTime=1685353189081697488; wallet=principal "7aodp-4ebhh-pj5sa-5kdmg-fkkw3-wk6rv-yf4rr-pt2g7-ebx7j-7sjq4-4qe"; registered=1685353189081697488; nodeType=2}}})
-	// ->
-	// vec[
-	// record[
-	//		map[
-	//			0:16Uiu2HAm9kJriTsrV85UVnULzEqu7adzhxYg5wkUoMQc5PBYe5n3
-	//			1:map[
-	//				1773021929:1685353189081697488
-	//				3054210041:[129 57 222 158 200 29 80 216 98 169 86 221 149 232 215 5 228 98 249 232 223 32 111 244 254 73 135 57 2]
-	//				4104166786:1685353189081697488
-	//				4135997916:2
-	//				656559709:16Uiu2HAm9kJriTsrV85UVnULzEqu7adzhxYg5wkUoMQc5PBYe5n3
-	//				947296307:[45 114 189 119 60 90 172 250 213 125 76 79 216 164 223 58 203 186 122 12 41 241 246 31 186 252 4 34 2]
-	//			]
-	//		]
-	//	]
-	//]
-	for _, record := range result[0].([]interface{}) {
-		t.Log("record:", record)
-	}
-}
-
 func Test_local_ListComputingNodes(t *testing.T) {
 	canister := "bw4dl-smaaa-aaaaa-qaacq-cai"
 	methodName := "listComputingNodes"

@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/emc-protocol/edge-matrix/contracts"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
 	"math/big"
@@ -193,7 +194,7 @@ func TestEIP155Signer_TeleCreateRtcSubject(t *testing.T) {
 		})
 	}
 }
-func TestEIP155Signer_TeleCallEcho(t *testing.T) {
+func TestEIP155Signer_TeleCallPocRequest(t *testing.T) {
 	t.Parallel()
 
 	toAddress := contracts.EdgeCallPrecompile
@@ -234,13 +235,14 @@ func TestEIP155Signer_TeleCallEcho(t *testing.T) {
 
 			assert.Equal(t, testCase.checksummedAddress, address.String())
 
-			input := `{"peerId": "16Uiu2HAkw3hzExAr4CXDrC2VQfeXgrJdn5bVaV58XRbXad77EU9V","endpoint": "/echo","input": "hello"}`
+			inputFmt := `{"peerId": "%s","endpoint": "/poc_request","input": "{"node_id": "%s"}"}`
+
 			tele := &types.Telegram{
 				To:       &toAddress,
 				Value:    big.NewInt(0),
 				GasPrice: big.NewInt(0),
 				Nonce:    uint64(7),
-				Input:    []byte(input),
+				Input:    []byte(fmt.Sprintf(inputFmt, "16Uiu2HAmKt7agigzA6oGDdMre4eCU7QER91vrW9M3aneiHEvGu1Y", "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC")),
 			}
 			jsonTxn, err := json.Marshal(tele)
 			if err != nil {

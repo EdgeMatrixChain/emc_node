@@ -2,13 +2,17 @@ package application
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application/proto"
-	"github.com/emc-protocol/edge-matrix/helper/ic/agent"
+	"github.com/emc-protocol/edge-matrix/helper/rpc"
+	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/network"
 	"github.com/emc-protocol/edge-matrix/network/event"
 	"github.com/hashicorp/go-hclog"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
@@ -24,16 +28,21 @@ const (
 )
 
 type syncAppPeerClient struct {
-	logger  hclog.Logger // logger used for console logging
-	network Network      // reference to the network module
-
-	icAgent agent.Agent
+	logger     hclog.Logger // logger used for console logging
+	network    Network      // reference to the network module
+	host       host.Host
+	minerAgent *miner.MinerAgent
 
 	subscription           Subscription          // reference to the application subscription
 	topic                  *network.Topic        // reference to the network topic
 	id                     string                // node id
 	peerStatusUpdateCh     chan *AppPeer         // peer status update channel
 	peerConnectionUpdateCh chan *event.PeerEvent // peer connection update channel
+
+	validatorStore ValidatorStore
+	jsonRpcClient  *rpc.JsonRpcClient
+	privateKey     *ecdsa.PrivateKey
+	endpoint       *Endpoint
 
 	shouldEmitData bool // flag for emitting data in the topic
 	closeCh        chan struct{}
@@ -45,10 +54,11 @@ func (m *syncAppPeerClient) Start(subscription Subscription, topicSubFlag bool) 
 	// Mark client active.
 	atomic.StoreUint64(m.closed, 0)
 
-	if err := m.startGossip(topicSubFlag); err != nil {
-		return err
-	}
-	m.logger.Info("startGossip", "topicSubFlag", topicSubFlag)
+	// TODO remove
+	//if err := m.startGossip(topicSubFlag); err != nil {
+	//	return err
+	//}
+	//m.logger.Info("startGossip", "topicSubFlag", topicSubFlag)
 
 	go m.startApplicationEventProcess(subscription)
 	go m.startPeerEventProcess()
@@ -218,7 +228,6 @@ func (m *syncAppPeerClient) handleStatusUpdate(obj interface{}, from peer.ID) {
 // startNewBlockProcess starts application event subscription
 func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscription) {
 	m.subscription = subscrption
-
 	for {
 		var event *Event
 
@@ -234,17 +243,44 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 
 		if l := len(event.NewApp); l > 0 {
 			latest := event.NewApp[l-1]
-			// Publish status
-			if err := m.topic.Publish(&proto.AppStatus{
-				Name:        latest.Name,
-				StartupTime: latest.StartupTime,
-				Uptime:      latest.Uptime,
-				GuageMax:    latest.GuageMax,
-				GuageHeight: latest.GuageHeight,
-			}); err != nil {
-				m.logger.Warn("failed to publish status", "err", err)
+			m.logger.Debug("event", "latest", latest)
+			validators, err := m.minerAgent.ListValidatorsNodeId()
+			if err != nil {
+				m.logger.Error("ListValidatorsNodeId", err.Error())
+				continue
 			}
-			m.logger.Info("endpoint.miner---->Publish AppStatus ok")
+			if len(validators) < 1 {
+				continue
+			}
+			for _, validatorNodeID := range validators {
+				// post status by sendTelegram
+				nonce, err := m.endpoint.GetNextNonce()
+				if err != nil {
+					m.logger.Error("unable to GetNextNonce, %v", err)
+					continue
+				}
+				inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, m.id)
+				response, err := m.jsonRpcClient.SendRawTelegram(
+					rpc.EdgeCallPrecompile,
+					nonce,
+					inputString,
+					m.privateKey,
+				)
+				if err != nil {
+					m.endpoint.DisableNonceCache()
+					m.logger.Error("SendRawTelegram", "err", err.Error())
+				} else {
+					m.endpoint.IncreaseNonce()
+					m.logger.Info("SendRawTelegram", "TelegramHash:", response.Result.TelegramHash)
+					decodeBytes, err := base64.StdEncoding.DecodeString(response.Result.Response)
+					if err != nil {
+						m.logger.Error("SendRawTelegram", "DecodeString err:", err.Error())
+						m.logger.Error(err.Error())
+					} else {
+						m.logger.Info("endpoint.miner---->poc_request:", "validatorNodeID", validatorNodeID, "resp", string(decodeBytes))
+					}
+				}
+			}
 		}
 	}
 }
@@ -276,6 +312,37 @@ func (m *syncAppPeerClient) startPeerEventProcess() {
 // CloseStream closes stream
 func (m *syncAppPeerClient) CloseStream(peerID peer.ID) error {
 	return m.network.CloseProtocolStream(appSyncerProto, peerID)
+}
+
+// GetPeerData returns bytes of data from given hash to peer
+func (m *syncAppPeerClient) PostPeerStatusData(peerID peer.ID, nodeId string) (string, error) {
+	toPeerId := peerID.String()
+	clt, err := m.newSyncPeerClient(peerID)
+	if err != nil {
+		return "", fmt.Errorf("failed to create sync peer client to %s: %w", toPeerId, err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// TODO handle timeout
+	data, err := clt.PostAppStatus(ctx, &proto.PostPeerStatusRequest{
+		NodeId: nodeId,
+	})
+	if err != nil {
+		cancel()
+
+		return "", fmt.Errorf("failed to PostPeerStatusData: %w", err)
+	}
+	if err != nil {
+		return "", err
+	}
+	recv, err := data.Recv()
+	if err != nil {
+		m.logger.Warn(err.Error())
+		return "", err
+	}
+	m.logger.Info("PostAppStatus result:", recv.Data)
+	return recv.Data, nil
 }
 
 // GetPeerData returns bytes of data from given hash to peer
@@ -379,6 +446,12 @@ type SyncAppPeerClient interface {
 func NewSyncAppPeerClient(
 	logger hclog.Logger,
 	network Network,
+	validatorStore ValidatorStore,
+	minerAgent *miner.MinerAgent,
+	host host.Host,
+	jsonRpcClient *rpc.JsonRpcClient,
+	privateKey *ecdsa.PrivateKey,
+	endpoint *Endpoint,
 ) SyncAppPeerClient {
 	return &syncAppPeerClient{
 		logger:                 logger.Named(SyncAppPeerClientLoggerName),
@@ -389,5 +462,11 @@ func NewSyncAppPeerClient(
 		shouldEmitData:         true,
 		closeCh:                make(chan struct{}),
 		closed:                 new(uint64),
+		validatorStore:         validatorStore,
+		minerAgent:             minerAgent,
+		host:                   host,
+		jsonRpcClient:          jsonRpcClient,
+		privateKey:             privateKey,
+		endpoint:               endpoint,
 	}
 }

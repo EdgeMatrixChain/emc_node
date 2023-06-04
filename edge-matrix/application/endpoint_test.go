@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/chain"
 	"github.com/emc-protocol/edge-matrix/crypto"
+	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/secrets"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func TestLocal(t *testing.T) {
 
 	key, _, err := crypto.GenerateAndEncodeECDSAPrivateKey()
 	assert.NoError(t, err)
-	endpoint, err := NewApplicationEndpoint(hclog.NewNullLogger(), key, srvHost, "ec-test", "http://127.0.0.1/", false)
+	endpoint, err := NewApplicationEndpoint(hclog.NewNullLogger(), key, srvHost, "ec-test", "http://127.0.0.1/", false, nil, nil, rpc.NewDefaultJsonRpcClient())
 	if err != nil {
 		return
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/emc-protocol/edge-matrix/helper/ic/utils/identity"
 	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
 	"github.com/emc-protocol/edge-matrix/helper/progress"
+	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
 	minerProto "github.com/emc-protocol/edge-matrix/miner/proto"
 	"github.com/emc-protocol/edge-matrix/rtc"
@@ -308,18 +309,19 @@ func NewServer(config *Config) (*Server, error) {
 				m.logger.Warn("Init Miner", "principal", nil)
 			}
 		}
-
-		endpoint, err := application.NewApplicationEndpoint(m.logger, key, network.GetHost(), m.config.AppName, m.config.AppUrl, minerFlag)
+		jsonRpcClient := rpc.NewDefaultJsonRpcClient()
+		endpoint, err := application.NewApplicationEndpoint(m.logger, key, network.GetHost(), m.config.AppName, m.config.AppUrl, minerFlag, m.blockchain, minerAgent, jsonRpcClient)
 		if err != nil {
 			return nil, err
 		}
 		endpoint.SetSigner(application.NewEIP155Signer(chain.AllForksEnabled.At(0), uint64(m.config.Chain.Params.ChainID)))
 
 		// setup app status syncer
+		ayncAppclient := application.NewSyncAppPeerClient(m.logger, network, m.consensus, minerAgent, m.network.GetHost(), jsonRpcClient, key, endpoint)
 		syncer := application.NewSyncer(
 			m.logger,
-			application.NewSyncAppPeerClient(m.logger, network),
-			application.NewSyncAppPeerService(network, endpoint),
+			ayncAppclient,
+			application.NewSyncAppPeerService(m.logger, network, endpoint, ayncAppclient, m.blockchain, minerAgent),
 			m.network.GetHost(),
 			m.blockchain,
 			m.consensus,

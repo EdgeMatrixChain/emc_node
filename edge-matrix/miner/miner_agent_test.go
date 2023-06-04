@@ -124,3 +124,25 @@ func Test_SubmitValidation(t *testing.T) {
 		t.Log(err)
 	}
 }
+func Test_listValidators(t *testing.T) {
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	icAgent := agent.NewWithHost("https://ic0.app", false, privKey)
+	privKeyBytes, err := hex.DecodeHex(privKey)
+	if err != nil {
+		return
+	}
+	identity := identity.New(false, privKeyBytes)
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
+
+	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
+
+	nodeList, err := minerAgent.ListValidatorsNodeId()
+	if err != nil {
+		t.Log(err)
+	}
+	t.Log(len(nodeList))
+	for _, validatorNodeID := range nodeList {
+		t.Log(validatorNodeID)
+	}
+}

@@ -7,6 +7,7 @@ option go_package = "/application/proto";
 import "google/protobuf/empty.proto";
 
 service SyncApp {
+  rpc PostAppStatus(PostPeerStatusRequest) returns (stream Result);
   // Returns stream of data beginning specified from
   rpc GetData(GetDataRequest) returns (stream Data);
   // Returns app peer's status
@@ -19,10 +20,19 @@ message GetDataRequest {
   string dataHash = 1;
 }
 
+// PostPeerStatusRequest is a request for post poc
+message PostPeerStatusRequest {
+  // The PeerStatus
+  string node_id = 1;
+}
 // Data contains app data as []byte
 message Data {
   // map[string]*[]byte
   map<string, bytes> data = 1;
+}
+
+message Result {
+  string data = 1;
 }
 
 // AppStatus contains app peer status

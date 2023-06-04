@@ -1,4 +1,4 @@
-package application
+package rpc
 
 import (
 	"reflect"
@@ -13,7 +13,7 @@ type FastHttpClient struct {
 	client *fasthttp.Client
 }
 
-func NewFastHttpClient() *FastHttpClient {
+func NewDefaultHttpClient() *FastHttpClient {
 	// You may read the timeouts from some config
 	readTimeout := 60 * time.Second
 	writeTimeout := 60 * time.Second
@@ -33,8 +33,26 @@ func NewFastHttpClient() *FastHttpClient {
 	}
 	return hc
 }
+func NewHttpClient(concurrency int, readTimeout time.Duration, writeTimeout time.Duration) *FastHttpClient {
+	// You may read the timeouts from some config
+	tcpDialer := &fasthttp.TCPDialer{
+		Concurrency:      concurrency,
+		DNSCacheDuration: time.Hour,
+	}
+	hc := &FastHttpClient{
+		client: &fasthttp.Client{
+			ReadTimeout:                   readTimeout,
+			WriteTimeout:                  writeTimeout,
+			NoDefaultUserAgentHeader:      true, // Don't send: User-Agent: fasthttp
+			DisableHeaderNamesNormalizing: true, // If you set the case on your headers correctly you can enable this
+			DisablePathNormalizing:        true,
+			Dial:                          tcpDialer.Dial,
+		},
+	}
+	return hc
+}
 
-func (f *FastHttpClient) sendGetRequest(url string) ([]byte, error) {
+func (f *FastHttpClient) SendGetRequest(url string) ([]byte, error) {
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(url)
 	req.Header.SetMethod(fasthttp.MethodGet)
@@ -49,7 +67,7 @@ func (f *FastHttpClient) sendGetRequest(url string) ([]byte, error) {
 	}
 }
 
-func (f *FastHttpClient) sendPostJsonRequest(url string, reqEntityBytes []byte) ([]byte, error) {
+func (f *FastHttpClient) SendPostJsonRequest(url string, reqEntityBytes []byte) ([]byte, error) {
 	// per-request timeout
 	req := fasthttp.AcquireRequest()
 	req.SetRequestURI(url)

@@ -687,6 +687,7 @@ func (s *Server) addToDialQueue(addr *peer.AddrInfo, priority common.DialPriorit
 
 func (s *Server) emitEvent(peerID peer.ID, peerEventType peerEvent.PeerEventType) {
 	// POTENTIALLY BLOCKING
+	// TODO replace
 	//if err := s.emitterPeerEvent.Emit(peerEvent.PeerEvent{
 	//	PeerID: peerID,
 	//	Type:   peerEventType,
