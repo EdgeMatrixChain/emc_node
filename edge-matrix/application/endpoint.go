@@ -164,26 +164,36 @@ func (e *Endpoint) runPoc() {
 			// DO poc_cpu
 			start := time.Now()
 			//  get data from peer
-			nonce, err := e.GetNextNonce()
-			if err != nil {
-				e.logger.Error("\"runPoc -->GetNextNonce", "err:", err.Error())
-				return
-			}
-			e.logger.Info(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.NodeId, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce)
 			inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu\",\"Input\": {\"seed\": \"%s\"}}", pocData.NodeId, pocData.Seed)
-			response, err := e.jsonRpcClient.SendRawTelegram(
-				rpc.EdgeCallPrecompile,
-				nonce,
-				inputString,
-				e.privateKey,
-			)
-			if err != nil {
-				e.DisableNonceCache()
-				e.logger.Warn("\"runPoc -->SendRawTelegram for poc_cpu", "err:", err.Error())
-				return
+			redoCount := 1
+			callCount := 0
+			var response rpc.TelegramResponse
+			for callCount <= redoCount {
+				nonce, err := e.GetNextNonce()
+				if err != nil {
+					e.logger.Error("\"runPoc -->GetNextNonce", "err:", err.Error())
+					return
+				}
+				e.logger.Info(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.NodeId, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce)
+				response, err := e.jsonRpcClient.SendRawTelegram(
+					rpc.EdgeCallPrecompile,
+					nonce,
+					inputString,
+					e.privateKey,
+				)
+				if err != nil {
+					e.DisableNonceCache()
+					e.logger.Warn("\"runPoc -->SendRawTelegram for poc_cpu", "nonce", nonce, "callCount", callCount, "err", err.Error())
+					if callCount >= redoCount {
+						return
+					}
+				} else {
+					e.logger.Info("runPoc -->SendRawTelegram for poc_cpu", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount)
+					break
+				}
+				callCount += 1
 			}
 			e.IncreaseNonce()
-			e.logger.Info("SendRawTelegram", "TelegramHash:", response.Result.TelegramHash)
 			respBytes, err := base64.StdEncoding.DecodeString(response.Result.Response)
 			if err != nil {
 				e.logger.Warn("runPoc -->base64 decode err: ", err.Error())

@@ -254,31 +254,47 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 			}
 			for _, validatorNodeID := range validators {
 				// post status by sendTelegram
-				nonce, err := m.endpoint.GetNextNonce()
-				if err != nil {
-					m.logger.Error("unable to GetNextNonce, %v", err)
-					continue
+				redoCount := 1
+				callCount := 0
+				var response rpc.TelegramResponse
+				for callCount <= redoCount {
+					nonce, err := m.endpoint.GetNextNonce()
+					if err != nil {
+						m.logger.Error("unable to GetNextNonce, %v", err)
+						continue
+					}
+					inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, m.id)
+					response, err := m.jsonRpcClient.SendRawTelegram(
+						rpc.EdgeCallPrecompile,
+						nonce,
+						inputString,
+						m.privateKey,
+					)
+					if err != nil {
+						m.endpoint.DisableNonceCache()
+						m.endpoint.logger.Warn("\"runPoc -->SendRawTelegram for poc_request", "nonce", nonce, "callCount", callCount, "err", err.Error())
+						if callCount >= redoCount {
+							return
+						}
+					} else {
+						m.endpoint.logger.Info("runPoc -->SendRawTelegram for poc_request", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount)
+						break
+					}
+					callCount += 1
 				}
-				inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, m.id)
-				response, err := m.jsonRpcClient.SendRawTelegram(
-					rpc.EdgeCallPrecompile,
-					nonce,
-					inputString,
-					m.privateKey,
-				)
 				if err != nil {
 					m.endpoint.DisableNonceCache()
 					m.logger.Error("SendRawTelegram", "err", err.Error())
 				} else {
-					m.endpoint.IncreaseNonce()
-					m.logger.Info("SendRawTelegram", "TelegramHash:", response.Result.TelegramHash)
-					decodeBytes, err := base64.StdEncoding.DecodeString(response.Result.Response)
-					if err != nil {
-						m.logger.Error("SendRawTelegram", "DecodeString err:", err.Error())
-						m.logger.Error(err.Error())
-					} else {
-						m.logger.Info("endpoint.miner---->poc_request:", "validatorNodeID", validatorNodeID, "resp", string(decodeBytes))
-					}
+				}
+				m.endpoint.IncreaseNonce()
+				m.logger.Info("SendRawTelegram", "TelegramHash:", response.Result.TelegramHash)
+				decodeBytes, err := base64.StdEncoding.DecodeString(response.Result.Response)
+				if err != nil {
+					m.logger.Error("SendRawTelegram", "DecodeString err:", err.Error())
+					m.logger.Error(err.Error())
+				} else {
+					m.logger.Info("endpoint.miner---->poc_request:", "validatorNodeID", validatorNodeID, "resp", string(decodeBytes))
 				}
 			}
 		}
