@@ -1,9 +1,17 @@
 package proof
 
-type PocCpuData struct {
+import "time"
+
+type PocCpuRequest struct {
 	NodeId   string
 	Seed     string
 	BlockNum uint64
+	Start    time.Time
+}
+
+type PocCpuData struct {
+	Validator string
+	Seed      string
 }
 
 type PocTask struct {
@@ -16,7 +24,7 @@ type PocTask struct {
 	priority uint64
 }
 
-// GetAddrInfo returns the peer information associated with the dial
+// GetPocCpuDataInfo returns the poc information
 func (dt *PocTask) GetPocCpuDataInfo() *PocCpuData {
 	return dt.pocCpuData
 }

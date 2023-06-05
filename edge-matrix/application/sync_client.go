@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/emc-protocol/edge-matrix/application/proof"
 	"github.com/emc-protocol/edge-matrix/application/proto"
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
@@ -246,7 +248,7 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 			m.logger.Debug("event", "latest", latest)
 			validators, err := m.minerAgent.ListValidatorsNodeId()
 			if err != nil {
-				m.logger.Error("ListValidatorsNodeId", err.Error())
+				m.logger.Error("endpoint.miner -->ListValidatorsNodeId", err.Error())
 				continue
 			}
 			if len(validators) < 1 {
@@ -254,16 +256,18 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 			}
 			for _, validatorNodeID := range validators {
 				// post status by sendTelegram
+				m.endpoint.DisableNonceCache()
 				redoCount := 1
 				callCount := 0
-				var response rpc.TelegramResponse
+				teleResponse := rpc.TelegramResponse{}
+				sendOk := false
 				for callCount <= redoCount {
 					nonce, err := m.endpoint.GetNextNonce()
 					if err != nil {
 						m.logger.Error("unable to GetNextNonce, %v", err)
 						continue
 					}
-					inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, m.id)
+					inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, m.id)
 					response, err := m.jsonRpcClient.SendRawTelegram(
 						rpc.EdgeCallPrecompile,
 						nonce,
@@ -272,29 +276,47 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 					)
 					if err != nil {
 						m.endpoint.DisableNonceCache()
-						m.endpoint.logger.Warn("\"runPoc -->SendRawTelegram for poc_request", "nonce", nonce, "callCount", callCount, "err", err.Error())
+						m.endpoint.logger.Warn("endpoint.miner -->SendRawTelegram for poc_request", "nonce", nonce, "callCount", callCount, "input", inputString, "err", err.Error())
 						if callCount >= redoCount {
 							return
 						}
 					} else {
-						m.endpoint.logger.Info("runPoc -->SendRawTelegram for poc_request", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount)
+						m.endpoint.logger.Debug("endpoint.miner -->SendRawTelegram for poc_request", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount, "input", inputString)
+						sendOk = true
+						teleResponse = *response
 						break
 					}
 					callCount += 1
 				}
-				if err != nil {
-					m.endpoint.DisableNonceCache()
-					m.logger.Error("SendRawTelegram", "err", err.Error())
-				} else {
+				if !sendOk {
+					m.logger.Error("endpoint.miner---->poc_request failed", "validatorNodeID", validatorNodeID)
+					continue
 				}
-				m.endpoint.IncreaseNonce()
-				m.logger.Info("SendRawTelegram", "TelegramHash:", response.Result.TelegramHash)
-				decodeBytes, err := base64.StdEncoding.DecodeString(response.Result.Response)
+				m.logger.Info("endpoint.miner -->SendRawTelegram", "TelegramHash:", teleResponse.Result.TelegramHash)
+				decodeBytes, err := base64.StdEncoding.DecodeString(teleResponse.Result.Response)
 				if err != nil {
 					m.logger.Error("SendRawTelegram", "DecodeString err:", err.Error())
 					m.logger.Error(err.Error())
 				} else {
 					m.logger.Info("endpoint.miner---->poc_request:", "validatorNodeID", validatorNodeID, "resp", string(decodeBytes))
+					var obj struct {
+						Validator string `json:"validator"`
+						Seed      string `json:"seed"`
+						Err       string `json:"err"`
+					}
+					if err := json.Unmarshal(decodeBytes, &obj); err != nil {
+						m.logger.Error("endpoint.miner -->json.Unmarshal", "err", err.Error())
+						return
+					}
+					if obj.Err != "" {
+						m.logger.Error("endpoint.miner -->Response", "err", obj.Err)
+						return
+					}
+					m.endpoint.AddPocTask(&proof.PocCpuData{
+						Validator: obj.Validator,
+						Seed:      obj.Seed,
+					}, proof.PriorityRequestedPoc)
+					m.endpoint.logger.Info("endpoint.miner -->AddPocTask", "Validator", validatorNodeID, "Seed", obj.Seed)
 				}
 			}
 		}
@@ -398,7 +420,6 @@ func (m *syncAppPeerClient) newSyncPeerClient(peerID peer.ID) (proto.SyncAppClie
 	return proto.NewSyncAppClient(conn), nil
 }
 
-// fromProto gets block from gRPC response data
 func fromProto(protoData *proto.Data) (map[string][]byte, error) {
 	return protoData.Data, nil
 }

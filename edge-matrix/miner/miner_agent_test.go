@@ -14,7 +14,8 @@ const (
 )
 
 func Test_RegisterNode(t *testing.T) {
-	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
 	privKeyBytes, err := hex.DecodeHex(privKey)
 	if err != nil {
 		return
@@ -35,7 +36,8 @@ func Test_RegisterNode(t *testing.T) {
 }
 
 func Test_UnRegisterNode(t *testing.T) {
-	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
 	privKeyBytes, err := hex.DecodeHex(privKey)
 	if err != nil {
 		return

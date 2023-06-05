@@ -108,7 +108,7 @@ func (d *PocQueue) AddTask(
 		priority:   uint64(priority),
 	}
 
-	d.tasks[pocData.NodeId] = task
+	d.tasks[pocData.Validator] = task
 	heap.Push(&d.heap, task)
 
 	select {

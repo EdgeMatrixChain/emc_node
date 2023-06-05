@@ -287,6 +287,8 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 				return "", err
 			}
 
+			//respBuf, callErr := application.CallWithFrom(p.network.GetHost(), application.ProtoTagEcApp, call, tele.From)
+			// TODO relpace Call to CallWithFrom
 			respBuf, callErr := application.Call(p.network.GetHost(), application.ProtoTagEcApp, call)
 			if callErr != nil {
 				return "", callErr

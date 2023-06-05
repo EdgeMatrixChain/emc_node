@@ -2,7 +2,6 @@ package miner
 
 import (
 	"errors"
-	"fmt"
 	"github.com/emc-protocol/edge-matrix/helper/ic/agent"
 	"github.com/emc-protocol/edge-matrix/helper/ic/utils"
 	"github.com/emc-protocol/edge-matrix/helper/ic/utils/idl"
@@ -166,9 +165,7 @@ func (m *MinerAgent) MyCurrentEPower(nodeId string) (uint64, uint64, error) {
 		return 0, 0, err
 	}
 	m.logger.Debug("MyCurrentEPower", "types", types, "result", result)
-	fmt.Println("types:", types)
 	//ouput-> types: [interface vec interface record {656559709:text; 947296307:principal; 3054210041:principal; 4104166786:int; 4135997916:nat}]
-	fmt.Println("result:", result)
 	//ouput-> result: [[map[3054210041:[57 248 44 186 16 145 100 93 182 123 49 153 147 45 214 150 45 224 237 216 84 142 130 10 172 82 193 48 2] 4104166786:1685512050331435992 4135997916:0 656559709:16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC 947296307:[245 50 153 79 90 148 3 179 181 210 38 205 150 98 51 71 55 221 150 24 248 186 191 134 143 61 52 87 2]]]]
 	if result != nil && len(result) >= 2 {
 		return result[0].(*big.Int).Uint64(), result[1].(*big.Int).Uint64(), nil

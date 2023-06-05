@@ -114,6 +114,8 @@ func (c *JsonRpcClient) SendRawTelegram(to types.Address, nonce uint64, input st
 		return nil, errors.New("SendPostJsonRequest err:" + err.Error())
 	}
 	// {"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"nonce too low"}}
+	//fmt.Println("SendRawTelegram bytes:", string(bytes))
+
 	sresp := &StringResponse{}
 	err = json.Unmarshal(bytes, sresp)
 	if err != nil {

@@ -17,7 +17,7 @@ func (r *CurrentEPowerResult) GetOutput() string {
 	buffer.WriteString("\n[MINER e-Power]\n")
 	buffer.WriteString(helper.FormatKV([]string{
 		fmt.Sprintf("Round |%d", r.Round),
-		fmt.Sprintf("Total |%d", r.Total),
+		fmt.Sprintf("Total |%d E", r.Total),
 	}))
 	buffer.WriteString("\n")
 
