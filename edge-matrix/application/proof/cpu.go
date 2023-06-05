@@ -16,7 +16,7 @@ import (
 const (
 	DefaultProofBlockRange       = 30
 	DefaultProofBlockMinDuration = 400
-	DefaultProofDuration         = 15 * 60 * time.Second
+	DefaultProofDuration         = 5 * 60 * time.Second
 	DefaultHashProofTarget       = "0000"
 	DefaultHashProofCount        = 60
 )

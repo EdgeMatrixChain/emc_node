@@ -265,6 +265,7 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 					nonce, err := m.endpoint.GetNextNonce()
 					if err != nil {
 						m.logger.Error("unable to GetNextNonce, %v", err)
+						callCount += 1
 						continue
 					}
 					inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, m.id)
@@ -278,15 +279,15 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 						m.endpoint.DisableNonceCache()
 						m.endpoint.logger.Warn("endpoint.miner -->SendRawTelegram for poc_request", "nonce", nonce, "callCount", callCount, "input", inputString, "err", err.Error())
 						if callCount >= redoCount {
-							return
+							break
 						}
+						callCount += 1
 					} else {
 						m.endpoint.logger.Debug("endpoint.miner -->SendRawTelegram for poc_request", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount, "input", inputString)
 						sendOk = true
 						teleResponse = *response
 						break
 					}
-					callCount += 1
 				}
 				if !sendOk {
 					m.logger.Error("endpoint.miner---->poc_request failed", "validatorNodeID", validatorNodeID)
@@ -306,11 +307,11 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 					}
 					if err := json.Unmarshal(decodeBytes, &obj); err != nil {
 						m.logger.Error("endpoint.miner -->json.Unmarshal", "err", err.Error())
-						return
+						continue
 					}
 					if obj.Err != "" {
 						m.logger.Error("endpoint.miner -->Response", "err", obj.Err)
-						return
+						continue
 					}
 					m.endpoint.AddPocTask(&proof.PocCpuData{
 						Validator: obj.Validator,

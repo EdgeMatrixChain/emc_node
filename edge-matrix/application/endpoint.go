@@ -176,9 +176,9 @@ func (e *Endpoint) runPoc() {
 			_, bytes, err := proof.ProofByCalcHash(seed, target, time.Second*5)
 			if err != nil {
 				e.logger.Error("runPoc -->ProofByCalcHash", "err", err.Error())
-				return
+			} else {
+				data[seed] = bytes
 			}
-			data[seed] = bytes
 			i += 1
 		}
 		resp := "["
@@ -194,12 +194,14 @@ func (e *Endpoint) runPoc() {
 		inputData := fmt.Sprintf("{\"node_id\" : \"%s\", \"poc_data\": %s}", e.h.ID().String(), resp)
 		redoCount := 1
 		callCount := 0
+		callFail := true
 		teleResponse := rpc.TelegramResponse{}
 		for callCount <= redoCount {
 			nonce, err := e.GetNextNonce()
 			if err != nil {
 				e.logger.Error("\"runPoc -->GetNextNonce", "err:", err.Error())
-				return
+				callCount += 1
+				continue
 			}
 			inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_validate\",\"Input\": %s}", pocData.Validator, inputData)
 			e.logger.Info(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.Validator, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce, "data", inputString)
@@ -213,19 +215,23 @@ func (e *Endpoint) runPoc() {
 				e.DisableNonceCache()
 				e.logger.Warn("\"runPoc -->SendRawTelegram for poc_cpu", "nonce", nonce, "callCount", callCount, "err", err.Error())
 				if callCount >= redoCount {
-					return
+					break
 				}
 			} else {
 				e.logger.Info("runPoc -->SendRawTelegram for poc_cpu", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount)
 				teleResponse = *response
+				callFail = false
 				break
 			}
 			callCount += 1
 		}
+		if callFail {
+			continue
+		}
 		respBytes, err := base64.StdEncoding.DecodeString(teleResponse.Result.Response)
 		if err != nil {
 			e.logger.Warn("runPoc -->base64 decode err: ", err.Error())
-			return
+			continue
 		}
 		var obj struct {
 			Message string          `json:"message"`
@@ -233,7 +239,7 @@ func (e *Endpoint) runPoc() {
 		}
 		if err := json.Unmarshal(respBytes, &obj); err != nil {
 			e.logger.Error("runPoc -->json.Unmarsha", "err", err.Error())
-			return
+			continue
 		}
 		e.logger.Info("runPoc -->", "message", obj.Message, "err", obj.Err)
 	}
