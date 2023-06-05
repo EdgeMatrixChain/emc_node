@@ -163,81 +163,79 @@ func (e *Endpoint) runPoc() {
 			e.logger.Error("The poc queue is closed")
 			return
 		}
-		go func() {
-			pocData := tt.GetPocCpuDataInfo()
 
-			// DO poc_cpu
-			var data = make(map[string][]byte)
-			target := proof.DefaultHashProofTarget
-			loops := proof.DefaultHashProofCount
-			i := 0
-			for i < loops {
-				seed := fmt.Sprintf("%s,%d", pocData.Seed, i)
-				_, bytes, err := proof.ProofByCalcHash(seed, target, time.Second*5)
-				if err != nil {
-					e.logger.Error("runPoc -->ProofByCalcHash", "err", err.Error())
-					return
-				}
-				data[seed] = bytes
-				i += 1
-			}
-			resp := "["
-			dataIdx := 0
-			for k, v := range data {
-				resp += fmt.Sprintf("{\"k\":\"%s\",\"v\":\"%s\"}", k, hex.EncodeToString(v))
-				dataIdx += 1
-				if dataIdx < len(data) {
-					resp += ","
-				}
-			}
-			resp += "]"
-			inputData := fmt.Sprintf("{\"node_id\" : \"%s\", \"poc_data\": %s}", e.h.ID().String(), resp)
-			redoCount := 1
-			callCount := 0
-			teleResponse := rpc.TelegramResponse{}
-			for callCount <= redoCount {
-				nonce, err := e.GetNextNonce()
-				if err != nil {
-					e.logger.Error("\"runPoc -->GetNextNonce", "err:", err.Error())
-					return
-				}
-				inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_validate\",\"Input\": %s}", pocData.Validator, inputData)
-				e.logger.Info(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.Validator, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce, "data", inputString)
-				response, err := e.jsonRpcClient.SendRawTelegram(
-					rpc.EdgeCallPrecompile,
-					nonce,
-					inputString,
-					e.privateKey,
-				)
-				if err != nil {
-					e.DisableNonceCache()
-					e.logger.Warn("\"runPoc -->SendRawTelegram for poc_cpu", "nonce", nonce, "callCount", callCount, "err", err.Error())
-					if callCount >= redoCount {
-						return
-					}
-				} else {
-					e.logger.Info("runPoc -->SendRawTelegram for poc_cpu", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount)
-					teleResponse = *response
-					break
-				}
-				callCount += 1
-			}
-			respBytes, err := base64.StdEncoding.DecodeString(teleResponse.Result.Response)
+		pocData := tt.GetPocCpuDataInfo()
+
+		// DO poc_cpu
+		var data = make(map[string][]byte)
+		target := proof.DefaultHashProofTarget
+		loops := proof.DefaultHashProofCount
+		i := 0
+		for i < loops {
+			seed := fmt.Sprintf("%s,%d", pocData.Seed, i)
+			_, bytes, err := proof.ProofByCalcHash(seed, target, time.Second*5)
 			if err != nil {
-				e.logger.Warn("runPoc -->base64 decode err: ", err.Error())
+				e.logger.Error("runPoc -->ProofByCalcHash", "err", err.Error())
 				return
 			}
-			var obj struct {
-				Message string          `json:"message"`
-				Err     json.RawMessage `json:"err"`
+			data[seed] = bytes
+			i += 1
+		}
+		resp := "["
+		dataIdx := 0
+		for k, v := range data {
+			resp += fmt.Sprintf("{\"k\":\"%s\",\"v\":\"%s\"}", k, hex.EncodeToString(v))
+			dataIdx += 1
+			if dataIdx < len(data) {
+				resp += ","
 			}
-			if err := json.Unmarshal(respBytes, &obj); err != nil {
-				e.logger.Error("runPoc -->json.Unmarsha", "err", err.Error())
+		}
+		resp += "]"
+		inputData := fmt.Sprintf("{\"node_id\" : \"%s\", \"poc_data\": %s}", e.h.ID().String(), resp)
+		redoCount := 1
+		callCount := 0
+		teleResponse := rpc.TelegramResponse{}
+		for callCount <= redoCount {
+			nonce, err := e.GetNextNonce()
+			if err != nil {
+				e.logger.Error("\"runPoc -->GetNextNonce", "err:", err.Error())
 				return
 			}
-			e.logger.Info("runPoc -->", "message", obj.Message, "err", obj.Err)
-		}()
-
+			inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_validate\",\"Input\": %s}", pocData.Validator, inputData)
+			e.logger.Info(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.Validator, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce, "data", inputString)
+			response, err := e.jsonRpcClient.SendRawTelegram(
+				rpc.EdgeCallPrecompile,
+				nonce,
+				inputString,
+				e.privateKey,
+			)
+			if err != nil {
+				e.DisableNonceCache()
+				e.logger.Warn("\"runPoc -->SendRawTelegram for poc_cpu", "nonce", nonce, "callCount", callCount, "err", err.Error())
+				if callCount >= redoCount {
+					return
+				}
+			} else {
+				e.logger.Info("runPoc -->SendRawTelegram for poc_cpu", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount)
+				teleResponse = *response
+				break
+			}
+			callCount += 1
+		}
+		respBytes, err := base64.StdEncoding.DecodeString(teleResponse.Result.Response)
+		if err != nil {
+			e.logger.Warn("runPoc -->base64 decode err: ", err.Error())
+			return
+		}
+		var obj struct {
+			Message string          `json:"message"`
+			Err     json.RawMessage `json:"err"`
+		}
+		if err := json.Unmarshal(respBytes, &obj); err != nil {
+			e.logger.Error("runPoc -->json.Unmarsha", "err", err.Error())
+			return
+		}
+		e.logger.Info("runPoc -->", "message", obj.Message, "err", obj.Err)
 	}
 }
 
@@ -461,7 +459,7 @@ func NewApplicationEndpoint(logger hclog.Logger,
 
 		http.HandleFunc("/poc_cpu_validate", func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
-			pocResp := make([]byte, 0)
+			pocResp := []byte(fmt.Sprintf("{\"message\":\"validate failed\"}"))
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				pocResp = []byte("endpoint err: " + err.Error())
@@ -552,9 +550,7 @@ func NewApplicationEndpoint(logger hclog.Logger,
 					return
 				}
 				pocResp = []byte(fmt.Sprintf("{\"message\":\"SubmitValidation\"}"))
-
 			}
-			pocResp = []byte(fmt.Sprintf("{\"message\":\"validate failed\"}"))
 			writeResponse(w, pocResp, endpoint)
 
 		})
@@ -583,7 +579,6 @@ func NewApplicationEndpoint(logger hclog.Logger,
 				writeResponse(w, pocResp, endpoint)
 				return
 			}
-			endpoint.logger.Info(fmt.Sprintf("/poc_request =>request: %s", string(body)))
 			header := endpoint.blockchainStore.Header()
 			if header != nil {
 				blockNumber := header.Number
