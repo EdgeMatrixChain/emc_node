@@ -204,7 +204,7 @@ func (e *Endpoint) runPoc() {
 				continue
 			}
 			inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_validate\",\"Input\": %s}", pocData.Validator, inputData)
-			e.logger.Info(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.Validator, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce, "data", inputString)
+			e.logger.Debug(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.Validator, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce, "data", inputString)
 			response, err := e.jsonRpcClient.SendRawTelegram(
 				rpc.EdgeCallPrecompile,
 				nonce,

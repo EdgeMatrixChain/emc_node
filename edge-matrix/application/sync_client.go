@@ -293,13 +293,13 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 					m.logger.Error("endpoint.miner---->poc_request failed", "validatorNodeID", validatorNodeID)
 					continue
 				}
-				m.logger.Info("endpoint.miner -->SendRawTelegram", "TelegramHash:", teleResponse.Result.TelegramHash)
+				m.logger.Debug("endpoint.miner -->SendRawTelegram", "TelegramHash:", teleResponse.Result.TelegramHash)
 				decodeBytes, err := base64.StdEncoding.DecodeString(teleResponse.Result.Response)
 				if err != nil {
 					m.logger.Error("SendRawTelegram", "DecodeString err:", err.Error())
 					m.logger.Error(err.Error())
 				} else {
-					m.logger.Info("endpoint.miner---->poc_request:", "validatorNodeID", validatorNodeID, "resp", string(decodeBytes))
+					m.logger.Debug("endpoint.miner---->poc_request:", "validatorNodeID", validatorNodeID, "resp", string(decodeBytes))
 					var obj struct {
 						Validator string `json:"validator"`
 						Seed      string `json:"seed"`
