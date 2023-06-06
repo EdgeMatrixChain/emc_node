@@ -257,7 +257,7 @@ func NewServer(config *Config) (*Server, error) {
 	minerAgent := miner.NewMinerAgent(m.logger, icAgent, config.MinerCanister)
 
 	// init miner grpc service
-	minerService, err := m.initMinerService(minerAgent, network.GetHost(), m.secretsManager)
+	_, err = m.initMinerService(minerAgent, network.GetHost(), m.secretsManager)
 	if err != nil {
 		return nil, err
 	}
@@ -295,22 +295,8 @@ func NewServer(config *Config) (*Server, error) {
 			return nil, err
 		}
 
-		// check miner status
-		minerFlag := false
-		minerStatus, err := minerService.GetMiner()
-		if err != nil {
-			m.logger.Warn("Init Miner", "get miner status", err)
-		} else {
-			minerPrincipal := minerStatus.GetPrincipal()
-			if minerPrincipal != "" {
-				minerFlag = true
-				m.logger.Info("Init Miner", "principal", minerPrincipal)
-			} else {
-				m.logger.Warn("Init Miner", "principal", nil)
-			}
-		}
 		jsonRpcClient := rpc.NewDefaultJsonRpcClient()
-		endpoint, err := application.NewApplicationEndpoint(m.logger, key, network.GetHost(), m.config.AppName, m.config.AppUrl, minerFlag, m.blockchain, minerAgent, jsonRpcClient)
+		endpoint, err := application.NewApplicationEndpoint(m.logger, key, network.GetHost(), m.config.AppName, m.config.AppUrl, m.blockchain, minerAgent, jsonRpcClient)
 		if err != nil {
 			return nil, err
 		}

@@ -88,7 +88,6 @@ type Endpoint struct {
 	address    types.Address
 	stream     *eventStream // Event subscriptions
 
-	miner           bool
 	application     *Application
 	minerAgent      *miner.MinerAgent
 	jsonRpcClient   *rpc.JsonRpcClient
@@ -245,13 +244,97 @@ func (e *Endpoint) runPoc() {
 	}
 }
 
+func (e *Endpoint) doPocRequest() {
+	// check miner status
+	_, _, wallet, _, _, err := e.minerAgent.MyNode(e.h.ID().String())
+	if err != nil {
+		e.logger.Error("doPocRequest -->MyNode", "err", err.Error())
+		return
+	}
+	if wallet == "" {
+		e.logger.Info("doPocRequest -->wallet princial=nil")
+		return
+	}
+	validators, err := e.minerAgent.ListValidatorsNodeId()
+	if err != nil {
+		e.logger.Error("endpoint.miner -->ListValidatorsNodeId", err.Error())
+		return
+	}
+	if len(validators) < 1 {
+		return
+	}
+	for _, validatorNodeID := range validators {
+		// post status by sendTelegram
+		e.DisableNonceCache()
+		redoCount := 1
+		callCount := 0
+		teleResponse := rpc.TelegramResponse{}
+		sendOk := false
+		for callCount <= redoCount {
+			nonce, err := e.GetNextNonce()
+			if err != nil {
+				e.logger.Error("unable to GetNextNonce, %v", err)
+				callCount += 1
+				continue
+			}
+			inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, e.h.ID().String())
+			response, err := e.jsonRpcClient.SendRawTelegram(
+				rpc.EdgeCallPrecompile,
+				nonce,
+				inputString,
+				e.privateKey,
+			)
+			if err != nil {
+				e.DisableNonceCache()
+				e.logger.Warn("endpoint.miner -->SendRawTelegram for doPocRequest", "nonce", nonce, "callCount", callCount, "input", inputString, "err", err.Error())
+				if callCount >= redoCount {
+					break
+				}
+				callCount += 1
+			} else {
+				e.logger.Debug("endpoint.miner -->SendRawTelegram for doPocRequest", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount, "input", inputString)
+				sendOk = true
+				teleResponse = *response
+				break
+			}
+		}
+		if !sendOk {
+			e.logger.Error("endpoint.miner---->doPocRequest failed", "validatorNodeID", validatorNodeID)
+			continue
+		}
+		e.logger.Debug("endpoint.miner -->SendRawTelegram", "TelegramHash:", teleResponse.Result.TelegramHash)
+		decodeBytes, err := base64.StdEncoding.DecodeString(teleResponse.Result.Response)
+		if err != nil {
+			e.logger.Error("SendRawTelegram", "DecodeString err:", err.Error())
+		} else {
+			e.logger.Debug("endpoint.miner---->doPocRequest:", "validatorNodeID", validatorNodeID, "resp", string(decodeBytes))
+			var obj struct {
+				Validator string `json:"validator"`
+				Seed      string `json:"seed"`
+				Err       string `json:"err"`
+			}
+			if err := json.Unmarshal(decodeBytes, &obj); err != nil {
+				e.logger.Error("endpoint.miner -->json.Unmarshal", "err", err.Error())
+				continue
+			}
+			if obj.Err != "" {
+				e.logger.Error("endpoint.miner -->Response", "err", obj.Err)
+				continue
+			}
+			e.AddPocTask(&proof.PocCpuData{
+				Validator: obj.Validator,
+				Seed:      obj.Seed,
+			}, proof.PriorityRequestedPoc)
+			e.logger.Info("endpoint.miner -->AddPocTask", "Validator", validatorNodeID, "Seed", obj.Seed)
+		}
+	}
+}
 func NewApplicationEndpoint(
 	logger hclog.Logger,
 	privateKey *ecdsa.PrivateKey,
 	srvHost host.Host,
 	name string,
 	appUrl string,
-	miner bool,
 	blockchainStore blockchainStore,
 	minerAgent *miner.MinerAgent,
 	jsonRpcClient *rpc.JsonRpcClient) (*Endpoint, error) {
@@ -262,7 +345,6 @@ func NewApplicationEndpoint(
 		h:                  srvHost,
 		tag:                ProtoTagEcApp,
 		stream:             &eventStream{},
-		miner:              miner,
 		minerAgent:         minerAgent,
 		peersBlockNumMap:   make(map[string]uint64),
 		peersPocRequestMap: make(map[string]proof.PocCpuRequest),
@@ -291,10 +373,6 @@ func NewApplicationEndpoint(
 	// Push the initial event to the stream
 	endpoint.stream.push(&Event{})
 
-	// Create an event and send it to the stream
-	event := &Event{}
-	endpoint.stream.push(event)
-
 	// init application metric
 	endpoint.application = &Application{
 		Name:        name,
@@ -306,26 +384,25 @@ func NewApplicationEndpoint(
 	}
 
 	// TODO check miner status
-	if endpoint.miner {
-		go func() {
-			ticker := time.NewTicker(proof.DefaultProofDuration)
-			for {
-				<-ticker.C
-				event := &Event{}
-				event.AddNewApp(&Application{
-					Name:        endpoint.application.Name,
-					PeerID:      endpoint.application.PeerID,
-					StartupTime: endpoint.application.StartupTime,
-					Uptime:      uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime,
-					GuageHeight: endpoint.application.GuageHeight,
-					GuageMax:    endpoint.application.GuageMax,
-				})
-				endpoint.stream.push(event)
-				endpoint.logger.Info("Application---->", "push", event.LatestApp())
-			}
-			ticker.Stop()
-		}()
-	}
+	go func() {
+		ticker := time.NewTicker(proof.DefaultProofDuration)
+		for {
+			<-ticker.C
+			event := &Event{}
+			event.AddNewApp(&Application{
+				Name:        endpoint.application.Name,
+				PeerID:      endpoint.application.PeerID,
+				StartupTime: endpoint.application.StartupTime,
+				Uptime:      uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime,
+				GuageHeight: endpoint.application.GuageHeight,
+				GuageMax:    endpoint.application.GuageMax,
+			})
+			go endpoint.doPocRequest()
+			endpoint.stream.push(event)
+			endpoint.logger.Info("Application---->", "push", event.LatestApp())
+		}
+		ticker.Stop()
+	}()
 
 	go func() {
 		http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
@@ -571,7 +648,7 @@ func NewApplicationEndpoint(
 				writeResponse(w, pocResp, endpoint)
 				return
 			}
-			endpoint.logger.Info(fmt.Sprintf("/poc_request =>request: %s", string(body)))
+			endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>request: %s", string(body)))
 			_, err = json.Marshal(body)
 			if err != nil {
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "json.Marshal body-> "+err.Error()))
@@ -589,20 +666,20 @@ func NewApplicationEndpoint(
 			header := endpoint.blockchainStore.Header()
 			if header != nil {
 				blockNumber := header.Number
-				endpoint.logger.Info(fmt.Sprintf("/poc_request =>blockNumber: %d", blockNumber))
+				endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>blockNumber: %d", blockNumber))
 
 				// check latest proof number
 				latestProofNum, ok := endpoint.peersBlockNumMap[obj.Node_id]
 				if !ok {
 					latestProofNum = 0
 				}
-				endpoint.logger.Info(fmt.Sprintf("/poc_request =>latestProofNum: %d", latestProofNum))
+				endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>latestProofNum: %d", latestProofNum))
 
 				var blockNumberFixed uint64 = 0
 				if (blockNumber - latestProofNum) > proof.DefaultProofBlockMinDuration {
 					// send proof task to peer node
 					blockNumberFixed = (blockNumber / proof.DefaultProofBlockRange) * proof.DefaultProofBlockRange
-					endpoint.logger.Info(fmt.Sprintf("/poc_request =>blockNumberFixed: %d", blockNumberFixed))
+					endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>blockNumberFixed: %d", blockNumberFixed))
 
 					// add poc request to map
 					endpoint.peersPocRequestMap[obj.Node_id] = proof.PocCpuRequest{
@@ -613,7 +690,7 @@ func NewApplicationEndpoint(
 					}
 					endpoint.peersBlockNumMap[obj.Node_id] = blockNumberFixed // commet this line for disable check blocknum
 					pocResp = []byte(fmt.Sprintf("{\"validator\":\"%s\",\"seed\":\"%s\"}", endpoint.h.ID().String(), header.Hash.String()))
-					endpoint.logger.Info(fmt.Sprintf("/poc_request =>pocResp: %s", pocResp))
+					endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>pocResp: %s", pocResp))
 					writeResponse(w, pocResp, endpoint)
 					return
 				} else {

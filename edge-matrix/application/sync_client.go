@@ -3,11 +3,8 @@ package application
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/emc-protocol/edge-matrix/application/proof"
 	"github.com/emc-protocol/edge-matrix/application/proto"
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
@@ -246,80 +243,7 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 		if l := len(event.NewApp); l > 0 {
 			latest := event.NewApp[l-1]
 			m.logger.Debug("event", "latest", latest)
-			validators, err := m.minerAgent.ListValidatorsNodeId()
-			if err != nil {
-				m.logger.Error("endpoint.miner -->ListValidatorsNodeId", err.Error())
-				continue
-			}
-			if len(validators) < 1 {
-				continue
-			}
-			for _, validatorNodeID := range validators {
-				// post status by sendTelegram
-				m.endpoint.DisableNonceCache()
-				redoCount := 1
-				callCount := 0
-				teleResponse := rpc.TelegramResponse{}
-				sendOk := false
-				for callCount <= redoCount {
-					nonce, err := m.endpoint.GetNextNonce()
-					if err != nil {
-						m.logger.Error("unable to GetNextNonce, %v", err)
-						callCount += 1
-						continue
-					}
-					inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, m.id)
-					response, err := m.jsonRpcClient.SendRawTelegram(
-						rpc.EdgeCallPrecompile,
-						nonce,
-						inputString,
-						m.privateKey,
-					)
-					if err != nil {
-						m.endpoint.DisableNonceCache()
-						m.endpoint.logger.Warn("endpoint.miner -->SendRawTelegram for poc_request", "nonce", nonce, "callCount", callCount, "input", inputString, "err", err.Error())
-						if callCount >= redoCount {
-							break
-						}
-						callCount += 1
-					} else {
-						m.endpoint.logger.Debug("endpoint.miner -->SendRawTelegram for poc_request", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount, "input", inputString)
-						sendOk = true
-						teleResponse = *response
-						break
-					}
-				}
-				if !sendOk {
-					m.logger.Error("endpoint.miner---->poc_request failed", "validatorNodeID", validatorNodeID)
-					continue
-				}
-				m.logger.Debug("endpoint.miner -->SendRawTelegram", "TelegramHash:", teleResponse.Result.TelegramHash)
-				decodeBytes, err := base64.StdEncoding.DecodeString(teleResponse.Result.Response)
-				if err != nil {
-					m.logger.Error("SendRawTelegram", "DecodeString err:", err.Error())
-					m.logger.Error(err.Error())
-				} else {
-					m.logger.Debug("endpoint.miner---->poc_request:", "validatorNodeID", validatorNodeID, "resp", string(decodeBytes))
-					var obj struct {
-						Validator string `json:"validator"`
-						Seed      string `json:"seed"`
-						Err       string `json:"err"`
-					}
-					if err := json.Unmarshal(decodeBytes, &obj); err != nil {
-						m.logger.Error("endpoint.miner -->json.Unmarshal", "err", err.Error())
-						continue
-					}
-					if obj.Err != "" {
-						m.logger.Error("endpoint.miner -->Response", "err", obj.Err)
-						continue
-					}
-					m.endpoint.AddPocTask(&proof.PocCpuData{
-						Validator: obj.Validator,
-						Seed:      obj.Seed,
-					}, proof.PriorityRequestedPoc)
-					m.endpoint.logger.Info("endpoint.miner -->AddPocTask", "Validator", validatorNodeID, "Seed", obj.Seed)
-				}
-			}
+
 		}
 	}
 }
