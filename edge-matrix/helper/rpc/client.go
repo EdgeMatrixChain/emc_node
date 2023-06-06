@@ -28,6 +28,7 @@ var (
 type JsonRpcClient struct {
 	httpClient *FastHttpClient
 	signer     *crypto.EIP155Signer
+	rpcUrl     string
 }
 
 type StringResponse struct {
@@ -65,13 +66,14 @@ func NewDefaultJsonRpcClient() *JsonRpcClient {
 	return &JsonRpcClient{
 		httpClient: NewDefaultHttpClient(),
 		signer:     crypto.NewEIP155Signer(chain.AllForksEnabled.At(0), big.NewInt(TESTNET_ID).Uint64()),
+		rpcUrl:     DEFAULT_RPC_URL,
 	}
 }
 
 // Returns next nonce value for address
 func (c *JsonRpcClient) GetNextNonce(address string) (uint64, error) {
 	postJson := fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"method\":\"edge_getTelegramCount\",\"params\":[\"%s\"],\"id\":1}", address)
-	bytes, err := c.httpClient.SendPostJsonRequest(DEFAULT_RPC_URL, []byte(postJson))
+	bytes, err := c.httpClient.SendPostJsonRequest(c.rpcUrl, []byte(postJson))
 	if err != nil {
 		return 0, err
 	}
@@ -109,7 +111,7 @@ func (c *JsonRpcClient) SendRawTelegram(to types.Address, nonce uint64, input st
 
 	bytes := signedTx.MarshalRLP()
 	postJson := fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"method\":\"edge_sendRawTelegram\",\"params\":[\"%s\"],\"id\":1}", hex.EncodeToHex(bytes))
-	bytes, err = c.httpClient.SendPostJsonRequest(DEFAULT_RPC_URL, []byte(postJson))
+	bytes, err = c.httpClient.SendPostJsonRequest(c.rpcUrl, []byte(postJson))
 	if err != nil {
 		return nil, errors.New("SendPostJsonRequest err:" + err.Error())
 	}

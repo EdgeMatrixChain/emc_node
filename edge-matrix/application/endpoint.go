@@ -245,7 +245,8 @@ func (e *Endpoint) runPoc() {
 	}
 }
 
-func NewApplicationEndpoint(logger hclog.Logger,
+func NewApplicationEndpoint(
+	logger hclog.Logger,
 	privateKey *ecdsa.PrivateKey,
 	srvHost host.Host,
 	name string,
