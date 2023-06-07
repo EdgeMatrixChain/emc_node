@@ -20,7 +20,9 @@ service Miner {
 message CurrentEPower {
   uint64 round = 1;
 
-  uint64 total = 2;
+  float total = 2;
+
+  float multiple = 3;
 }
 
 message MinerStatus {

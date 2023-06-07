@@ -81,7 +81,8 @@ func Test_MyNode(t *testing.T) {
 }
 
 func Test_MyCurrentEPower(t *testing.T) {
-	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
 	privKeyBytes, err := hex.DecodeHex(privKey)
 	if err != nil {
 		return
@@ -99,6 +100,28 @@ func Test_MyCurrentEPower(t *testing.T) {
 	}
 	t.Log("count:", count)
 	t.Log("e:", e)
+}
+
+func Test_MyStack(t *testing.T) {
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
+	privKeyBytes, err := hex.DecodeHex(privKey)
+	if err != nil {
+		return
+	}
+	identity := identity.New(false, privKeyBytes)
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
+
+	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
+
+	_, _, multiple, err := minerAgent.MyStack(
+		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC")
+	if err != nil {
+		t.Log(err)
+	}
+	t.Log("multiple:", multiple)
+	t.Log("rate:", float32(multiple)/10000.0)
 }
 
 func Test_SubmitValidation(t *testing.T) {

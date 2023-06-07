@@ -73,9 +73,15 @@ func (s *MinerService) GetCurrentEPower(context.Context, *emptypb.Empty) (*proto
 	if err != nil {
 		return nil, err
 	}
+	_, _, multiple, err := s.minerAgent.MyStack(s.host.ID().String())
+	if err != nil {
+		return nil, err
+	}
+
 	ePower := proto.CurrentEPower{
-		Round: round,
-		Total: power,
+		Round:    round,
+		Total:    power,
+		Multiple: float32(multiple) / 10000.0,
 	}
 	return &ePower, nil
 }

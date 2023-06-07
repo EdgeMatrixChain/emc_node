@@ -148,7 +148,7 @@ func (m *MinerAgent) MyNode(nodeId string) (string, string, string, int64, int64
 }
 
 // call miner canister's myCurrentEPower method(query)
-func (m *MinerAgent) MyCurrentEPower(nodeId string) (uint64, uint64, error) {
+func (m *MinerAgent) MyCurrentEPower(nodeId string) (uint64, float32, error) {
 	methodName := "myCurrentEPower"
 
 	var argType []idl.Type
@@ -168,9 +168,35 @@ func (m *MinerAgent) MyCurrentEPower(nodeId string) (uint64, uint64, error) {
 	//ouput-> types: [interface vec interface record {656559709:text; 947296307:principal; 3054210041:principal; 4104166786:int; 4135997916:nat}]
 	//ouput-> result: [[map[3054210041:[57 248 44 186 16 145 100 93 182 123 49 153 147 45 214 150 45 224 237 216 84 142 130 10 172 82 193 48 2] 4104166786:1685512050331435992 4135997916:0 656559709:16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC 947296307:[245 50 153 79 90 148 3 179 181 210 38 205 150 98 51 71 55 221 150 24 248 186 191 134 143 61 52 87 2]]]]
 	if result != nil && len(result) >= 2 {
-		return result[0].(*big.Int).Uint64(), result[1].(*big.Int).Uint64(), nil
+		total, _ := result[1].(*big.Float).Float32()
+		return result[0].(*big.Int).Uint64(), total, nil
 	}
 	return 0, 0, err
+}
+
+func (m *MinerAgent) MyStack(nodeId string) (uint64, uint64, uint64, error) {
+	methodName := "myStake"
+
+	var argType []idl.Type
+	argType = append(argType, new(idl.Text))
+
+	argValue := []interface{}{
+		nodeId,
+	}
+	arg, _ := idl.Encode(argType, argValue)
+	m.logger.Debug("MyStack", "argType", argType, "argValue", argValue)
+
+	types, result, _, err := m.agent.Query(m.canister, methodName, arg)
+	if err != nil {
+		return 0, 0, 10000, err
+	}
+	m.logger.Debug("MyStack", "types", types, "result", result)
+	//ouput-> types: [interface vec interface record {656559709:text; 947296307:principal; 3054210041:principal; 4104166786:int; 4135997916:nat}]
+	//ouput-> result: [[map[3054210041:[57 248 44 186 16 145 100 93 182 123 49 153 147 45 214 150 45 224 237 216 84 142 130 10 172 82 193 48 2] 4104166786:1685512050331435992 4135997916:0 656559709:16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC 947296307:[245 50 153 79 90 148 3 179 181 210 38 205 150 98 51 71 55 221 150 24 248 186 191 134 143 61 52 87 2]]]]
+	if result != nil && len(result) >= 3 {
+		return result[0].(*big.Int).Uint64(), result[1].(*big.Int).Uint64(), result[2].(*big.Int).Uint64(), nil
+	}
+	return 0, 0, 10000, err
 }
 
 // call miner canister's registerNode method(update)

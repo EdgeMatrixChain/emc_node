@@ -30,8 +30,9 @@ func runCommand(cmd *cobra.Command, _ []string) {
 	}
 
 	outputter.SetCommandResult(&CurrentEPowerResult{
-		Round: response.Round,
-		Total: response.Total,
+		Round:    response.Round,
+		Total:    response.Total,
+		Multiple: response.Multiple,
 	})
 }
 

@@ -1,0 +1,16 @@
+/shell/
+/edge-matrix/edge-matrix
+/.gitignore
+/dist/linux/emc/edge-matrix
+/dist/mac/emc/edge-matrix
+/dist/mac_arm64/emc/edge-matrix
+/dist/windows/emc/edge-matrix.exe
+/dist/mac/emc/edge_data/
+/dist/emc_linux_64.zip
+/dist/emc_mac.zip
+/dist/emc_mac_arm64.zip
+/dist/emc_windows_x64.zip
+/dist/linux/emc/genesis.json
+/dist/mac/emc/genesis.json
+/dist/mac_arm64/emc/genesis.json
+/dist/windows/emc/genesis.json
