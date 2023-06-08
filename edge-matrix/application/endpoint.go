@@ -562,6 +562,11 @@ func NewApplicationEndpoint(
 				return
 			}
 
+			if obj.Node_id == "" || len(obj.Poc_data) < 1 {
+				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "invalid request"))
+				writeResponse(w, pocResp, endpoint)
+				return
+			}
 			pocData, ok := endpoint.peersPocRequestMap[obj.Node_id]
 			if !ok {
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "invalid request"))
