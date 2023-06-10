@@ -33,7 +33,7 @@ const (
 
 const (
 	txSlotSize  = 32 * 1024 // 32kB
-	topicNameV1 = "em_app/0.2"
+	topicNameV1 = "em_app/0.1"
 )
 
 type Application struct {
