@@ -229,15 +229,15 @@ func NewServer(config *Config) (*Server, error) {
 		m.blockchain.SetConsensus(m.consensus)
 	}
 
-	//after consensus is done, we can mine the genesis block in blockchain
-	//This is done because consensus might use a custom Hash function so we need
-	//to wait for consensus because we do any block hashing like genesis
-	if err := m.blockchain.ComputeGenesis(); err != nil {
-		return nil, err
-	}
-
-	//initialize data in consensus layer
 	if m.config.RunningMode == "full" {
+		//after consensus is done, we can mine the genesis block in blockchain
+		//This is done because consensus might use a custom Hash function so we need
+		//to wait for consensus because we do any block hashing like genesis
+		if err := m.blockchain.ComputeGenesis(); err != nil {
+			return nil, err
+		}
+
+		//initialize data in consensus layer
 		if err := m.consensus.Initialize(); err != nil {
 			return nil, err
 		}

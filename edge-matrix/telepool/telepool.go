@@ -62,9 +62,9 @@ func (o teleOrigin) String() (s string) {
 }
 
 const (
-	txSlotSize  = 32 * 1024  // 32kB
-	txMaxSize   = 512 * 1024 // 1MB
-	topicNameV1 = "tele/0.2"
+	txSlotSize  = 4 * 1024
+	txMaxSize   = 512 * 1024 // 512k
+	topicNameV1 = "tele/0.3"
 
 	// maximum allowed number of times an account
 	// was excluded from block building (ibft.writeTransactions)
@@ -437,6 +437,11 @@ func (p *TelegramPool) validateTele(tele *types.Telegram) error {
 	// Check nonce ordering
 	if p.store.GetNonce(stateRoot, tele.From) > tele.Nonce {
 		return ErrNonceTooLow
+	}
+	if tele.Nonce > p.store.GetNonce(stateRoot, tele.From) {
+		// don't signal promotion for
+		// higher nonce txs
+		return ErrNonceTooHigh
 	}
 
 	return nil
