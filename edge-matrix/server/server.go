@@ -237,8 +237,10 @@ func NewServer(config *Config) (*Server, error) {
 	}
 
 	//initialize data in consensus layer
-	if err := m.consensus.Initialize(); err != nil {
-		return nil, err
+	if m.config.RunningMode == "full" {
+		if err := m.consensus.Initialize(); err != nil {
+			return nil, err
+		}
 	}
 
 	// init IC agent
@@ -279,8 +281,10 @@ func NewServer(config *Config) (*Server, error) {
 	}
 
 	// start consensus
-	if err := m.consensus.Start(); err != nil {
-		return nil, err
+	if m.config.RunningMode == "full" {
+		if err := m.consensus.Start(); err != nil {
+			return nil, err
+		}
 	}
 
 	// setup edge application
@@ -303,15 +307,13 @@ func NewServer(config *Config) (*Server, error) {
 		endpoint.SetSigner(application.NewEIP155Signer(chain.AllForksEnabled.At(0), uint64(m.config.Chain.Params.ChainID)))
 
 		// setup app status syncer
-		ayncAppclient := application.NewSyncAppPeerClient(m.logger, network, m.consensus, minerAgent, m.network.GetHost(), jsonRpcClient, key, endpoint)
+		ayncAppclient := application.NewSyncAppPeerClient(m.logger, network, minerAgent, m.network.GetHost(), jsonRpcClient, key, endpoint)
 		syncer := application.NewSyncer(
 			m.logger,
 			ayncAppclient,
 			application.NewSyncAppPeerService(m.logger, network, endpoint, ayncAppclient, m.blockchain, minerAgent),
 			m.network.GetHost(),
-			m.blockchain,
-			m.consensus,
-			minerAgent)
+			m.blockchain)
 
 		// start app status syncer
 		err = syncer.Start(endpoint.SubscribeEvents(), m.config.RunningMode == "full")

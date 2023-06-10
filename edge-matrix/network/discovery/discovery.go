@@ -178,6 +178,8 @@ func (d *DiscoveryService) addToTable(node *peer.AddrInfo) error {
 		false,
 		false,
 	); err != nil {
+		// for debug
+		d.routingTable.Print()
 		// Since the routing table addition failed,
 		// the peer can be removed from the libp2p peer store
 		// in the base networking server

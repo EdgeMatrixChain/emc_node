@@ -1,7 +1,6 @@
 package application
 
 import (
-	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/types"
 	"github.com/emc-protocol/edge-matrix/validators"
 	"github.com/hashicorp/go-hclog"
@@ -48,13 +47,8 @@ type syncer struct {
 	// Channel to notify Sync that a new status arrived
 	newStatusCh chan struct{}
 
-	validatorStore  ValidatorStore
 	blockchainStore blockchainStore
 	host            host.Host
-	address         types.Address
-
-	// agent for communicating with IC Miner Canister
-	minerAgent *miner.MinerAgent
 
 	peersBlockNumMap map[peer.ID]uint64
 }
@@ -80,8 +74,6 @@ func NewSyncer(
 	syncAppPeerService SyncAppPeerService,
 	host host.Host,
 	blockchainStore blockchainStore,
-	validatorStore ValidatorStore,
-	minerAgent *miner.MinerAgent,
 ) Syncer {
 	return &syncer{
 		logger:             logger.Named(syncerName),
@@ -90,10 +82,7 @@ func NewSyncer(
 		newStatusCh:        make(chan struct{}),
 		peerMap:            new(PeerMap),
 		host:               host,
-		address:            validatorStore.GetSignerAddress(),
 		blockchainStore:    blockchainStore,
-		validatorStore:     validatorStore,
-		minerAgent:         minerAgent,
 		peersBlockNumMap:   make(map[peer.ID]uint64),
 	}
 }

@@ -44,7 +44,7 @@ const (
 )
 
 const (
-	defaultBucketSize = 20
+	defaultBucketSize = 256
 	DefaultDialRatio  = 0.2
 
 	DefaultLibp2pPort int = 50001
@@ -374,7 +374,7 @@ func (s *Server) runDial() {
 
 	// cancel context first
 	defer s.closeDial()
-	//defer close(notifyCh)
+	defer close(notifyCh)
 	defer cancel()
 
 	if err := s.SubscribeFn(ctx, func(event *peerEvent.PeerEvent) {
@@ -392,10 +392,8 @@ func (s *Server) runDial() {
 
 		select {
 		case <-ctx.Done():
-			//s.logger.Warn("----runDial----ctx.Done()")
 			return
 		case notifyCh <- struct{}{}:
-			//s.logger.Debug("----runDial----", "notifyCh", notifyCh)
 		default:
 		}
 	}); err != nil {
@@ -414,18 +412,11 @@ func (s *Server) runDial() {
 		// TODO: Right now the dial task are done sequentially because Connect
 		// is a blocking request. In the future we should try to make up to
 		// maxDials requests concurrently
-		for {
-			//s.logger.Debug("----runDial---- check HasFreeOutboundConn")
-			//freeOutboundConn := s.connectionCounts.HasFreeOutboundConn()
-			//s.logger.Debug("----runDial----", "freeOutboundConn", freeOutboundConn, "dialQueueLen", s.dialQueue.Len())
-
+		for s.connectionCounts.HasFreeOutboundConn() {
 			tt := s.dialQueue.PopTask()
-			//s.logger.Debug("----runDial----", "dialQueue.PopTask()", tt, "dialQueueLen", s.dialQueue.Len())
-
 			if tt == nil {
 				// The dial queue is closed,
 				// no further dial tasks are incoming
-				s.logger.Error("The dial queue is closed")
 				return
 			}
 
@@ -433,16 +424,24 @@ func (s *Server) runDial() {
 
 			s.logger.Debug(fmt.Sprintf("Dialing peer [%s] as local [%s]", peerInfo.String(), s.host.ID()))
 
-			// the connection process is async because it involves connection (here) +
-			// the handshake done in the identity service.
-			if err := s.host.Connect(context.Background(), *peerInfo); err != nil {
-				s.logger.Debug("failed to dial", "addr", peerInfo.String(), "err", err.Error())
-				//s.emitEvent(peerInfo.ID, peerEvent.PeerFailedToConnect)
-				s.discovery.HandleNetworkEvent(&peerEvent.PeerEvent{
-					PeerID: peerInfo.ID,
-					Type:   peerEvent.PeerDisconnected,
-				})
+			if !s.IsConnected(peerInfo.ID) {
+				// the connection process is async because it involves connection (here) +
+				// the handshake done in the identity service.
+				if err := s.host.Connect(context.Background(), *peerInfo); err != nil {
+					s.logger.Debug("failed to dial", "addr", peerInfo.String(), "err", err.Error())
+
+					s.emitEvent(peerInfo.ID, peerEvent.PeerFailedToConnect)
+				}
 			}
+			//// the connection process is async because it involves connection (here) +
+			//// the handshake done in the identity service.
+			//if err := s.host.Connect(context.Background(), *peerInfo); err != nil {
+			//	s.emitEvent(peerInfo.ID, peerEvent.PeerFailedToConnect)
+			//	s.discovery.HandleNetworkEvent(&peerEvent.PeerEvent{
+			//		PeerID: peerInfo.ID,
+			//		Type:   peerEvent.PeerDisconnected,
+			//	})
+			//}
 		}
 
 		// wait until there is a change in the state of a peer that
@@ -493,7 +492,7 @@ func (s *Server) IsConnected(peerID peer.ID) bool {
 }
 
 // GetProtocols fetches the list of node-supported protocols
-func (s *Server) GetProtocols(peerID peer.ID) ([]string, error) {
+func (s *Server) GetProtocols(peerID peer.ID) ([]protocol.ID, error) {
 	return s.host.Peerstore().GetProtocols(peerID)
 }
 
@@ -687,13 +686,12 @@ func (s *Server) addToDialQueue(addr *peer.AddrInfo, priority common.DialPriorit
 
 func (s *Server) emitEvent(peerID peer.ID, peerEventType peerEvent.PeerEventType) {
 	// POTENTIALLY BLOCKING
-	// TODO replace
-	//if err := s.emitterPeerEvent.Emit(peerEvent.PeerEvent{
-	//	PeerID: peerID,
-	//	Type:   peerEventType,
-	//}); err != nil {
-	//	s.logger.Info("failed to emit event", "peer", peerID, "type", peerEventType, "err", err)
-	//}
+	if err := s.emitterPeerEvent.Emit(peerEvent.PeerEvent{
+		PeerID: peerID,
+		Type:   peerEventType,
+	}); err != nil {
+		s.logger.Info("failed to emit event", "peer", peerID, "type", peerEventType, "err", err)
+	}
 }
 
 type Subscription struct {

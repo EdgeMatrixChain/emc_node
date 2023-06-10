@@ -38,10 +38,9 @@ type syncAppPeerClient struct {
 	peerStatusUpdateCh     chan *AppPeer         // peer status update channel
 	peerConnectionUpdateCh chan *event.PeerEvent // peer connection update channel
 
-	validatorStore ValidatorStore
-	jsonRpcClient  *rpc.JsonRpcClient
-	privateKey     *ecdsa.PrivateKey
-	endpoint       *Endpoint
+	jsonRpcClient *rpc.JsonRpcClient
+	privateKey    *ecdsa.PrivateKey
+	endpoint      *Endpoint
 
 	shouldEmitData bool // flag for emitting data in the topic
 	closeCh        chan struct{}
@@ -408,7 +407,6 @@ type SyncAppPeerClient interface {
 func NewSyncAppPeerClient(
 	logger hclog.Logger,
 	network Network,
-	validatorStore ValidatorStore,
 	minerAgent *miner.MinerAgent,
 	host host.Host,
 	jsonRpcClient *rpc.JsonRpcClient,
@@ -424,7 +422,6 @@ func NewSyncAppPeerClient(
 		shouldEmitData:         true,
 		closeCh:                make(chan struct{}),
 		closed:                 new(uint64),
-		validatorStore:         validatorStore,
 		minerAgent:             minerAgent,
 		host:                   host,
 		jsonRpcClient:          jsonRpcClient,

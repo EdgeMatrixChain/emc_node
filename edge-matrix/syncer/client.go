@@ -21,7 +21,7 @@ import (
 
 const (
 	SyncPeerClientLoggerName = "sync-peer-client"
-	statusTopicName          = "syncer/status/0.1"
+	statusTopicName          = "syncer/status/0.2"
 	defaultTimeoutForStatus  = 30 * time.Second
 )
 

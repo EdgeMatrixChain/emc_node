@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
+	"os/exec"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -118,4 +120,18 @@ func TestProofByHash(t *testing.T) {
 	t.Log(fmt.Sprintf("validate time		: %dms", time.Since(validateStart).Microseconds()))
 	t.Log(fmt.Sprintf("validate success	: %d/%d", validateSuccess, loops))
 
+}
+
+func TestCpuInfo(t *testing.T) {
+	cmd := exec.Command("wmic", "cpu", "get", "ProcessorID")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(string(out))
+	str := string(out)
+	//匹配一个或多个空白符的正则表达式
+	reg := regexp.MustCompile("\\s+")
+	str = reg.ReplaceAllString(str, "")
+	t.Log(str)
 }

@@ -1,12 +1,26 @@
 package dial
 
 import (
+	"fmt"
+	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"testing"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestID(t *testing.T) {
+	nodeId := "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC"
+	id, err := peer.Decode(nodeId)
+	if err != nil {
+		return
+	}
+	fmt.Println(id.Size())
+	dhtId := kbucket.ConvertPeerID(id)
+	fmt.Println(len(dhtId))
+
+}
 
 func TestDialQueue(t *testing.T) {
 	q := NewDialQueue()

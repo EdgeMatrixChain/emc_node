@@ -32,9 +32,8 @@ const (
 )
 
 const (
-	txSlotSize  = 32 * 1024  // 32kB
-	txMaxSize   = 128 * 1024 // 128Kb
-	topicNameV1 = "em_app/0.1"
+	txSlotSize  = 32 * 1024 // 32kB
+	topicNameV1 = "em_app/0.2"
 )
 
 type Application struct {
@@ -93,9 +92,8 @@ type Endpoint struct {
 	jsonRpcClient   *rpc.JsonRpcClient
 	blockchainStore blockchainStore
 
-	peersBlockNumMap   map[string]uint64
-	peersPocRequestMap map[string]proof.PocCpuRequest
-	peersPocStartMap   map[string]time.Time
+	peersPocRequestMap sync.Map
+	peersPocStartMap   sync.Map
 	pocQueue           *proof.PocQueue
 	randomNum          int
 }
@@ -263,9 +261,9 @@ func (e *Endpoint) doPocRequest() {
 	if len(validators) < 1 {
 		return
 	}
+	e.DisableNonceCache()
 	for _, validatorNodeID := range validators {
 		// post status by sendTelegram
-		e.DisableNonceCache()
 		redoCount := 1
 		callCount := 0
 		teleResponse := rpc.TelegramResponse{}
@@ -339,20 +337,17 @@ func NewApplicationEndpoint(
 	minerAgent *miner.MinerAgent,
 	jsonRpcClient *rpc.JsonRpcClient) (*Endpoint, error) {
 	endpoint := &Endpoint{
-		logger:             logger.Named("app_endpoint"),
-		name:               name,
-		appUrl:             appUrl,
-		h:                  srvHost,
-		tag:                ProtoTagEcApp,
-		stream:             &eventStream{},
-		minerAgent:         minerAgent,
-		peersBlockNumMap:   make(map[string]uint64),
-		peersPocRequestMap: make(map[string]proof.PocCpuRequest),
-		peersPocStartMap:   make(map[string]time.Time),
-		jsonRpcClient:      jsonRpcClient,
-		pocQueue:           proof.NewPocQueue(),
-		nonceCacheEnable:   false,
-		blockchainStore:    blockchainStore,
+		logger:           logger.Named("app_endpoint"),
+		name:             name,
+		appUrl:           appUrl,
+		h:                srvHost,
+		tag:              ProtoTagEcApp,
+		stream:           &eventStream{},
+		minerAgent:       minerAgent,
+		jsonRpcClient:    jsonRpcClient,
+		pocQueue:         proof.NewPocQueue(),
+		nonceCacheEnable: false,
+		blockchainStore:  blockchainStore,
 	}
 	rand.Seed(time.Now().Unix())
 	endpoint.randomNum = rand.Intn(1000)
@@ -562,12 +557,12 @@ func NewApplicationEndpoint(
 				return
 			}
 
-			if obj.Node_id == "" || len(obj.Poc_data) < 1 {
+			if obj.Node_id == "" || obj.Poc_data == nil || len(obj.Poc_data) < 1 {
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "invalid request"))
 				writeResponse(w, pocResp, endpoint)
 				return
 			}
-			pocData, ok := endpoint.peersPocRequestMap[obj.Node_id]
+			pocData, ok := endpoint.peersPocRequestMap.Load(obj.Node_id)
 			if !ok {
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "invalid request"))
 				writeResponse(w, pocResp, endpoint)
@@ -590,7 +585,7 @@ func NewApplicationEndpoint(
 				dataMap[data["k"]] = bytes
 			}
 
-			usedTime := time.Since(pocData.Start).Milliseconds()
+			usedTime := time.Since(pocData.(proof.PocCpuRequest).Start).Milliseconds()
 			// validate data
 			//if s.logger.IsDebug() {
 			//	s.logger.Debug("PeerData: {")
@@ -603,7 +598,7 @@ func NewApplicationEndpoint(
 			target := proof.DefaultHashProofTarget
 			loops := proof.DefaultHashProofCount
 			i := 0
-			initSeed := pocData.Seed
+			initSeed := pocData.(proof.PocCpuRequest).Seed
 			for i < loops {
 				seed := fmt.Sprintf("%s,%d", initSeed, i)
 				hashArray[i] = seed
@@ -626,10 +621,11 @@ func NewApplicationEndpoint(
 			endpoint.logger.Info(result)
 			if rate >= 0.95 {
 				// valid proof
-				endpoint.logger.Info("\n------------------------------------------\nSubmit proof to IC", "usedTime(ms)", usedTime, "blockNumber", endpoint.peersBlockNumMap[obj.Node_id], "NodeID", obj.Node_id)
+				endpoint.logger.Info("\n------------------------------------------\nSubmit proof to IC", "usedTime(ms)", usedTime, "blockNumber", pocData.(proof.PocCpuRequest).BlockNum, "NodeID", obj.Node_id)
 				// submit proof result to IC canister
+
 				err := endpoint.minerAgent.SubmitValidation(
-					int64(endpoint.peersBlockNumMap[obj.Node_id]),
+					int64(pocData.(proof.PocCpuRequest).BlockNum),
 					endpoint.minerAgent.GetIdentity(),
 					usedTime,
 					obj.Node_id,
@@ -674,9 +670,12 @@ func NewApplicationEndpoint(
 				endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>blockNumber: %d", blockNumber))
 
 				// check latest proof number
-				latestProofNum, ok := endpoint.peersBlockNumMap[obj.Node_id]
+				var latestProofNum uint64
+				latestPocCpuRequest, ok := endpoint.peersPocRequestMap.Load(obj.Node_id)
 				if !ok {
 					latestProofNum = 0
+				} else {
+					latestProofNum = latestPocCpuRequest.(proof.PocCpuRequest).BlockNum
 				}
 				endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>latestProofNum: %d", latestProofNum))
 
@@ -687,13 +686,12 @@ func NewApplicationEndpoint(
 					endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>blockNumberFixed: %d", blockNumberFixed))
 
 					// add poc request to map
-					endpoint.peersPocRequestMap[obj.Node_id] = proof.PocCpuRequest{
+					endpoint.peersPocRequestMap.Store(obj.Node_id, proof.PocCpuRequest{
 						NodeId:   obj.Node_id,
 						Seed:     header.Hash.String(),
 						BlockNum: blockNumberFixed,
 						Start:    time.Now(),
-					}
-					endpoint.peersBlockNumMap[obj.Node_id] = blockNumberFixed // commet this line for disable check blocknum
+					})
 					pocResp = []byte(fmt.Sprintf("{\"validator\":\"%s\",\"seed\":\"%s\"}", endpoint.h.ID().String(), header.Hash.String()))
 					endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>pocResp: %s", pocResp))
 					writeResponse(w, pocResp, endpoint)
