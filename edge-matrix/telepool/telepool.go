@@ -438,11 +438,13 @@ func (p *TelegramPool) validateTele(tele *types.Telegram) error {
 	if p.store.GetNonce(stateRoot, tele.From) > tele.Nonce {
 		return ErrNonceTooLow
 	}
-	if tele.Nonce > p.store.GetNonce(stateRoot, tele.From) {
-		// don't signal promotion for
-		// higher nonce txs
-		return ErrNonceTooHigh
-	}
+
+	// TODO get pending queue tx to verify
+	//if tele.Nonce > p.store.GetNonce(stateRoot, tele.From) {
+	//	// don't signal promotion for
+	//	// higher nonce txs
+	//	return ErrNonceTooHigh
+	//}
 
 	return nil
 }
