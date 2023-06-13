@@ -238,7 +238,10 @@ func (e *Endpoint) runPoc() {
 			e.logger.Error("runPoc -->json.Unmarsha", "err", err.Error())
 			continue
 		}
-		e.logger.Info("runPoc -->", "message", obj.Message, "err", obj.Err)
+		e.logger.Info("runPoc -->", "message", obj.Message)
+		if obj.Err != nil && len(obj.Err) > 0 {
+			e.logger.Warn("runPoc -->", "response.Err", obj.Err)
+		}
 	}
 }
 

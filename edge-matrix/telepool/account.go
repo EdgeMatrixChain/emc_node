@@ -235,7 +235,9 @@ func (a *account) enqueue(tele *types.Telegram) error {
 	if tele.Nonce < a.getNonce() {
 		return ErrNonceTooLow
 	}
-	if tele.Nonce > a.getNonce() {
+
+	// Check max nonce
+	if tele.Nonce >= (a.getNonce() + a.maxEnqueued) {
 		// don't signal promotion for
 		// higher nonce txs
 		return ErrNonceTooHigh
