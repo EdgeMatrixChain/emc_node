@@ -52,6 +52,7 @@ type Config struct {
 
 	IcHost        string
 	MinerCanister string
+	EmcHost       string
 }
 
 // Telemetry holds the config details for metric services

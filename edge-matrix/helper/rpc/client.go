@@ -70,6 +70,18 @@ func NewDefaultJsonRpcClient() *JsonRpcClient {
 	}
 }
 
+func NewJsonRpcClient(rpcHost string) *JsonRpcClient {
+	rpcUrl := DEFAULT_RPC_URL
+	if rpcHost != "" {
+		rpcUrl = rpcHost
+	}
+	return &JsonRpcClient{
+		httpClient: NewDefaultHttpClient(),
+		signer:     crypto.NewEIP155Signer(chain.AllForksEnabled.At(0), big.NewInt(TESTNET_ID).Uint64()),
+		rpcUrl:     rpcUrl,
+	}
+}
+
 // Returns next nonce value for address
 func (c *JsonRpcClient) GetNextNonce(address string) (uint64, error) {
 	postJson := fmt.Sprintf("{\"jsonrpc\":\"2.0\",\"method\":\"edge_getTelegramCount\",\"params\":[\"%s\"],\"id\":1}", address)

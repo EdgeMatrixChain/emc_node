@@ -166,6 +166,10 @@ func (d *DiscoveryService) ConnectToBootnodes(bootnodes []*peer.AddrInfo) {
 	}
 }
 
+func (d *DiscoveryService) AddToTable(node *peer.AddrInfo) error {
+	return d.addToTable(node)
+}
+
 // addToTable adds the node to the peer store and the routing table
 func (d *DiscoveryService) addToTable(node *peer.AddrInfo) error {
 	// before we include peers on the routing table -> dial queue
@@ -178,8 +182,6 @@ func (d *DiscoveryService) addToTable(node *peer.AddrInfo) error {
 		false,
 		false,
 	); err != nil {
-		// for debug
-		d.routingTable.Print()
 		// Since the routing table addition failed,
 		// the peer can be removed from the libp2p peer store
 		// in the base networking server

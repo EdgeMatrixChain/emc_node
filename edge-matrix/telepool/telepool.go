@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/umbracle/fastrlp"
-	"google.golang.org/grpc"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -72,7 +71,7 @@ const (
 
 	// maximum allowed number of consecutive blocks that don't have the account's transaction
 	maxAccountSkips = uint64(10)
-	pruningCooldown = 2000 * time.Millisecond
+	pruningCooldown = 4000 * time.Millisecond
 
 	// txPoolMetrics is a prefix used for txpool-related metrics
 	txPoolMetrics = "telepool"
@@ -171,9 +170,9 @@ type TelegramPool struct {
 func NewTelegramPool(
 	logger hclog.Logger,
 	store store,
-	grpcServer *grpc.Server,
 	network *network.Server,
 	config *Config,
+	teleVesion string,
 ) (*TelegramPool, error) {
 	pool := &TelegramPool{
 		logger:      logger.Named("telepool"),
@@ -195,7 +194,11 @@ func NewTelegramPool(
 
 	if network != nil {
 		// subscribe to the gossip protocol
-		topic, err := network.NewTopic(topicNameV1, &proto.Txn{})
+		protoId := topicNameV1
+		if teleVesion != "" {
+			protoId = "tele/" + teleVesion
+		}
+		topic, err := network.NewTopic(protoId, &proto.Txn{})
 		if err != nil {
 			return nil, err
 		}

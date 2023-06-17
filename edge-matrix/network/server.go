@@ -81,6 +81,8 @@ type Server struct {
 
 	ps *pubsub.PubSub // reference to the networking PubSub service
 
+	rtTopic *Topic
+
 	emitterPeerEvent event.Emitter // event emitter for listeners
 
 	connectionCounts *ConnectionInfo
@@ -433,15 +435,6 @@ func (s *Server) runDial() {
 					s.emitEvent(peerInfo.ID, peerEvent.PeerFailedToConnect)
 				}
 			}
-			//// the connection process is async because it involves connection (here) +
-			//// the handshake done in the identity service.
-			//if err := s.host.Connect(context.Background(), *peerInfo); err != nil {
-			//	s.emitEvent(peerInfo.ID, peerEvent.PeerFailedToConnect)
-			//	s.discovery.HandleNetworkEvent(&peerEvent.PeerEvent{
-			//		PeerID: peerInfo.ID,
-			//		Type:   peerEvent.PeerDisconnected,
-			//	})
-			//}
 		}
 
 		// wait until there is a change in the state of a peer that

@@ -199,5 +199,6 @@ func (p *serverParams) generateConfig() *server.Config {
 
 		IcHost:        p.rawConfig.IcHost,
 		MinerCanister: p.rawConfig.MinerCanister,
+		EmcHost:       p.rawConfig.EmcHost,
 	}
 }

@@ -8,6 +8,11 @@ service Discovery {
     rpc FindPeers(FindPeersReq) returns (FindPeersResp);
 }
 
+message PeerInfo {
+    string from = 1;
+    repeated string nodes = 2;
+}
+
 message FindPeersReq {
     string key = 1;
     int64 count = 2;

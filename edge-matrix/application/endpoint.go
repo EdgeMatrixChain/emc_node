@@ -174,9 +174,17 @@ func (e *Endpoint) runPoc() {
 			if err != nil {
 				e.logger.Error("runPoc -->ProofByCalcHash", "err", err.Error())
 			} else {
-				data[seed] = bytes
+				if bytes != nil && len(bytes) > 0 {
+					data[seed] = bytes
+				} else {
+					e.logger.Warn("runPoc -->ProofByCalcHash failed", "seed", seed)
+				}
 			}
 			i += 1
+		}
+		if len(data) < proof.DefaultHashProofCount-3 {
+			e.logger.Warn("runPoc -->validate data size too low", "size", len(data))
+			continue
 		}
 		resp := "["
 		dataIdx := 0

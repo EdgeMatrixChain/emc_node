@@ -17,6 +17,10 @@ import (
 	rawGrpc "google.golang.org/grpc"
 )
 
+const (
+	topicNameV1 = "route_table/0.2"
+)
+
 // GetRandomBootnode fetches a random bootnode that's currently
 // NOT connected, if any
 func (s *Server) GetRandomBootnode() *peer.AddrInfo {
@@ -132,6 +136,53 @@ func (s *Server) CloseProtocolStream(protocol string, peerID peer.ID) error {
 // AddToPeerStore adds peer information to the node's peer store
 func (s *Server) AddToPeerStore(peerInfo *peer.AddrInfo) {
 	s.host.Peerstore().AddAddr(peerInfo.ID, peerInfo.Addrs[0], peerstore.AddressTTL)
+
+	// broadcast new addr
+	if s.rtTopic != nil {
+		if len(peerInfo.Addrs) > 0 {
+			filteredPeers := make([]string, 0)
+			filteredPeers = append(filteredPeers, common.AddrInfoToString(peerInfo))
+			s.rtTopic.Publish(&proto.PeerInfo{From: s.host.ID().String(), Nodes: filteredPeers})
+			s.logger.Info("AddToPeerStore", "Publish", filteredPeers)
+		}
+	}
+}
+
+func (s *Server) handleRouteTableUpdate(obj interface{}, from peer.ID) {
+	peerInfo, ok := obj.(*proto.PeerInfo)
+	if !ok {
+		s.logger.Error("failed to cast gossiped message to proto.PeerInfo")
+		return
+	}
+	if from.String() == s.host.ID().String() {
+		return
+	}
+
+	nodes := peerInfo.Nodes
+	for _, rawAddr := range nodes {
+		node, err := common.StringToAddrInfo(rawAddr)
+		if err != nil {
+			s.logger.Error("handleRouteTableUpdate", "err", fmt.Sprintf("failed to parse rawAddr %s: %w", rawAddr, err))
+			continue
+		}
+		s.host.Peerstore().AddAddr(node.ID, node.Addrs[0], peerstore.AddressTTL)
+		s.logger.Info("handleRouteTableUpdate", "from", from, "node", node.String())
+	}
+}
+
+func (s *Server) StartRouteTableGossip() error {
+	topic, err := s.NewTopic(topicNameV1, &proto.PeerInfo{})
+	if err != nil {
+		return err
+	}
+
+	if err := topic.Subscribe(s.handleRouteTableUpdate); err != nil {
+		return fmt.Errorf("unable to subscribe to gossip topic, %w", err)
+	}
+
+	s.rtTopic = topic
+
+	return nil
 }
 
 // RemoveFromPeerStore removes peer information from the node's peer store

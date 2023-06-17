@@ -40,6 +40,7 @@ type Config struct {
 	AppName       string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
 	IcHost        string `json:"ic_host,omitempty" yaml:"ic_host,omitempty"`
 	MinerCanister string `json:"miner_canister,omitempty" yaml:"miner_canister,omitempty"`
+	EmcHost       string `json:"emc_host,omitempty" yaml:"emc_host,omitempty"`
 }
 
 // Telemetry holds the config details for metric services.

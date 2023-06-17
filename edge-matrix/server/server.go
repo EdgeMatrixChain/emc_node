@@ -203,15 +203,19 @@ func NewServer(config *Config) (*Server, error) {
 		}
 
 		// start transaction pool
+		teleVersion := m.config.Chain.TeleVersion
+		if teleVersion != "" {
+			m.logger.Info("Tele proto", "version", m.config.Chain.TeleVersion)
+		}
 		m.telepool, err = telepool.NewTelegramPool(
 			logger,
 			hub,
-			m.grpcServer,
 			m.network,
 			&telepool.Config{
 				MaxSlots:           m.config.MaxSlots,
 				MaxAccountEnqueued: m.config.MaxAccountEnqueued,
 			},
+			m.config.Chain.TeleVersion,
 		)
 		if err != nil {
 			return nil, err
@@ -299,7 +303,7 @@ func NewServer(config *Config) (*Server, error) {
 			return nil, err
 		}
 
-		jsonRpcClient := rpc.NewDefaultJsonRpcClient()
+		jsonRpcClient := rpc.NewJsonRpcClient(m.config.EmcHost)
 		endpoint, err := application.NewApplicationEndpoint(m.logger, key, network.GetHost(), m.config.AppName, m.config.AppUrl, m.blockchain, minerAgent, jsonRpcClient)
 		if err != nil {
 			return nil, err
@@ -322,9 +326,11 @@ func NewServer(config *Config) (*Server, error) {
 		}
 	}
 
-	// start telepool
 	if m.config.RunningMode == "full" {
+		// start telepool
 		m.telepool.Start()
+		// start route table gossip
+		m.network.StartRouteTableGossip()
 	}
 
 	return m, nil
