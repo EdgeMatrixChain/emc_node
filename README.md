@@ -1,11 +1,11 @@
 # EMC Node
+Framework for p2p AI network.
 
+Build your node and join the EMC network immediately
 ![](https://www.edgematrix.pro/requester/static/images/4c67f2b1e2.png)
 
-Beyond #ICP Layer2, serving as an entry of Computing power and Web3 in AI era
-
 ## Build
-Execute the following command to compile the EMC node for linux_x64, windows_x64, mac(intel), mac_arm64(m1/m2)
+Execute the following command to compile the EMC node for linux_x64, windows_x64, mac(intel), mac_arm64(m1/m2), then run it to join EMC
 
 ```shell
 cd ./emc_node/edge-matrix
