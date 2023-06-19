@@ -5,7 +5,7 @@ Build your node and join the EMC network immediately
 ![](https://www.edgematrix.pro/requester/static/images/4c67f2b1e2.png)
 
 ## Build
-Execute the following command to compile the EMC node for linux_x64, windows_x64, mac(intel), mac_arm64(m1/m2), then run it to join EMC
+Execute the following command to compile the EMC node for linux_x64, windows_x64, mac(intel), mac_arm64(m1/m2).
 
 ```shell
 cd ./emc_node/edge-matrix
@@ -23,7 +23,7 @@ cd ../dist/{linux|mac|mac_arm64}/emc
 ```
 ## Run
 Execute the following command to run a EMC node.
-Command with "--miner-canister nk6pr-3qaaa-aaaam-abnrq-cai" to works with the Testnet miner canister
+Command with "--miner-canister nk6pr-3qaaa-aaaam-abnrq-cai" to works with the Testnet miner canister.
 ```shell
 ./edge-matrix server --chain genesis.json --data-dir edge_data  --grpc-address 0.0.0.0:50000 --libp2p 0.0.0.0:50001 --jsonrpc 0.0.0.0:50002 --miner-canister nk6pr-3qaaa-aaaam-abnrq-cai 
 ```
