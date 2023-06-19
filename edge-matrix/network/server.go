@@ -622,10 +622,14 @@ func (s *Server) Close() error {
 	s.dialQueue.Close()
 
 	if !s.config.NoDiscover {
-		s.discovery.Close()
+		if s.discovery != nil {
+			s.discovery.Close()
+		}
 	}
 
-	close(s.closeCh)
+	if s.closeCh != nil {
+		close(s.closeCh)
+	}
 
 	return err
 }

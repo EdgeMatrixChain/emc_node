@@ -36,8 +36,6 @@
         "blockGasTarget": 0
     },
     "bootnodes": [
-        "/ip4/183.60.189.253/tcp/50001/p2p/16Uiu2HAmR9NtepZJgrVffDgE5b5yTNynQ8EXKmaPwMSZhh3WmRga",
-        "/ip4/156.59.4.189/tcp/50001/p2p/16Uiu2HAmHjf8GncRBfjJPn18kzL2sJR3JzX4qzGxByzg4Yc39P8e",
         "/ip4/183.207.184.184/tcp/40004/p2p/16Uiu2HAkwaui8LKmt4B9XkhB5ET5tbSApVB89awUvrXSfPh6KFy5",
         "/ip4/183.207.184.184/tcp/40003/p2p/16Uiu2HAm14xAsnJHDqnQNQ2Qqo1SapdRk9j8mBKY6mghVDP9B9u5",
         "/ip4/183.207.184.184/tcp/40008/p2p/16Uiu2HAm68KEfnSjqt4euJs9zKjMpFN9nGp3m6vqwLVAQdu9HoMV",
