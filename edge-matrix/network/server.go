@@ -32,12 +32,12 @@ const (
 	// peerOutboundBufferSize is the size of outbound messages to a peer buffers in go-libp2p-pubsub
 	// we should have enough capacity of the queue
 	// because we start dropping messages to a peer if the outbound queue is full
-	peerOutboundBufferSize = 1024
+	peerOutboundBufferSize = 4096
 
 	// validateBufferSize is the size of validate buffers in go-libp2p-pubsub
 	// we should have enough capacity of the queue
 	// because when queue is full, validation is throttled and new messages are dropped.
-	validateBufferSize = 1024
+	validateBufferSize = 4096
 
 	// networkMetrics is a prefix used for network-related metrics
 	networkMetrics = "network"
@@ -47,7 +47,8 @@ const (
 	defaultBucketSize = 256
 	DefaultDialRatio  = 0.2
 
-	DefaultLibp2pPort int = 50001
+	DefaultLibp2pPort     int = 50003
+	DefaultEdgeLibp2pPort int = 50001
 
 	MinimumBootNodes       int   = 1
 	MinimumPeerConnections int64 = 1
@@ -90,10 +91,13 @@ type Server struct {
 	temporaryDials sync.Map // map of temporary connections; peerID -> bool
 
 	bootnodes *bootnodesWrapper // reference of all bootnodes for the node
+
+	discProto     string
+	identityProto string
 }
 
 // NewServer returns a new instance of the networking server
-func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
+func NewServer(logger hclog.Logger, config *Config, discProto string, identityProto string) (*Server, error) {
 	logger = logger.Named("network")
 
 	key, err := setupLibp2pKey(config.SecretsManager)
@@ -156,6 +160,8 @@ func NewServer(logger hclog.Logger, config *Config) (*Server, error) {
 			config.MaxInboundPeers,
 			config.MaxOutboundPeers,
 		),
+		discProto:     discProto,
+		identityProto: identityProto,
 	}
 
 	// start gossip protocol
@@ -180,6 +186,10 @@ func (s *Server) HasFreeConnectionSlot(direction network.Direction) bool {
 
 func (s *Server) GetHost() host.Host {
 	return s.host
+}
+
+func (s *Server) GetDiscProto() string {
+	return s.discProto
 }
 
 // PeerConnInfo holds the connection information about the peer
@@ -247,8 +257,8 @@ func setupLibp2pKey(secretsManager secrets.SecretsManager) (crypto.PrivKey, erro
 }
 
 // Start starts the networking services
-func (s *Server) Start() error {
-	s.logger.Info("LibP2P server running", "addr", common.AddrInfoToString(s.AddrInfo()))
+func (s *Server) Start(netName string, bootnodes []string) error {
+	s.logger.Info(netName+" LibP2P server running", "addr", common.AddrInfoToString(s.AddrInfo()))
 
 	if setupErr := s.setupIdentity(); setupErr != nil {
 		return fmt.Errorf("unable to setup identity, %w", setupErr)
@@ -257,7 +267,7 @@ func (s *Server) Start() error {
 	// Set up the peer discovery mechanism if needed
 	if !s.config.NoDiscover {
 		// Parse the bootnode data
-		if setupErr := s.setupBootnodes(); setupErr != nil {
+		if setupErr := s.setupBootnodes(bootnodes); setupErr != nil {
 			return fmt.Errorf("unable to parse bootnode data, %w", setupErr)
 		}
 
@@ -282,21 +292,21 @@ func (s *Server) Start() error {
 }
 
 // setupBootnodes sets up the node's bootnode connections
-func (s *Server) setupBootnodes() error {
+func (s *Server) setupBootnodes(bootnodes []string) error {
 	// Check the bootnode config is present
-	if s.config.Chain.Bootnodes == nil {
+	if bootnodes == nil {
 		return ErrNoBootnodes
 	}
 
 	// Check if at least one bootnode is specified
-	if len(s.config.Chain.Bootnodes) < MinimumBootNodes {
-		return ErrMinBootnodes
-	}
+	//if len(bootnodes) < minimumBootNodes {
+	//	return ErrMinBootnodes
+	//}
 
 	bootnodesArr := make([]*peer.AddrInfo, 0)
 	bootnodesMap := make(map[peer.ID]*peer.AddrInfo)
 
-	for _, rawAddr := range s.config.Chain.Bootnodes {
+	for _, rawAddr := range bootnodes {
 		bootnode, err := common.StringToAddrInfo(rawAddr)
 		if err != nil {
 			return fmt.Errorf("failed to parse bootnode %s: %w", rawAddr, err)

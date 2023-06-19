@@ -14,3 +14,4 @@
 /dist/mac/emc/genesis.json
 /dist/mac_arm64/emc/genesis.json
 /dist/windows/emc/genesis.json
+/edge_data/

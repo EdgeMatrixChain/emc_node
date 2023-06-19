@@ -17,11 +17,6 @@ const (
 	PriorityRandomDial    DialPriority = 10
 )
 
-const (
-	DiscProto     = "/disc/0.1"
-	IdentityProto = "/id/0.1"
-)
-
 // DNSRegex is a regex string to match against a valid dns/dns4/dns6 addr
 const DNSRegex = `^/?(dns)(4|6)?/[^-|^/][A-Za-z0-9-]([^-|^/]?)+([\\-\\.]{1}[a-z0-9]+)*\\.[A-Za-z]{2,}(/?)$`
 

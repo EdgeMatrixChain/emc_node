@@ -17,7 +17,8 @@ const (
 	configFlag                   = "config"
 	genesisPathFlag              = "chain"
 	dataDirFlag                  = "data-dir"
-	libp2pAddressFlag            = "libp2p"
+	libp2pAddressFlag            = "base-libp2p"
+	edgeLibp2pAddressFlag        = "libp2p"
 	prometheusAddressFlag        = "prometheus"
 	natFlag                      = "nat"
 	dnsFlag                      = "dns"
@@ -78,6 +79,7 @@ type serverParams struct {
 	configPath string
 
 	libp2pAddress     *net.TCPAddr
+	edgeLibp2pAddress *net.TCPAddr
 	prometheusAddress *net.TCPAddr
 	natAddress        net.IP
 	dnsAddress        multiaddr.Multiaddr
@@ -170,6 +172,17 @@ func (p *serverParams) generateConfig() *server.Config {
 		Network: &network.Config{
 			NoDiscover:       p.rawConfig.Network.NoDiscover,
 			Addr:             p.libp2pAddress,
+			NatAddr:          p.natAddress,
+			DNS:              p.dnsAddress,
+			DataDir:          p.rawConfig.DataDir,
+			MaxPeers:         p.rawConfig.Network.MaxPeers,
+			MaxInboundPeers:  p.rawConfig.Network.MaxInboundPeers,
+			MaxOutboundPeers: p.rawConfig.Network.MaxOutboundPeers,
+			Chain:            p.genesisConfig,
+		},
+		EdgeNetwork: &network.Config{
+			NoDiscover:       p.rawConfig.Network.NoDiscover,
+			Addr:             p.edgeLibp2pAddress,
 			NatAddr:          p.natAddress,
 			DNS:              p.dnsAddress,
 			DataDir:          p.rawConfig.DataDir,

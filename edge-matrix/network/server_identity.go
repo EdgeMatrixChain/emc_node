@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/armon/go-metrics"
-	"github.com/emc-protocol/edge-matrix/network/common"
 	peerEvent "github.com/emc-protocol/edge-matrix/network/event"
 	"github.com/emc-protocol/edge-matrix/network/grpc"
 	"github.com/emc-protocol/edge-matrix/network/identity"
@@ -19,7 +18,7 @@ import (
 // NewIdentityClient returns a new identity service client connection
 func (s *Server) NewIdentityClient(peerID peer.ID) (proto.IdentityClient, error) {
 	// Create a new stream connection and return it
-	protoStream, err := s.NewProtoConnection(common.IdentityProto, peerID)
+	protoStream, err := s.NewProtoConnection(s.identityProto, peerID)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +92,6 @@ func (s *Server) addPeerInfo(id peer.ID, direction network.Direction) bool {
 
 // UpdatePendingConnCount updates the pending connection count in the specified direction [Thread safe]
 func (s *Server) UpdatePendingConnCount(delta int64, direction network.Direction) {
-	s.logger.Debug("--UpdatePendingConnCount", "connectionCounts", s.connectionCounts, "delta", delta, "direction", direction)
 	s.connectionCounts.UpdatePendingConnCountByDirection(delta, direction)
 
 	s.updatePendingConnCountMetrics(direction)
@@ -141,7 +139,7 @@ func (s *Server) registerIdentityService(identityService *identity.IdentityServi
 	proto.RegisterIdentityServer(grpcStream.GrpcServer(), identityService)
 	grpcStream.Serve()
 
-	s.RegisterProtocol(common.IdentityProto, grpcStream)
+	s.RegisterProtocol(s.identityProto, grpcStream)
 }
 
 func (s *Server) GetPeerDistance(peerID peer.ID) *big.Int {

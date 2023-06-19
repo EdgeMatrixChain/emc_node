@@ -268,6 +268,13 @@ func (p *serverParams) initLibp2pAddress() error {
 		return parseErr
 	}
 
+	if p.edgeLibp2pAddress, parseErr = helper.ResolveAddr(
+		p.rawConfig.Network.EdgeLibp2pAddr,
+		helper.LocalHostBinding,
+	); parseErr != nil {
+		return parseErr
+	}
+
 	return nil
 }
 

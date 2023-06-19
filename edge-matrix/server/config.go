@@ -26,8 +26,9 @@ type Config struct {
 	MaxSlots           uint64
 	BlockTime          uint64
 
-	Telemetry *Telemetry
-	Network   *network.Config
+	Telemetry   *Telemetry
+	Network     *network.Config
+	EdgeNetwork *network.Config
 
 	DataDir     string
 	RestoreFile *string

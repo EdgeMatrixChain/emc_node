@@ -7,6 +7,7 @@ import (
 	"github.com/emc-protocol/edge-matrix/application"
 	"github.com/emc-protocol/edge-matrix/blockchain"
 	"github.com/emc-protocol/edge-matrix/chain"
+	cmdConfig "github.com/emc-protocol/edge-matrix/command/server/config"
 	"github.com/emc-protocol/edge-matrix/consensus"
 	"github.com/emc-protocol/edge-matrix/crypto"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
@@ -44,6 +45,19 @@ import (
 	"google.golang.org/grpc"
 )
 
+type RunningModeType string
+
+const (
+	RunningModeFull RunningModeType = "full"
+	RunningModeEdge RunningModeType = "edge"
+)
+const (
+	BaseDiscProto     = "/base/disc/0.1"
+	BaseIdentityProto = "/base/id/0.1"
+	EdgeDiscProto     = "/disc/0.1"
+	EdgeIdentityProto = "/id/0.1"
+)
+
 // Server is the central manager of the blockchain client
 type Server struct {
 	logger       hclog.Logger
@@ -66,8 +80,11 @@ type Server struct {
 	// system grpc server
 	grpcServer *grpc.Server
 
-	// libp2p network
+	// base libp2p network
 	network *network.Server
+
+	// edge libp2p network
+	edgeNetwork *network.Server
 
 	// telegram pool
 	telepool *telepool.TelegramPool
@@ -77,6 +94,9 @@ type Server struct {
 
 	// restore
 	restoreProgression *progress.ProgressionWrapper
+
+	// running mode
+	runningMode RunningModeType
 }
 
 var dirPaths = []string{
@@ -140,6 +160,13 @@ func NewServer(config *Config) (*Server, error) {
 		restoreProgression: progress.NewProgressionWrapper(progress.ChainSyncRestore),
 	}
 
+	if m.config.RunningMode == cmdConfig.DefaultRunningMode {
+		m.runningMode = RunningModeFull
+	} else {
+		m.runningMode = RunningModeEdge
+	}
+	m.logger.Info("Node running", "mode", m.runningMode)
+
 	m.logger.Info("Data dir", "path", config.DataDir)
 
 	// Generate all the paths in the dataDir
@@ -157,17 +184,28 @@ func NewServer(config *Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to set up the secrets manager: %w", err)
 	}
 
-	// start libp2p
+	// setup base libp2p network
 	netConfig := config.Network
 	netConfig.Chain = m.config.Chain
 	netConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
 	netConfig.SecretsManager = m.secretsManager
-
-	network, err := network.NewServer(logger, netConfig)
+	coreNetwork, err := network.NewServer(logger, netConfig, BaseDiscProto, BaseIdentityProto)
 	if err != nil {
 		return nil, err
 	}
-	m.network = network
+	m.network = coreNetwork
+
+	// setup edge libp2p network
+	edgeNetConfig := config.EdgeNetwork
+	edgeNetConfig.Chain = m.config.Chain
+	edgeNetConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
+	edgeNetConfig.SecretsManager = m.secretsManager
+	edgeNetwork, err := network.NewServer(logger.Named("edge"), edgeNetConfig, EdgeDiscProto, EdgeIdentityProto)
+	if err != nil {
+		return nil, err
+	}
+	m.edgeNetwork = edgeNetwork
+	//edgeNetwork := coreNetwork
 
 	// start blockchain object
 	stateStorage, err := itrie.NewLevelDBStorage(filepath.Join(m.config.DataDir, "trie"), logger)
@@ -211,6 +249,7 @@ func NewServer(config *Config) (*Server, error) {
 			logger,
 			hub,
 			m.network,
+			m.edgeNetwork,
 			&telepool.Config{
 				MaxSlots:           m.config.MaxSlots,
 				MaxAccountEnqueued: m.config.MaxAccountEnqueued,
@@ -222,7 +261,6 @@ func NewServer(config *Config) (*Server, error) {
 		}
 
 		m.telepool.SetSigner(signer)
-
 	}
 
 	{
@@ -233,17 +271,19 @@ func NewServer(config *Config) (*Server, error) {
 		m.blockchain.SetConsensus(m.consensus)
 	}
 
-	if m.config.RunningMode == "full" {
-		//after consensus is done, we can mine the genesis block in blockchain
-		//This is done because consensus might use a custom Hash function so we need
-		//to wait for consensus because we do any block hashing like genesis
-		if err := m.blockchain.ComputeGenesis(); err != nil {
-			return nil, err
-		}
+	{
+		if m.runningMode == RunningModeFull {
+			//after consensus is done, we can mine the genesis block in blockchain
+			//This is done because consensus might use a custom Hash function so we need
+			//to wait for consensus because we do any block hashing like genesis
+			if err := m.blockchain.ComputeGenesis(); err != nil {
+				return nil, err
+			}
 
-		//initialize data in consensus layer
-		if err := m.consensus.Initialize(); err != nil {
-			return nil, err
+			//initialize data in consensus layer
+			if err := m.consensus.Initialize(); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -255,38 +295,48 @@ func NewServer(config *Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	decodedPrivKey, err := crypto.BytesToEd25519PrivateKey(icPrivKey)
 	identity := identity.New(false, decodedPrivKey.Seed())
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	m.logger.Info("Init IC Agent", "node identity", p.Encode())
+
 	icAgent := agent.NewWithHost(config.IcHost, false, hex.EncodeToString(decodedPrivKey.Seed()))
 	minerAgent := miner.NewMinerAgent(m.logger, icAgent, config.MinerCanister)
 
 	// init miner grpc service
-	_, err = m.initMinerService(minerAgent, network.GetHost(), m.secretsManager)
+	_, err = m.initMinerService(minerAgent, coreNetwork.GetHost(), m.secretsManager)
 	if err != nil {
 		return nil, err
 	}
 
 	// setup and start grpc server
-	if err := m.setupGRPC(); err != nil {
-		return nil, err
-	}
-
-	if err := m.network.Start(); err != nil {
-		return nil, err
-	}
-
-	// setup and start jsonrpc server
-	if m.config.RunningMode == "full" {
-		if err := m.setupJSONRPC(); err != nil {
+	{
+		if err := m.setupGRPC(); err != nil {
 			return nil, err
 		}
 	}
 
-	// start consensus
-	if m.config.RunningMode == "full" {
-		if err := m.consensus.Start(); err != nil {
+	// start network
+	{
+		if m.runningMode == RunningModeFull {
+			// start base network
+			if err := m.network.Start("Base", m.config.Chain.BaseBootnodes); err != nil {
+				return nil, err
+			}
+
+			// setup and start jsonrpc server
+			if err := m.setupJSONRPC(); err != nil {
+				return nil, err
+			}
+
+			// start consensus
+			if err := m.consensus.Start(); err != nil {
+				return nil, err
+			}
+		}
+		// start edge network
+		if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes); err != nil {
 			return nil, err
 		}
 	}
@@ -304,33 +354,37 @@ func NewServer(config *Config) (*Server, error) {
 		}
 
 		jsonRpcClient := rpc.NewJsonRpcClient(m.config.EmcHost)
-		endpoint, err := application.NewApplicationEndpoint(m.logger, key, network.GetHost(), m.config.AppName, m.config.AppUrl, m.blockchain, minerAgent, jsonRpcClient)
+		endpoint, err := application.NewApplicationEndpoint(m.logger, key, edgeNetwork.GetHost(), m.config.AppName, m.config.AppUrl, m.blockchain, minerAgent, jsonRpcClient)
 		if err != nil {
 			return nil, err
 		}
 		endpoint.SetSigner(application.NewEIP155Signer(chain.AllForksEnabled.At(0), uint64(m.config.Chain.Params.ChainID)))
 
 		// setup app status syncer
-		ayncAppclient := application.NewSyncAppPeerClient(m.logger, network, minerAgent, m.network.GetHost(), jsonRpcClient, key, endpoint)
+		ayncAppclient := application.NewSyncAppPeerClient(m.logger, edgeNetwork, minerAgent, m.edgeNetwork.GetHost(), jsonRpcClient, key, endpoint)
 		syncer := application.NewSyncer(
 			m.logger,
 			ayncAppclient,
-			application.NewSyncAppPeerService(m.logger, network, endpoint, ayncAppclient, m.blockchain, minerAgent),
-			m.network.GetHost(),
+			application.NewSyncAppPeerService(m.logger, edgeNetwork, endpoint, ayncAppclient, m.blockchain, minerAgent),
+			m.edgeNetwork.GetHost(),
 			m.blockchain)
 
 		// start app status syncer
-		err = syncer.Start(endpoint.SubscribeEvents(), m.config.RunningMode == "full")
+		err = syncer.Start(endpoint.SubscribeEvents(), m.runningMode == RunningModeFull)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if m.config.RunningMode == "full" {
+	if m.runningMode == RunningModeFull {
 		// start telepool
 		m.telepool.Start()
-		// start route table gossip
-		m.network.StartRouteTableGossip()
+
+		// start edge-network routetable gossip
+		//err := m.edgeNetwork.StartRouteTableGossip()
+		//if err != nil {
+		//	return nil, err
+		//}
 	}
 
 	return m, nil

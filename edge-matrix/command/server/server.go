@@ -72,7 +72,14 @@ func setFlags(cmd *cobra.Command) {
 		&params.rawConfig.Network.Libp2pAddr,
 		libp2pAddressFlag,
 		defaultConfig.Network.Libp2pAddr,
-		"the address and port for the libp2p service",
+		"the address and port for the base libp2p service",
+	)
+
+	cmd.Flags().StringVar(
+		&params.rawConfig.Network.EdgeLibp2pAddr,
+		edgeLibp2pAddressFlag,
+		defaultConfig.Network.EdgeLibp2pAddr,
+		"the address and port for the edge libp2p service",
 	)
 
 	cmd.Flags().StringVar(
@@ -157,7 +164,7 @@ func setFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(
 		&params.rawConfig.RunningMode,
 		runningModeFlag,
-		"full",
+		defaultConfig.RunningMode,
 		"the mode for running",
 	)
 

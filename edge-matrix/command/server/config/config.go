@@ -52,6 +52,7 @@ type Telemetry struct {
 type Network struct {
 	NoDiscover       bool   `json:"no_discover" yaml:"no_discover"`
 	Libp2pAddr       string `json:"libp2p_addr" yaml:"libp2p_addr"`
+	EdgeLibp2pAddr   string `json:"edge_libp2p_addr" yaml:"libp2p_addr"`
 	NatAddr          string `json:"nat_addr" yaml:"nat_addr"`
 	DNSAddr          string `json:"dns_addr" yaml:"dns_addr"`
 	MaxPeers         int64  `json:"max_peers,omitempty" yaml:"max_peers,omitempty"`
@@ -89,12 +90,13 @@ const (
 	// DefaultNumBlockConfirmations minimal number of child blocks required for the parent block to be considered final
 	// on ethereum epoch lasts for 32 blocks. more details: https://www.alchemy.com/overviews/ethereum-commitment-levels
 	DefaultNumBlockConfirmations uint64 = 64
+
+	DefaultRunningMode string = "full"
 )
 
 // DefaultConfig returns the default server configuration
 func DefaultConfig() *Config {
 	defaultNetworkConfig := network.DefaultConfig()
-
 	return &Config{
 		GenesisPath:    "./genesis.json",
 		DataDir:        "",
@@ -107,6 +109,10 @@ func DefaultConfig() *Config {
 			Libp2pAddr: fmt.Sprintf("%s:%d",
 				defaultNetworkConfig.Addr.IP,
 				defaultNetworkConfig.Addr.Port,
+			),
+			EdgeLibp2pAddr: fmt.Sprintf("%s:%d",
+				defaultNetworkConfig.Addr.IP,
+				network.DefaultEdgeLibp2pPort,
 			),
 		},
 		Telemetry:  &Telemetry{},
@@ -127,6 +133,7 @@ func DefaultConfig() *Config {
 		JSONRPCBlockRangeLimit:   DefaultJSONRPCBlockRangeLimit,
 		Relayer:                  false,
 		NumBlockConfirmations:    DefaultNumBlockConfirmations,
+		RunningMode:              DefaultRunningMode,
 	}
 }
 

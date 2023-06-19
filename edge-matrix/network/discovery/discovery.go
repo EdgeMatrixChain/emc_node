@@ -34,6 +34,10 @@ const (
 // networkingServer defines the base communication interface between
 // any networking server implementation and the DiscoveryService
 type networkingServer interface {
+
+	// GetDiscProto get the DiscProto string
+	GetDiscProto() string
+
 	// BOOTNODE QUERIES //
 
 	// GetRandomBootnode fetches a random bootnode, if any
@@ -261,7 +265,7 @@ func (d *DiscoveryService) findPeersCall(
 
 	// Check if the connection should be closed after getting the data
 	if shouldCloseConn {
-		if closeErr := d.baseServer.CloseProtocolStream(common.DiscProto, peerID); closeErr != nil {
+		if closeErr := d.baseServer.CloseProtocolStream(d.baseServer.GetDiscProto(), peerID); closeErr != nil {
 			return nil, closeErr
 		}
 	}
@@ -409,7 +413,6 @@ func (d *DiscoveryService) FindPeers(
 	if req.Count > maxDiscoveryPeerReqCount {
 		req.Count = maxDiscoveryPeerReqCount
 	}
-	d.logger.Debug("--FindPeers", "from", from.String())
 
 	// The request Key is used for finding the closest peers
 	// by utilizing Kademlia's distance calculation.
@@ -423,8 +426,6 @@ func (d *DiscoveryService) FindPeers(
 		kb.ConvertKey(req.GetKey()),
 		int(req.Count),
 	)
-
-	d.logger.Debug("--FindPeers", "nearestPeers", len(nearestPeers))
 
 	// The peer that's initializing this request
 	// doesn't need to be a part of the resulting set

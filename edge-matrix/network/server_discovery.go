@@ -74,12 +74,12 @@ func (s *Server) NewDiscoveryClient(peerID peer.ID) (proto.DiscoveryClient, erro
 	}
 
 	// Check if there is an active stream connection already
-	if protoStream := s.getProtoStream(common.DiscProto, peerID); protoStream != nil {
+	if protoStream := s.getProtoStream(s.discProto, peerID); protoStream != nil {
 		return proto.NewDiscoveryClient(protoStream), nil
 	}
 
 	// Create a new stream connection and return it
-	protoStream, err := s.NewProtoConnection(common.DiscProto, peerID)
+	protoStream, err := s.NewProtoConnection(s.discProto, peerID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (s *Server) NewDiscoveryClient(peerID peer.ID) (proto.DiscoveryClient, erro
 	// since they are referenced later on,
 	// if they are not temporary
 	if !isTemporaryDial {
-		s.SaveProtocolStream(common.DiscProto, protoStream, peerID)
+		s.SaveProtocolStream(s.discProto, protoStream, peerID)
 	}
 
 	return proto.NewDiscoveryClient(protoStream), nil
@@ -143,7 +143,7 @@ func (s *Server) AddToPeerStore(peerInfo *peer.AddrInfo) {
 			filteredPeers := make([]string, 0)
 			filteredPeers = append(filteredPeers, common.AddrInfoToString(peerInfo))
 			s.rtTopic.Publish(&proto.PeerInfo{From: s.host.ID().String(), Nodes: filteredPeers})
-			s.logger.Info("AddToPeerStore", "Publish", filteredPeers)
+			s.logger.Debug("AddToPeerStore", "Publish", filteredPeers)
 		}
 	}
 }
@@ -166,7 +166,7 @@ func (s *Server) handleRouteTableUpdate(obj interface{}, from peer.ID) {
 			continue
 		}
 		s.host.Peerstore().AddAddr(node.ID, node.Addrs[0], peerstore.AddressTTL)
-		s.logger.Info("handleRouteTableUpdate", "from", from, "node", node.String())
+		s.logger.Debug("handleRouteTableUpdate", "from", from, "node", node.String())
 	}
 }
 
@@ -181,6 +181,7 @@ func (s *Server) StartRouteTableGossip() error {
 	}
 
 	s.rtTopic = topic
+	s.logger.Info("StartRouteTableGossip")
 
 	return nil
 }
@@ -305,5 +306,5 @@ func (s *Server) registerDiscoveryService(discovery *discovery.DiscoveryService)
 	proto.RegisterDiscoveryServer(grpcStream.GrpcServer(), discovery)
 	grpcStream.Serve()
 
-	s.RegisterProtocol(common.DiscProto, grpcStream)
+	s.RegisterProtocol(s.discProto, grpcStream)
 }

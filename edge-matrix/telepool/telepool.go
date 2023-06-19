@@ -136,8 +136,9 @@ type TelegramPool struct {
 	index lookupMap
 
 	// networking stack
-	topic   *network.Topic
-	network *network.Server
+	topic       *network.Topic
+	network     *network.Server
+	edgeNetwork *network.Server
 
 	// gauge for measuring pool capacity
 	gauge slotGauge
@@ -171,6 +172,7 @@ func NewTelegramPool(
 	logger hclog.Logger,
 	store store,
 	network *network.Server,
+	edgeNetwork *network.Server,
 	config *Config,
 	teleVesion string,
 ) (*TelegramPool, error) {
@@ -187,6 +189,7 @@ func NewTelegramPool(
 		pruneCh:      make(chan struct{}),
 		shutdownCh:   make(chan struct{}),
 		network:      network,
+		edgeNetwork:  edgeNetwork,
 	}
 
 	// Attach the event manager
@@ -292,7 +295,7 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 
 			//respBuf, callErr := application.CallWithFrom(p.network.GetHost(), application.ProtoTagEcApp, call, tele.From)
 			// TODO relpace Call to CallWithFrom
-			respBuf, callErr := application.Call(p.network.GetHost(), application.ProtoTagEcApp, call)
+			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call)
 			if callErr != nil {
 				return "", callErr
 			}
