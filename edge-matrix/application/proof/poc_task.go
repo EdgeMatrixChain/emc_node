@@ -14,6 +14,23 @@ type PocCpuData struct {
 	Seed      string
 }
 
+type PocSubmitTask struct {
+	index int
+
+	// info of the task
+	pocSubmitData *PocSubmitData
+
+	// priority of the task (the higher the better)
+	priority uint64
+}
+
+type PocSubmitData struct {
+	ValidationTicket int64
+	Validator        string
+	Power            int64
+	TargetNodeID     string
+}
+
 type PocTask struct {
 	index int
 
@@ -27,4 +44,9 @@ type PocTask struct {
 // GetPocCpuDataInfo returns the poc information
 func (dt *PocTask) GetPocCpuDataInfo() *PocCpuData {
 	return dt.pocCpuData
+}
+
+// GetPocCpuDataInfo returns the poc information
+func (st *PocSubmitTask) GetPocSubmitData() *PocSubmitData {
+	return st.pocSubmitData
 }

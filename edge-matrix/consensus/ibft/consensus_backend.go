@@ -106,6 +106,11 @@ func (i *backendIBFT) InsertProposal(
 
 	i.updateMetrics(newBlock)
 
+	committedSignerStr := make([]string, len(committedSeals))
+	for i, seal := range committedSeals {
+		committedSignerStr[i] = hex.EncodeToHex(seal.Signer)
+	}
+
 	i.logger.Info(
 		"block committed",
 		"number", newBlock.Number(),
@@ -113,6 +118,7 @@ func (i *backendIBFT) InsertProposal(
 		"validation_type", i.currentSigner.Type(),
 		"validators", i.currentValidators.Len(),
 		"committed", len(committedSeals),
+		"committedSigner", committedSignerStr,
 	)
 
 	if err := i.currentHooks.PostInsertBlock(newBlock); err != nil {
@@ -168,6 +174,13 @@ func (i *backendIBFT) HasQuorum(
 
 		return len(messages) >= quorum-1
 	case proto.MessageType_COMMIT, proto.MessageType_ROUND_CHANGE:
+		if len(messages) > 0 {
+			if i.logger.IsDebug() {
+				for _, message := range messages {
+					i.logger.Debug("HasQuorum", "msgType", msgType, "round", message.View.Round, "from", types.BytesToAddress(message.From).String())
+				}
+			}
+		}
 		return len(messages) >= quorum
 	default:
 		return false

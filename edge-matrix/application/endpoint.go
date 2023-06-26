@@ -8,6 +8,7 @@ import (
 	"github.com/emc-protocol/edge-matrix/application/proof"
 	"github.com/emc-protocol/edge-matrix/crypto"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
+	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/types"
@@ -17,7 +18,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/orcaman/concurrent-map/v2"
 	"io"
+	"math/big"
 	"math/rand"
 	"net"
 	"net/http"
@@ -92,10 +95,15 @@ type Endpoint struct {
 	jsonRpcClient   *rpc.JsonRpcClient
 	blockchainStore blockchainStore
 
-	peersPocRequestMap sync.Map
-	peersPocStartMap   sync.Map
-	pocQueue           *proof.PocQueue
-	randomNum          int
+	//peersPocRequestMap PocMap
+	peersPocRequestMap cmap.ConcurrentMap[string, proof.PocCpuRequest]
+	//peersPocStartMap   sync.Map
+	pocQueue       *proof.PocQueue
+	pocSubmitQueue *proof.PocSubmitQueue
+	randomNum      int
+
+	latestBlockHeadHash string
+	latestBlockNum      uint64
 }
 
 func (e *Endpoint) AddPocTask(
@@ -149,6 +157,85 @@ func (e *Endpoint) DisableNonceCache() {
 	e.nonceCacheEnable = false
 }
 
+func (e *Endpoint) runPocSubmit() {
+	batchSize := 500
+	e.logger.Info("runPocSubmit", "batchSize", batchSize)
+	batchSubmitData := make([]*proof.PocSubmitData, batchSize)
+	taskCount := 0
+	for {
+		tt := e.pocSubmitQueue.PopTask()
+
+		if tt == nil {
+			e.logger.Error("The poc submit queue is closed")
+			continue
+		}
+		batchSubmitData[taskCount] = tt.GetPocSubmitData()
+		e.logger.Debug("runPocSubmit->batchSubmitData", "count", taskCount, "TargetNodeID", batchSubmitData[taskCount].TargetNodeID, "blockNum", batchSubmitData[taskCount].ValidationTicket, "validator", batchSubmitData[taskCount].Validator, "power", batchSubmitData[taskCount].Power)
+		taskCount += 1
+
+		if taskCount < batchSize {
+			continue
+		}
+		e.logger.Info("runPocSubmit->pocSubmitQueue", "remain", e.pocSubmitQueue.Len())
+		taskCount = 0
+		vecValues := make([]interface{}, len(batchSubmitData))
+		for i, pocSubmitData := range batchSubmitData {
+			p, err := principal.Decode(pocSubmitData.Validator)
+			if err != nil {
+				e.logger.Error("principal.Decode", "err", err)
+				continue
+			}
+
+			vecValues[i] = map[string]interface{}{
+				"validationTicket": big.NewInt(pocSubmitData.ValidationTicket),
+				"validator":        p,
+				"power":            big.NewInt(pocSubmitData.Power),
+				"targetNodeID":     pocSubmitData.TargetNodeID,
+			}
+		}
+		vecValues0 := vecValues[:100]
+		vecValues1 := vecValues[100:200]
+		vecValues2 := vecValues[200:300]
+		vecValues3 := vecValues[300:400]
+		vecValues4 := vecValues[400:]
+
+		wg := sync.WaitGroup{}
+		wg.Add(5)
+		go func(vec []interface{}) {
+			e.submitToIc(vec)
+			wg.Done()
+		}(vecValues0)
+		go func(vec []interface{}) {
+			e.submitToIc(vec)
+			wg.Done()
+		}(vecValues1)
+		go func(vec []interface{}) {
+			e.submitToIc(vec)
+			wg.Done()
+		}(vecValues2)
+		go func(vec []interface{}) {
+			e.submitToIc(vec)
+			wg.Done()
+		}(vecValues3)
+		go func(vec []interface{}) {
+			e.submitToIc(vec)
+			wg.Done()
+		}(vecValues4)
+		wg.Wait()
+	}
+}
+
+func (e *Endpoint) submitToIc(vecValues []interface{}) {
+	e.logger.Info("vecValues", "len", len(vecValues))
+	// submit proof result to IC canister
+	err := e.minerAgent.SubmitValidationVec(vecValues)
+	if err != nil {
+		e.logger.Warn("\n------------------------------------------\nSubmitValidation", "err", err)
+	} else {
+		e.logger.Info("\n------------------------------------------\nSubmitValidation", "success", len(vecValues))
+	}
+}
+
 func (e *Endpoint) runPoc() {
 	for {
 		// TODO  get available slot from slotGauge
@@ -197,15 +284,15 @@ func (e *Endpoint) runPoc() {
 		}
 		resp += "]"
 		inputData := fmt.Sprintf("{\"node_id\" : \"%s\", \"poc_data\": %s}", e.h.ID().String(), resp)
-		redoCount := 1
-		callCount := 0
+		redoMax := 1
+		attemptCount := 0
 		callFail := true
 		teleResponse := rpc.TelegramResponse{}
-		for callCount <= redoCount {
+		for attemptCount <= redoMax {
 			nonce, err := e.GetNextNonce()
 			if err != nil {
 				e.logger.Error("\"runPoc -->GetNextNonce", "err:", err.Error())
-				callCount += 1
+				attemptCount += 1
 				continue
 			}
 			inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_validate\",\"Input\": %s}", pocData.Validator, inputData)
@@ -218,17 +305,17 @@ func (e *Endpoint) runPoc() {
 			)
 			if err != nil {
 				e.DisableNonceCache()
-				e.logger.Warn("\"runPoc -->SendRawTelegram for poc_cpu", "nonce", nonce, "callCount", callCount, "err", err.Error())
-				if callCount >= redoCount {
+				e.logger.Warn("\"runPoc -->SendRawTelegram for poc_cpu", "nonce", nonce, "attemptCount", attemptCount, "err", err.Error())
+				if attemptCount >= redoMax {
 					break
 				}
 			} else {
-				e.logger.Info("runPoc -->SendRawTelegram for poc_cpu", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount)
+				e.logger.Info("runPoc -->SendRawTelegram for poc_cpu", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "attemptCount", attemptCount)
 				teleResponse = *response
 				callFail = false
 				break
 			}
-			callCount += 1
+			attemptCount += 1
 		}
 		if callFail {
 			continue
@@ -272,18 +359,17 @@ func (e *Endpoint) doPocRequest() {
 	if len(validators) < 1 {
 		return
 	}
-	e.DisableNonceCache()
 	for _, validatorNodeID := range validators {
 		// post status by sendTelegram
-		redoCount := 1
-		callCount := 0
+		redoMax := 1
+		attemptCount := 0
 		teleResponse := rpc.TelegramResponse{}
 		sendOk := false
-		for callCount <= redoCount {
+		for attemptCount <= redoMax {
 			nonce, err := e.GetNextNonce()
 			if err != nil {
 				e.logger.Error("unable to GetNextNonce, %v", err)
-				callCount += 1
+				attemptCount += 1
 				continue
 			}
 			inputString := fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_cpu_request\",\"Input\": {\"node_id\": \"%s\"}}", validatorNodeID, e.h.ID().String())
@@ -295,13 +381,13 @@ func (e *Endpoint) doPocRequest() {
 			)
 			if err != nil {
 				e.DisableNonceCache()
-				e.logger.Warn("endpoint.miner -->SendRawTelegram for doPocRequest", "nonce", nonce, "callCount", callCount, "input", inputString, "err", err.Error())
-				if callCount >= redoCount {
+				e.logger.Warn("endpoint.miner -->SendRawTelegram for doPocRequest", "nonce", nonce, "attemptCount", attemptCount, "input", inputString, "err", err.Error())
+				if attemptCount >= redoMax {
 					break
 				}
-				callCount += 1
+				attemptCount += 1
 			} else {
-				e.logger.Debug("endpoint.miner -->SendRawTelegram for doPocRequest", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "callCount", callCount, "input", inputString)
+				e.logger.Debug("endpoint.miner -->SendRawTelegram for doPocRequest", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "attemptCount", attemptCount, "input", inputString)
 				sendOk = true
 				teleResponse = *response
 				break
@@ -348,17 +434,22 @@ func NewApplicationEndpoint(
 	minerAgent *miner.MinerAgent,
 	jsonRpcClient *rpc.JsonRpcClient) (*Endpoint, error) {
 	endpoint := &Endpoint{
-		logger:           logger.Named("app_endpoint"),
-		name:             name,
-		appUrl:           appUrl,
-		h:                srvHost,
-		tag:              ProtoTagEcApp,
-		stream:           &eventStream{},
-		minerAgent:       minerAgent,
-		jsonRpcClient:    jsonRpcClient,
-		pocQueue:         proof.NewPocQueue(),
-		nonceCacheEnable: false,
-		blockchainStore:  blockchainStore,
+		logger:              logger.Named("app_endpoint"),
+		name:                name,
+		appUrl:              appUrl,
+		h:                   srvHost,
+		tag:                 ProtoTagEcApp,
+		stream:              &eventStream{},
+		minerAgent:          minerAgent,
+		jsonRpcClient:       jsonRpcClient,
+		pocQueue:            proof.NewPocQueue(),
+		pocSubmitQueue:      proof.NewPocSubmitQueue(),
+		nonceCacheEnable:    false,
+		blockchainStore:     blockchainStore,
+		peersPocRequestMap:  cmap.New[proof.PocCpuRequest](),
+		latestBlockHeadHash: "",
+		latestBlockNum:      0,
+		//peersPocRequestMap: PocMap{all: make(map[string]*proof.PocCpuRequest)},
 	}
 	rand.Seed(time.Now().Unix())
 	endpoint.randomNum = rand.Intn(1000)
@@ -406,6 +497,19 @@ func NewApplicationEndpoint(
 			go endpoint.doPocRequest()
 			endpoint.stream.push(event)
 			endpoint.logger.Info("Application---->", "push", event.LatestApp())
+		}
+		ticker.Stop()
+	}()
+
+	go func() {
+		ticker := time.NewTicker(time.Second * 2)
+		for {
+			<-ticker.C
+			head := endpoint.blockchainStore.Header()
+			if head != nil {
+				endpoint.latestBlockHeadHash = head.Hash.String()
+				endpoint.latestBlockNum = head.Number
+			}
 		}
 		ticker.Stop()
 	}()
@@ -550,6 +654,9 @@ func NewApplicationEndpoint(
 		http.HandleFunc("/poc_cpu_validate", func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 			pocResp := []byte(fmt.Sprintf("{\"message\":\"validate failed\"}"))
+			//writeResponse(w, pocResp, endpoint)
+			//return
+
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				pocResp = []byte("endpoint err: " + err.Error())
@@ -569,12 +676,14 @@ func NewApplicationEndpoint(
 			}
 
 			if obj.Node_id == "" || obj.Poc_data == nil || len(obj.Poc_data) < 1 {
+				endpoint.logger.Warn("poc_cpu_validate --> invalid poc_data")
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "invalid request"))
 				writeResponse(w, pocResp, endpoint)
 				return
 			}
-			pocData, ok := endpoint.peersPocRequestMap.Load(obj.Node_id)
+			pocCpuRequest, ok := endpoint.peersPocRequestMap.Get(obj.Node_id)
 			if !ok {
+				endpoint.logger.Warn("poc_cpu_validate --> invalid request")
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "invalid request"))
 				writeResponse(w, pocResp, endpoint)
 				return
@@ -584,6 +693,8 @@ func NewApplicationEndpoint(
 			err = json.Unmarshal(obj.Poc_data, &dataMapJson)
 			if err != nil {
 				endpoint.logger.Warn("poc_cpu_validate --> json.Unmarshal", "resp", string(body), "err", err.Error())
+				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "invalid request"))
+				writeResponse(w, pocResp, endpoint)
 				return
 			}
 			dataMap := make(map[string][]byte)
@@ -596,7 +707,7 @@ func NewApplicationEndpoint(
 				dataMap[data["k"]] = bytes
 			}
 
-			usedTime := time.Since(pocData.(proof.PocCpuRequest).Start).Milliseconds()
+			usedTime := time.Since(pocCpuRequest.Start).Milliseconds()
 			// validate data
 			//if s.logger.IsDebug() {
 			//	s.logger.Debug("PeerData: {")
@@ -609,7 +720,7 @@ func NewApplicationEndpoint(
 			target := proof.DefaultHashProofTarget
 			loops := proof.DefaultHashProofCount
 			i := 0
-			initSeed := pocData.(proof.PocCpuRequest).Seed
+			initSeed := pocCpuRequest.Seed
 			for i < loops {
 				seed := fmt.Sprintf("%s,%d", initSeed, i)
 				hashArray[i] = seed
@@ -628,42 +739,51 @@ func NewApplicationEndpoint(
 			validateUsedTime := time.Since(validateStart).Milliseconds()
 			rate := float32(validateSuccess) / float32(proof.DefaultHashProofCount)
 			endpoint.logger.Debug(fmt.Sprintf("used time for validate\t\t: %dms", validateUsedTime))
-			result := fmt.Sprintf("validate success\t\t\t: %d/%d rate:%f nodeID:%s", validateSuccess, loops, rate, obj.Node_id)
-			endpoint.logger.Info(result)
 			if rate >= 0.95 {
 				// valid proof
-				endpoint.logger.Info("\n------------------------------------------\nSubmit proof to IC", "usedTime(ms)", usedTime, "blockNumber", pocData.(proof.PocCpuRequest).BlockNum, "NodeID", obj.Node_id)
-				// submit proof result to IC canister
-
-				err := endpoint.minerAgent.SubmitValidation(
-					int64(pocData.(proof.PocCpuRequest).BlockNum),
-					endpoint.minerAgent.GetIdentity(),
-					usedTime,
-					obj.Node_id,
-				)
-				if err != nil {
-					endpoint.logger.Warn("\n------------------------------------------\nSubmitValidation:", "err", err)
-					return
-				}
+				endpoint.pocSubmitQueue.AddTask(&proof.PocSubmitData{
+					ValidationTicket: int64(pocCpuRequest.BlockNum),
+					Validator:        endpoint.minerAgent.GetIdentity(),
+					Power:            usedTime,
+					TargetNodeID:     obj.Node_id,
+				}, proof.PriorityRequestedPoc)
+				result := fmt.Sprintf("validate success\t\t\t: %d/%d rate:%f nodeID:%s", validateSuccess, loops, rate, obj.Node_id)
+				endpoint.logger.Info(result)
 				pocResp = []byte(fmt.Sprintf("{\"message\":\"SubmitValidation\"}"))
 			}
 			writeResponse(w, pocResp, endpoint)
-
 		})
 
 		http.HandleFunc("/poc_cpu_request", func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 			pocResp := []byte(fmt.Sprintf("{\"validator\":\"%s\",\"err\":\"%s\"}", endpoint.h.ID().String(), "invalid block time"))
+
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				pocResp = []byte(fmt.Sprintf("{\"validator\":\"%s\",\"seed\":\"%s\",\"err\":\"%s\"}", endpoint.h.ID().String(), "", err.Error()))
 				writeResponse(w, pocResp, endpoint)
 				return
 			}
+
 			endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>request: %s", string(body)))
-			_, err = json.Marshal(body)
-			if err != nil {
-				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "json.Marshal body-> "+err.Error()))
+
+			if endpoint.latestBlockHeadHash == "" {
+				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "latestBlockHeadHash is nil"))
+				writeResponse(w, pocResp, endpoint)
+				return
+			}
+
+			blockNumber := endpoint.latestBlockNum
+
+			// Build 40 test
+			//pocResp = []byte(fmt.Sprintf("{\"validator\":\"%s\",\"seed\":\"%s\"}", endpoint.h.ID().String(), endpoint.latestBlockHeadHash))
+			//endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>pocResp: %s", pocResp))
+			//writeResponse(w, pocResp, endpoint)
+			//return
+
+			isJSON := json.Valid(body)
+			if !isJSON {
+				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "json.Valid body-> "+err.Error()))
 				writeResponse(w, pocResp, endpoint)
 				return
 			}
@@ -675,49 +795,58 @@ func NewApplicationEndpoint(
 				writeResponse(w, pocResp, endpoint)
 				return
 			}
-			header := endpoint.blockchainStore.Header()
-			if header != nil {
-				blockNumber := header.Number
-				endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>blockNumber: %d", blockNumber))
-
-				// check latest proof number
-				var latestProofNum uint64
-				latestPocCpuRequest, ok := endpoint.peersPocRequestMap.Load(obj.Node_id)
-				if !ok {
-					latestProofNum = 0
-				} else {
-					latestProofNum = latestPocCpuRequest.(proof.PocCpuRequest).BlockNum
-				}
-				endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>latestProofNum: %d", latestProofNum))
-
-				var blockNumberFixed uint64 = 0
-				if (blockNumber - latestProofNum) > proof.DefaultProofBlockMinDuration {
-					// send proof task to peer node
-					blockNumberFixed = (blockNumber / proof.DefaultProofBlockRange) * proof.DefaultProofBlockRange
-					endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>blockNumberFixed: %d", blockNumberFixed))
-
-					// add poc request to map
-					endpoint.peersPocRequestMap.Store(obj.Node_id, proof.PocCpuRequest{
-						NodeId:   obj.Node_id,
-						Seed:     header.Hash.String(),
-						BlockNum: blockNumberFixed,
-						Start:    time.Now(),
-					})
-					pocResp = []byte(fmt.Sprintf("{\"validator\":\"%s\",\"seed\":\"%s\"}", endpoint.h.ID().String(), header.Hash.String()))
-					endpoint.logger.Info(fmt.Sprintf("/doPocRequest =>pocResp: %s", pocResp))
-					writeResponse(w, pocResp, endpoint)
-					return
-				} else {
-					logger.Warn(fmt.Sprintf("\n\n------------------------------------------\n"+
-						"invalid blockNum, blockNumber: %d, latestProofNum: %d, NodeId:%s"+
-						"\n------------------------------------------\n", blockNumber, latestProofNum, obj.Node_id))
-					pocResp := []byte(fmt.Sprintf("{\"validator\":\"%s\",\"err\":\"%s\"}", endpoint.h.ID().String(), "block num too low"))
-
-					writeResponse(w, pocResp, endpoint)
-					return
-				}
+			if obj.Node_id == "" {
+				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "Node_id is nil"))
+				writeResponse(w, pocResp, endpoint)
+				return
 			}
-			writeResponse(w, pocResp, endpoint)
+
+			// check latest proof number
+			var blockNumberFixed uint64 = 0
+			blockNumberFixed = (blockNumber / uint64(proof.DefaultProofBlockRange)) * uint64(proof.DefaultProofBlockRange)
+			validateRequest := false
+			var latestProofNum uint64 = 0
+
+			// Build 38 test
+			//validateRequest = true
+			latestPocCpuRequest, loaded := endpoint.peersPocRequestMap.Get(
+				obj.Node_id)
+			if !loaded {
+				latestProofNum = 0
+				validateRequest = true
+			} else {
+				latestProofNum = latestPocCpuRequest.BlockNum
+				validateRequest = (blockNumber - latestProofNum) > uint64(proof.DefaultProofBlockMinDuration)
+			}
+
+			//pocResp := []byte(fmt.Sprintf("{\"message\":\"validate request\", \"blockNumber\":\"%s\", \"latestProofNum\":\"%s\"}", blockNumber, latestProofNum))
+			//writeResponse(w, pocResp, endpoint)
+			//return
+			//validateRequest = true
+
+			if validateRequest {
+				start := time.Now()
+				endpoint.peersPocRequestMap.Set(obj.Node_id,
+					proof.PocCpuRequest{
+						NodeId:   obj.Node_id,
+						Seed:     endpoint.latestBlockHeadHash,
+						BlockNum: blockNumberFixed,
+						Start:    start,
+					})
+				// send proof task to peer node
+				//pocResp := []byte(fmt.Sprintf("{\"validator\":\"%s\",\"err\":\"%s\"}", endpoint.h.ID().String(), "invalid block time"))
+				pocResp = []byte(fmt.Sprintf("{\"validator\":\"%s\",\"seed\":\"%s\"}", endpoint.h.ID().String(), endpoint.latestBlockHeadHash))
+				writeResponse(w, pocResp, endpoint)
+				return
+			} else {
+				logger.Warn(fmt.Sprintf("\n\n------------------------------------------\n"+
+					"invalid blockNum, blockNumber: %d, latestProofNum: %d, NodeId:%s"+
+					"\n------------------------------------------\n", blockNumber, latestProofNum, obj.Node_id))
+				pocResp := []byte(fmt.Sprintf("{\"validator\":\"%s\",\"err\":\"%s\"}", endpoint.h.ID().String(), "block num too low"))
+
+				writeResponse(w, pocResp, endpoint)
+				return
+			}
 		})
 
 		server := &http.Server{}
@@ -725,7 +854,7 @@ func NewApplicationEndpoint(
 	}()
 
 	go endpoint.runPoc()
-
+	go endpoint.runPocSubmit()
 	return endpoint, nil
 }
 

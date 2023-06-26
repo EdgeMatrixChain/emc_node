@@ -8,6 +8,7 @@ require (
 	github.com/libp2p/go-libp2p-http v0.4.0
 	github.com/libp2p/go-libp2p-kbucket v0.6.1
 	github.com/libp2p/go-libp2p-pubsub v0.9.3
+	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/shirou/gopsutil/v3 v3.23.5
 )
 

@@ -1,12 +1,15 @@
 package miner
 
 import (
+	"github.com/emc-protocol/edge-matrix/application/proof"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
 	"github.com/emc-protocol/edge-matrix/helper/ic/agent"
 	"github.com/emc-protocol/edge-matrix/helper/ic/utils/identity"
 	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
 	"github.com/hashicorp/go-hclog"
+	"math/big"
 	"testing"
+	"time"
 )
 
 const (
@@ -124,10 +127,98 @@ func Test_MyStack(t *testing.T) {
 	t.Log("rate:", float32(multiple)/10000.0)
 }
 
+func Test_sub(t *testing.T) {
+	arr := []int{0, 1, 2, 3, 4, 5, 6, 7}
+	arr0 := arr[:2]
+	arr1 := arr[2:7]
+	t.Log(arr0)
+	t.Log(arr1)
+}
+
+func Test_SubmitValidationVec(t *testing.T) {
+	validatorPrivKey := privKey
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, validatorPrivKey)
+	privKeyBytes, err := hex.DecodeHex(validatorPrivKey)
+
+	if err != nil {
+		return
+	}
+	identity := identity.New(false, privKeyBytes)
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
+
+	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
+
+	//vecValues := []interface{}{
+	//	map[string]interface{}{
+	//		"validationTicket": big.NewInt(1000),
+	//		"validator":        p,
+	//		"power":            big.NewInt(150000),
+	//		"targetNodeID":     "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
+	//	},
+	//	map[string]interface{}{
+	//		"validationTicket": big.NewInt(1200),
+	//		"validator":        p,
+	//		"power":            big.NewInt(150000),
+	//		"targetNodeID":     "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
+	//	}}
+	batchSize := 10
+	batchSubmitData := make([]*proof.PocSubmitData, batchSize)
+
+	taskCount := 0
+	success := 0
+	for {
+		time.Sleep(20 * time.Millisecond)
+		batchSubmitData[taskCount] = &proof.PocSubmitData{
+			Validator:        p.Encode(),
+			Power:            150000,
+			TargetNodeID:     "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
+			ValidationTicket: int64(1000 + taskCount),
+		}
+
+		taskCount += 1
+
+		if taskCount < batchSize {
+			continue
+		}
+
+		taskCount = 0
+		vecValues := make([]interface{}, len(batchSubmitData))
+		for i, pocSubmitData := range batchSubmitData {
+			p, err := principal.Decode(pocSubmitData.Validator)
+			if err != nil {
+				t.Error("principal.Decode", "err", err)
+				continue
+			}
+
+			vecValues[i] = map[string]interface{}{
+				"validationTicket": big.NewInt(pocSubmitData.ValidationTicket),
+				"validator":        p,
+				"power":            big.NewInt(pocSubmitData.Power),
+				"targetNodeID":     pocSubmitData.TargetNodeID,
+			}
+		}
+		submitToIc(t, minerAgent, vecValues)
+		success += 1
+		if success > 1 {
+			return
+		}
+	}
+}
+func submitToIc(t *testing.T, minerAgent *MinerAgent, vecValues []interface{}) {
+	// submit proof result to IC canister
+	t.Log("\n------------------------------------------\nSubmitValidation", "posting...", len(vecValues))
+	err := minerAgent.SubmitValidationVec(vecValues)
+	if err != nil {
+		t.Error("\n------------------------------------------\nSubmitValidation", "err", err)
+	} else {
+		t.Log("\n------------------------------------------\nSubmitValidation", "success", len(vecValues))
+	}
+}
+
 func Test_SubmitValidation(t *testing.T) {
-	validatorPrivKey := "8031dda21dd9a138a93c9c60ac866608c6f0f8d1a8a79ffbd7faf59faeb2b1d7"
-	//validatorPrivKey := privKey
-	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, validatorPrivKey)
+	validatorPrivKey := privKey
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, validatorPrivKey)
 	privKeyBytes, err := hex.DecodeHex(validatorPrivKey)
 
 	if err != nil {

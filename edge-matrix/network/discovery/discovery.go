@@ -170,9 +170,9 @@ func (d *DiscoveryService) ConnectToBootnodes(bootnodes []*peer.AddrInfo) {
 	}
 }
 
-func (d *DiscoveryService) AddToTable(node *peer.AddrInfo) error {
-	return d.addToTable(node)
-}
+//func (d *DiscoveryService) AddToTable(node *peer.AddrInfo) error {
+//	return d.addToTable(node)
+//}
 
 // addToTable adds the node to the peer store and the routing table
 func (d *DiscoveryService) addToTable(node *peer.AddrInfo) error {

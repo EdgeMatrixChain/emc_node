@@ -38,3 +38,40 @@ func (t *dialQueueImpl) Pop() interface{} {
 
 	return item
 }
+
+type submitQueueImpl []*PocSubmitTask
+
+// Len returns the length of the queue
+func (t submitQueueImpl) Len() int { return len(t) }
+
+// Less compares the priorities of two tasks at the passed in indexes (A < B)
+func (t submitQueueImpl) Less(i, j int) bool {
+	return t[i].priority < t[j].priority
+}
+
+// Swap swaps the places of the tasks at the passed-in indexes
+func (t submitQueueImpl) Swap(i, j int) {
+	t[i], t[j] = t[j], t[i]
+	t[i].index = i
+	t[j].index = j
+}
+
+// Push adds a new item to the queue
+func (t *submitQueueImpl) Push(x interface{}) {
+	n := len(*t)
+	item := x.(*PocSubmitTask) //nolint:forcetypeassert
+	item.index = n
+	*t = append(*t, item)
+}
+
+// Pop removes an item from the queue
+func (t *submitQueueImpl) Pop() interface{} {
+	old := *t
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil
+	item.index = -1
+	*t = old[0 : n-1]
+
+	return item
+}

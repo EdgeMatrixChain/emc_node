@@ -337,6 +337,50 @@ func (m *MinerAgent) SubmitValidation(validationTicket int64, validator string, 
 	return errors.New("SubmitValidation fail")
 }
 
+func (m *MinerAgent) SubmitValidationVec(vecValue []interface{}) error {
+	methodName := "submitValidation"
+	var argType []idl.Type
+	argType = append(
+		argType,
+		idl.NewVec(
+			idl.NewRec(
+				map[string]idl.Type{
+					"validationTicket": new(idl.Nat),
+					"validator":        new(idl.Principal),
+					"power":            new(idl.Nat),
+					"targetNodeID":     new(idl.Text),
+				})))
+
+	argValue := []interface{}{vecValue}
+	arg, _ := idl.Encode(argType, argValue)
+	//fmt.Println(argType, "   ", argValue)
+	m.logger.Debug("SubmitValidation", "argType", argType, "argValue", argValue)
+
+	types, result, err := m.agent.Update(m.canister, methodName, arg, 30)
+	if err != nil {
+		return err
+	}
+	m.logger.Debug("SubmitValidation", "types", types[0].String(), "result", result)
+	//fmt.Println("result:", result)
+	// (variant {Ok=0}) -> result: [map[17724:0 EnumIndex:17724]]
+	// (variant {Err=variant {NotAValidator}}) -> result: [map[3456837:map[3734858244:<nil> EnumIndex:3734858244] EnumIndex:3456837]]
+	if len(result) < 1 {
+		return errors.New("result is empty")
+	}
+
+	if result != nil && len(result) > 0 {
+		respVariant := result[0].(map[string]interface{})
+		updateResult := UpdateResult{}
+		utils.Decode(&updateResult, respVariant)
+		if updateResult.Ok.Int64() > 0 {
+			return nil
+		} else {
+			return errors.New(updateResult.Err.Index)
+		}
+	}
+	return errors.New("SubmitValidation fail")
+}
+
 func (m *MinerAgent) ListValidatorsNodeId() ([]string, error) {
 	nodeList := make([]string, 0)
 	methodName := "listValidatorNodes"

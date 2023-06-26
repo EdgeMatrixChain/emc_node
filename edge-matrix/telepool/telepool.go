@@ -61,7 +61,7 @@ func (o teleOrigin) String() (s string) {
 }
 
 const (
-	txSlotSize  = 4 * 1024
+	txSlotSize  = 32 * 1024
 	txMaxSize   = 512 * 1024 // 512k
 	topicNameV1 = "tele/0.3"
 
@@ -71,7 +71,7 @@ const (
 
 	// maximum allowed number of consecutive blocks that don't have the account's transaction
 	maxAccountSkips = uint64(10)
-	pruningCooldown = 4000 * time.Millisecond
+	pruningCooldown = 2000 * time.Millisecond
 
 	// txPoolMetrics is a prefix used for txpool-related metrics
 	txPoolMetrics = "telepool"
@@ -252,7 +252,7 @@ func (p *TelegramPool) addGossipTele(obj interface{}, _ peer.ID) {
 	}
 
 	// add telegram
-	if err := p.addTele(gossip, tele); err != nil {
+	if _, err := p.addTele(gossip, tele); err != nil {
 		if errors.Is(err, ErrAlreadyKnown) {
 			p.logger.Debug("rejecting known telegram (gossip)", "hash", tele.Hash.String())
 
@@ -266,35 +266,14 @@ func (p *TelegramPool) addGossipTele(obj interface{}, _ peer.ID) {
 // AddTele adds a new telegram to the pool (sent from json-RPC/gRPC endpoints)
 // and broadcasts it to the network (if enabled).
 func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
-	if tele.RespV == nil {
-		tele.RespV = big.NewInt(0)
-	}
-	if tele.RespR == nil {
-		tele.RespR = big.NewInt(0)
-	}
-	if tele.RespS == nil {
-		tele.RespS = big.NewInt(0)
-	}
-	tele.RespHash = types.ZeroHash
-	tele.RespFrom = types.ZeroAddress
-
-	if err := p.validateTele(tele); err != nil {
-		p.logger.Error("failed to add telegram", "err", err)
-
-		return "", err
-	}
-	// telegram for edge call
 	resp := &application.EdgeResponse{}
-	if tele.To != nil && len(*tele.To) > 0 {
-		if *tele.To == contracts.EdgeCallPrecompile {
-			input := tele.Input
-			call := &application.EdgeCall{}
-			if err := json.Unmarshal(input, &call); err != nil {
-				return "", err
-			}
-
-			//respBuf, callErr := application.CallWithFrom(p.network.GetHost(), application.ProtoTagEcApp, call, tele.From)
-			// TODO relpace Call to CallWithFrom
+	if tele.To != nil && len(*tele.To) > 0 && *tele.To == contracts.EdgeCallPrecompile {
+		input := tele.Input
+		call := &application.EdgeCall{}
+		if err := json.Unmarshal(input, &call); err != nil {
+			return "", err
+		}
+		if call.Endpoint == "/poc_cpu_request" || call.Endpoint == "/poc_cpu_validate" {
 			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call)
 			if callErr != nil {
 				return "", callErr
@@ -309,10 +288,28 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 			tele.RespV = resp.V
 			tele.RespS = resp.S
 			tele.RespHash = resp.Hash
+			if len(resp.RespString) > 0 {
+				return resp.RespString, nil
+			} else {
+				return "", nil
+			}
 		}
 	}
 
-	if err := p.addTele(local, tele); err != nil {
+	if tele.RespV == nil {
+		tele.RespV = big.NewInt(0)
+	}
+	if tele.RespR == nil {
+		tele.RespR = big.NewInt(0)
+	}
+	if tele.RespS == nil {
+		tele.RespS = big.NewInt(0)
+	}
+	tele.RespHash = types.ZeroHash
+	tele.RespFrom = types.ZeroAddress
+
+	respString, err := p.addTele(local, tele)
+	if err != nil {
 		p.logger.Error("failed to add telegram", "err", err)
 
 		return "", err
@@ -332,26 +329,17 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 		}
 	}
 
-	if len(resp.RespString) > 0 {
-		return resp.RespString, nil
-	}
-
-	return "", nil
+	return respString, nil
 }
 
 // addTele is the main entry point to the pool
 // for all new transactions. If the call is
 // successful, an account is created for this address
 // (only once) and an enqueueRequest is signaled.
-func (p *TelegramPool) addTele(origin teleOrigin, tele *types.Telegram) error {
-	p.logger.Debug("add tele",
-		"origin", origin.String(),
-		"hash", tele.Hash.String(),
-	)
-
+func (p *TelegramPool) addTele(origin teleOrigin, tele *types.Telegram) (string, error) {
 	// validate incoming tele
 	if err := p.validateTele(tele); err != nil {
-		return err
+		return "", err
 	}
 
 	if p.gauge.highPressure() {
@@ -360,26 +348,52 @@ func (p *TelegramPool) addTele(origin teleOrigin, tele *types.Telegram) error {
 		//	only accept transactions with expected nonce
 		if account := p.accounts.get(tele.From); account != nil &&
 			tele.Nonce > account.getNonce() {
-			return ErrRejectFutureTx
+			return "", ErrRejectFutureTx
 		}
 	}
 
 	// check for overflow
 	if p.gauge.read()+slotsRequired(tele) > p.gauge.max {
-		return ErrTxPoolOverflow
+		return "", ErrTxPoolOverflow
 	}
 
+	respString := ""
+	// telegram for edge call
+	if origin == local {
+		resp := &application.EdgeResponse{}
+		if tele.To != nil && len(*tele.To) > 0 && *tele.To == contracts.EdgeCallPrecompile {
+			input := tele.Input
+			call := &application.EdgeCall{}
+			if err := json.Unmarshal(input, &call); err != nil {
+				return "", err
+			}
+
+			//respBuf, callErr := application.CallWithFrom(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call, tele.From)
+			// TODO relpace Call to CallWithFrom
+			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call)
+			if callErr != nil {
+				return "", callErr
+			}
+
+			err := resp.UnmarshalRLP(respBuf)
+			if err != nil {
+				return "", err
+			}
+			tele.RespFrom = resp.From
+			tele.RespR = resp.R
+			tele.RespV = resp.V
+			tele.RespS = resp.S
+			tele.RespHash = resp.Hash
+			if len(resp.RespString) > 0 {
+				respString = resp.RespString
+			}
+		}
+	}
 	tele.ComputeHash()
 
 	// add to index
-	jsonTele, err := json.Marshal(tele)
-	if err != nil {
-		p.logger.Error(fmt.Sprintf("origin: %s, p.index.add(tele) err: %s", origin.String(), err))
-	}
-
-	p.logger.Debug(fmt.Sprintf("origin: %s, p.index.add(tele): %s", origin.String(), string(jsonTele)))
 	if ok := p.index.add(tele); !ok {
-		return ErrAlreadyKnown
+		return "", ErrAlreadyKnown
 	}
 
 	// initialize account for this address once
@@ -387,9 +401,9 @@ func (p *TelegramPool) addTele(origin teleOrigin, tele *types.Telegram) error {
 
 	// send request [BLOCKING]
 	p.enqueueReqCh <- enqueueRequest{tele: tele}
-	p.eventManager.signalEvent(proto.EventType_ADDED, tele.Hash)
+	//p.eventManager.signalEvent(proto.EventType_ADDED, tele.Hash)
 
-	return nil
+	return respString, nil
 }
 
 // validateTele ensures the telegram conforms to specific
@@ -605,7 +619,7 @@ func (p *TelegramPool) handleEnqueueRequest(req enqueueRequest) {
 
 	p.gauge.increase(slotsRequired(tele))
 
-	p.eventManager.signalEvent(proto.EventType_ENQUEUED, tele.Hash)
+	//p.eventManager.signalEvent(proto.EventType_ENQUEUED, tele.Hash)
 
 	if tele.Nonce > account.getNonce() {
 		// don't signal promotion for
@@ -633,7 +647,7 @@ func (p *TelegramPool) handlePromoteRequest(req promoteRequest) {
 	// update metrics
 	p.updatePending(int64(len(promoted)))
 
-	p.eventManager.signalEvent(proto.EventType_PROMOTED, toHash(promoted...)...)
+	//p.eventManager.signalEvent(proto.EventType_PROMOTED, toHash(promoted...)...)
 }
 
 // Prepare generates all the transactions
@@ -735,7 +749,7 @@ func (p *TelegramPool) Drop(tx *types.Telegram) {
 	dropped = account.enqueued.clear()
 	clearAccountQueue(dropped)
 
-	p.eventManager.signalEvent(proto.EventType_DROPPED, tx.Hash)
+	//p.eventManager.signalEvent(proto.EventType_DROPPED, tx.Hash)
 	p.logger.Debug("dropped account txs",
 		"num", droppedCount,
 		"next_nonce", nextNonce,

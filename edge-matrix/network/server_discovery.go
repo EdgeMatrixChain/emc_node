@@ -135,7 +135,7 @@ func (s *Server) CloseProtocolStream(protocol string, peerID peer.ID) error {
 
 // AddToPeerStore adds peer information to the node's peer store
 func (s *Server) AddToPeerStore(peerInfo *peer.AddrInfo) {
-	s.host.Peerstore().AddAddr(peerInfo.ID, peerInfo.Addrs[0], peerstore.AddressTTL)
+	s.host.Peerstore().AddAddr(peerInfo.ID, peerInfo.Addrs[0], peerstore.PermanentAddrTTL)
 
 	// broadcast new addr
 	if s.rtTopic != nil {
@@ -165,7 +165,7 @@ func (s *Server) handleRouteTableUpdate(obj interface{}, from peer.ID) {
 			s.logger.Error("handleRouteTableUpdate", "err", fmt.Sprintf("failed to parse rawAddr %s: %w", rawAddr, err))
 			continue
 		}
-		s.host.Peerstore().AddAddr(node.ID, node.Addrs[0], peerstore.AddressTTL)
+		s.host.Peerstore().AddAddr(node.ID, node.Addrs[0], peerstore.PermanentAddrTTL)
 		s.logger.Debug("handleRouteTableUpdate", "from", from, "node", node.String())
 	}
 }
