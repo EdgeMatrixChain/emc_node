@@ -267,7 +267,7 @@ func (p *TelegramPool) addGossipTele(obj interface{}, _ peer.ID) {
 // and broadcasts it to the network (if enabled).
 func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 	resp := &application.EdgeResponse{}
-	if tele.To != nil && len(*tele.To) > 0 && *tele.To == contracts.EdgeCallPrecompile {
+	if tele.To != nil && *tele.To == contracts.EdgeCallPrecompile {
 		input := tele.Input
 		call := &application.EdgeCall{}
 		if err := json.Unmarshal(input, &call); err != nil {
@@ -361,7 +361,7 @@ func (p *TelegramPool) addTele(origin teleOrigin, tele *types.Telegram) (string,
 	// telegram for edge call
 	if origin == local {
 		resp := &application.EdgeResponse{}
-		if tele.To != nil && len(*tele.To) > 0 && *tele.To == contracts.EdgeCallPrecompile {
+		if tele.To != nil && *tele.To == contracts.EdgeCallPrecompile {
 			input := tele.Input
 			call := &application.EdgeCall{}
 			if err := json.Unmarshal(input, &call); err != nil {

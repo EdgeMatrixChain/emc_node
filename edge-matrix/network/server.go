@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	"sync"
 	"time"
 
@@ -71,6 +73,9 @@ type Server struct {
 	peers     map[peer.ID]*PeerConnInfo // map of all peer connections
 	peersLock sync.Mutex                // lock for the peer map
 
+	updatePeers     map[peer.ID]*PeerUpdateInfo // map of all peer update info
+	updatePeersLock sync.Mutex                  // lock for the updatePeers map
+
 	dialQueue *dial.DialQueue // queue used to asynchronously connect to peers
 
 	discovery *discovery.DiscoveryService // service used for discovering other peers
@@ -97,7 +102,7 @@ type Server struct {
 }
 
 // NewServer returns a new instance of the networking server
-func NewServer(logger hclog.Logger, config *Config, discProto string, identityProto string) (*Server, error) {
+func NewServer(logger hclog.Logger, config *Config, discProto string, identityProto string, routeMode bool) (*Server, error) {
 	logger = logger.Named("network")
 
 	key, err := setupLibp2pKey(config.SecretsManager)
@@ -130,9 +135,29 @@ func NewServer(logger hclog.Logger, config *Config, discProto string, identityPr
 		libp2p.ListenAddrs(listenAddr),
 		libp2p.AddrsFactory(addrsFactory),
 		libp2p.Identity(key),
+		libp2p.EnableRelay(),
+		libp2p.NATPortMap(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create libp2p stack: %w", err)
+	}
+
+	if routeMode {
+		ctx := context.Background()
+
+		kademliaDHT, err := dht.New(ctx, host, dht.Mode(dht.ModeAutoServer))
+		if err != nil {
+			panic(err)
+		}
+		// Make the routed host
+		routedHost := rhost.Wrap(host, kademliaDHT)
+
+		// Bootstrap the host
+		err = kademliaDHT.Bootstrap(ctx)
+		if err != nil {
+			return nil, err
+		}
+		host = routedHost
 	}
 
 	emitter, err := host.EventBus().Emitter(new(peerEvent.PeerEvent))
@@ -146,6 +171,7 @@ func NewServer(logger hclog.Logger, config *Config, discProto string, identityPr
 		host:             host,
 		addrs:            host.Addrs(),
 		peers:            make(map[peer.ID]*PeerConnInfo),
+		updatePeers:      make(map[peer.ID]*PeerUpdateInfo),
 		dialQueue:        dial.NewDialQueue(),
 		closeCh:          make(chan struct{}),
 		emitterPeerEvent: emitter,
@@ -198,6 +224,14 @@ type PeerConnInfo struct {
 
 	connDirections  map[network.Direction]bool
 	protocolStreams map[string]*rawGrpc.ClientConn
+}
+
+// PeerUpdateInfo holds the update information about the peer
+type PeerUpdateInfo struct {
+	Info        peer.AddrInfo
+	UpdateTime  time.Time
+	From        string
+	PublishTime time.Time
 }
 
 // addProtocolStream adds a protocol stream
@@ -299,9 +333,9 @@ func (s *Server) setupBootnodes(bootnodes []string) error {
 	}
 
 	// Check if at least one bootnode is specified
-	//if len(bootnodes) < minimumBootNodes {
-	//	return ErrMinBootnodes
-	//}
+	if len(bootnodes) < MinimumBootNodes {
+		return ErrMinBootnodes
+	}
 
 	bootnodesArr := make([]*peer.AddrInfo, 0)
 	bootnodesMap := make(map[peer.ID]*peer.AddrInfo)

@@ -170,10 +170,6 @@ func (d *DiscoveryService) ConnectToBootnodes(bootnodes []*peer.AddrInfo) {
 	}
 }
 
-//func (d *DiscoveryService) AddToTable(node *peer.AddrInfo) error {
-//	return d.addToTable(node)
-//}
-
 // addToTable adds the node to the peer store and the routing table
 func (d *DiscoveryService) addToTable(node *peer.AddrInfo) error {
 	// before we include peers on the routing table -> dial queue
@@ -390,7 +386,6 @@ func (d *DiscoveryService) bootnodePeerDiscovery() {
 
 		return
 	}
-	d.logger.Debug("--bootnodePeerDiscovery", "foundNodes", foundNodes)
 
 	// Save the peers for subsequent dialing
 	d.addPeersToTable(foundNodes)

@@ -189,7 +189,7 @@ func NewServer(config *Config) (*Server, error) {
 	netConfig.Chain = m.config.Chain
 	netConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
 	netConfig.SecretsManager = m.secretsManager
-	coreNetwork, err := network.NewServer(logger, netConfig, BaseDiscProto, BaseIdentityProto)
+	coreNetwork, err := network.NewServer(logger, netConfig, BaseDiscProto, BaseIdentityProto, false)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func NewServer(config *Config) (*Server, error) {
 	edgeNetConfig.Chain = m.config.Chain
 	edgeNetConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
 	edgeNetConfig.SecretsManager = m.secretsManager
-	edgeNetwork, err := network.NewServer(logger.Named("edge"), edgeNetConfig, EdgeDiscProto, EdgeIdentityProto)
+	edgeNetwork, err := network.NewServer(logger.Named("edge"), edgeNetConfig, EdgeDiscProto, EdgeIdentityProto, true)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +381,7 @@ func NewServer(config *Config) (*Server, error) {
 		m.telepool.Start()
 
 		// start edge-network routetable gossip
-		//err := m.edgeNetwork.StartRouteTableGossip()
+		//err := m.edgeNetwork.StartPeerStoreUpdateGossip()
 		//if err != nil {
 		//	return nil, err
 		//}
