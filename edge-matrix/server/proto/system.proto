@@ -19,6 +19,9 @@ service System {
   // PeersInfo returns the info of a peer
   rpc PeersStatus(PeersStatusRequest) returns (Peer);
 
+  // PeersInfo returns the info of relay peer
+  rpc RelayStatus(google.protobuf.Empty) returns (Peer);
+
   // Subscribe subscribes to blockchain events
   rpc Subscribe(google.protobuf.Empty) returns (stream BlockchainEvent);
 

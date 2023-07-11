@@ -66,6 +66,8 @@ type Syncer interface {
 	Start(s Subscription, topicSubFlag bool) error
 	// Close terminates syncer process
 	Close() error
+	// GetAppPeer get AppPeer by PeerID
+	GetAppPeer(id string) *AppPeer
 }
 
 func NewSyncer(
@@ -123,19 +125,17 @@ func (s *syncer) Start(sub Subscription, topicSubFlag bool) error {
 // startPeerStatusUpdateProcess subscribes peer status change event and updates peer map
 func (s *syncer) startPeerStatusUpdateProcess() {
 	for peerStatus := range s.syncAppPeerClient.GetPeerStatusUpdateCh() {
-		s.logger.Info("AppPeerStatus updated ", "NodeID", peerStatus.ID.String())
+		s.logger.Info("AppPeerStatus updated ", "NodeID", peerStatus.ID)
 
-		defer func() {
-			err := s.syncAppPeerClient.CloseStream(peerStatus.ID)
-			if err != nil {
-				s.logger.Error("Failed to close stream: ", err)
-			}
-		}()
-		// to get a proof result as a validator
-		//validators := s.validatorStore.GetCurrentValidators()
-		//if validators.Includes(s.address) {
-		//
-		//}
+		//defer func() {
+		//	err := s.syncAppPeerClient.CloseStream(peerStatus.ID)
+		//	if err != nil {
+		//		s.logger.Error("Failed to close stream: ", err)
+		//	}
+		//}()
+
+		// TODO validate peer status
+		// store app in store
 		s.putToPeerMap(peerStatus)
 	}
 }
@@ -144,6 +144,11 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 func (s *syncer) putToPeerMap(status *AppPeer) {
 	s.peerMap.Put(status)
 	s.notifyNewStatusEvent()
+}
+
+// putToPeerMap puts given status to peer map
+func (s *syncer) GetAppPeer(id string) *AppPeer {
+	return s.peerMap.Get(id)
 }
 
 // removeFromPeerMap removes the peer from peer map

@@ -49,16 +49,19 @@ const (
 	defaultBucketSize = 256
 	DefaultDialRatio  = 0.2
 
-	DefaultLibp2pPort     int = 50003
-	DefaultEdgeLibp2pPort int = 50001
+	DefaultLibp2pPort      int = 50003
+	DefaultEdgeLibp2pPort  int = 50001
+	DefaultRelayLibp2pPort int = 50004
 
 	MinimumBootNodes       int   = 1
 	MinimumPeerConnections int64 = 1
 )
 
 var (
-	ErrNoBootnodes  = errors.New("no bootnodes specified")
-	ErrMinBootnodes = errors.New("minimum 1 bootnode is required")
+	ErrNoRelaynodes  = errors.New("no relaynodes specified")
+	ErrNoBootnodes   = errors.New("no bootnodes specified")
+	ErrMinRelaynodes = errors.New("minimum 1 relaynode is required")
+	ErrMinBootnodes  = errors.New("minimum 1 bootnode is required")
 )
 
 type Server struct {
@@ -102,7 +105,7 @@ type Server struct {
 }
 
 // NewServer returns a new instance of the networking server
-func NewServer(logger hclog.Logger, config *Config, discProto string, identityProto string, routeMode bool) (*Server, error) {
+func NewServer(logger hclog.Logger, config *Config, discProto string, identityProto string, useRouteHost bool) (*Server, error) {
 	logger = logger.Named("network")
 
 	key, err := setupLibp2pKey(config.SecretsManager)
@@ -135,14 +138,14 @@ func NewServer(logger hclog.Logger, config *Config, discProto string, identityPr
 		libp2p.ListenAddrs(listenAddr),
 		libp2p.AddrsFactory(addrsFactory),
 		libp2p.Identity(key),
-		libp2p.EnableRelay(),
 		libp2p.NATPortMap(),
+		libp2p.EnableNATService(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create libp2p stack: %w", err)
 	}
 
-	if routeMode {
+	if useRouteHost {
 		ctx := context.Background()
 
 		kademliaDHT, err := dht.New(ctx, host, dht.Mode(dht.ModeAutoServer))
@@ -291,28 +294,26 @@ func setupLibp2pKey(secretsManager secrets.SecretsManager) (crypto.PrivKey, erro
 }
 
 // Start starts the networking services
-func (s *Server) Start(netName string, bootnodes []string) error {
+func (s *Server) Start(netName string, bootnodes []string, edgeMode bool) error {
 	s.logger.Info(netName+" LibP2P server running", "addr", common.AddrInfoToString(s.AddrInfo()))
 
 	if setupErr := s.setupIdentity(); setupErr != nil {
 		return fmt.Errorf("unable to setup identity, %w", setupErr)
 	}
 
+	// Parse the bootnode data
+	if setupErr := s.setupBootnodes(bootnodes); setupErr != nil {
+		return fmt.Errorf("unable to parse bootnode data, %w", setupErr)
+	}
 	// Set up the peer discovery mechanism if needed
-	if !s.config.NoDiscover {
-		// Parse the bootnode data
-		if setupErr := s.setupBootnodes(bootnodes); setupErr != nil {
-			return fmt.Errorf("unable to parse bootnode data, %w", setupErr)
-		}
-
-		// Setup and start the discovery service
-		if setupErr := s.setupDiscovery(); setupErr != nil {
-			return fmt.Errorf("unable to setup discovery, %w", setupErr)
-		}
+	if setupErr := s.setupDiscovery(!edgeMode); setupErr != nil {
+		return fmt.Errorf("unable to setup discovery, %w", setupErr)
 	}
 
 	go s.runDial()
-	go s.keepAliveMinimumPeerConnections()
+	if !s.config.NoDiscover && !edgeMode {
+		go s.keepAliveMinimumPeerConnections()
+	}
 
 	// watch for disconnected peers
 	s.host.Network().Notify(&network.NotifyBundle{
@@ -371,40 +372,28 @@ func (s *Server) setupBootnodes(bootnodes []string) error {
 // keepAliveMinimumPeerConnections will attempt to make new connections
 // if the active peer count is lesser than the specified limit.
 func (s *Server) keepAliveMinimumPeerConnections() {
-	ticker := time.NewTicker(10 * time.Second)
 	for {
 		select {
-		case <-ticker.C:
-			//s.logger.Debug("---->keepAliveMinimumPeerConnections<----", "numPeers", s.numPeers())
-			if s.numPeers() < MinimumPeerConnections {
-				if s.config.NoDiscover || !s.bootnodes.hasBootnodes() {
-					// dial unconnected peer
-					randPeer := s.GetRandomPeer()
-					if randPeer != nil && !s.IsConnected(*randPeer) {
-						s.addToDialQueue(s.GetPeerInfo(*randPeer), common.PriorityRandomDial)
-					} else {
-						if randPeer == nil {
-							if randomNode := s.GetRandomBootnode(); randomNode != nil {
-								s.addToDialQueue(randomNode, common.PriorityRandomDial)
-							}
-						}
-					}
-				} else {
-					// dial random unconnected bootnode
-					if randomNode := s.GetRandomBootnode(); randomNode != nil {
-						s.addToDialQueue(randomNode, common.PriorityRandomDial)
-					}
+		case <-time.After(10 * time.Second):
+		case <-s.closeCh:
+			return
+		}
+
+		if s.numPeers() < MinimumPeerConnections {
+			if s.config.NoDiscover || !s.bootnodes.hasBootnodes() {
+				// dial unconnected peer
+				randPeer := s.GetRandomPeer()
+				if randPeer != nil && !s.IsConnected(*randPeer) {
+					s.addToDialQueue(s.GetPeerInfo(*randPeer), common.PriorityRandomDial)
+				}
+			} else {
+				// dial random unconnected bootnode
+				if randomNode := s.GetRandomBootnode(); randomNode != nil {
+					s.addToDialQueue(randomNode, common.PriorityRandomDial)
 				}
 			}
-			//case <-s.closeCh:
-			//	s.logger.Warn("---->keepAliveMinimumPeerConnections<---- closeCh!!!")
-			//	return
 		}
 	}
-}
-
-func (s *Server) closeDial() {
-	//s.logger.Warn("----runDial---- closeDial!!!")
 }
 
 // runDial starts the networking server's dial loop.
@@ -419,7 +408,6 @@ func (s *Server) runDial() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// cancel context first
-	defer s.closeDial()
 	defer close(notifyCh)
 	defer cancel()
 

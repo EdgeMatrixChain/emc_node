@@ -81,7 +81,7 @@ require (
 	github.com/Inkeliz/go-opencl v0.0.0-20200806180703-5f0707fba006
 	github.com/aviate-labs/leb128 v0.3.0
 	github.com/fxamacker/cbor/v2 v2.4.0
-	github.com/ipfs/go-log/v2 v2.5.1
+	github.com/go-playground/assert/v2 v2.0.1
 	github.com/valyala/fasthttp v1.37.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.43.1
 )
@@ -148,6 +148,7 @@ require (
 	github.com/ipfs/boxo v0.10.0 // indirect
 	github.com/ipfs/go-datastore v0.6.0 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
+	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/ipld/go-ipld-prime v0.20.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect

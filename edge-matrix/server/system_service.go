@@ -165,6 +165,35 @@ func (s *systemService) PeersList(
 	return resp, nil
 }
 
+// RelayStatus implements the 'peers relay' operator service
+func (s *systemService) RelayStatus(
+	ctx context.Context,
+	req *empty.Empty,
+) (*proto.Peer, error) {
+
+	if s.server.relayClient == nil {
+		return nil, nil
+	}
+	relayPeers := s.server.relayClient.RelayPeers()
+	if relayPeers != nil && len(relayPeers) > 0 {
+		addrs := []string{}
+		for _, addr := range relayPeers[0].Info.Addrs {
+			addrs = append(addrs, addr.String())
+		}
+
+		peer := &proto.Peer{
+			Id:    relayPeers[0].Info.ID.String(),
+			Addrs: addrs,
+		}
+		return peer, nil
+	}
+
+	return &proto.Peer{
+		Id:    "",
+		Addrs: make([]string, 0),
+	}, nil
+}
+
 // BlockByNumber implements the BlockByNumber operator service
 //func (s *systemService) BlockByNumber(
 //	ctx context.Context,

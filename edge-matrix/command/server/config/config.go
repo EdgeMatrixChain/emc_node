@@ -32,15 +32,19 @@ type Config struct {
 	JSONRPCBlockRangeLimit   uint64     `json:"json_rpc_block_range_limit" yaml:"json_rpc_block_range_limit"`
 	JSONLogFormat            bool       `json:"json_log_format" yaml:"json_log_format"`
 
-	Relayer               bool   `json:"relayer" yaml:"relayer"`
 	NumBlockConfirmations uint64 `json:"num_block_confirmations" yaml:"num_block_confirmations"`
 
+	RelayOn       bool   `json:"relay_on,omitempty" yaml:"relay_on,omitempty"`
 	RunningMode   string `json:"running_mode,omitempty" yaml:"running_mode,omitempty"`
 	AppUrl        string `json:"app_url,omitempty" yaml:"app_url,omitempty"`
 	AppName       string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
+	AppOrigin     string `json:"app_origin,omitempty" yaml:"app_origin,omitempty"`
 	IcHost        string `json:"ic_host,omitempty" yaml:"ic_host,omitempty"`
 	MinerCanister string `json:"miner_canister,omitempty" yaml:"miner_canister,omitempty"`
 	EmcHost       string `json:"emc_host,omitempty" yaml:"emc_host,omitempty"`
+
+	PocCpu bool `json:"poc_cpu,omitempty" yaml:"poc_cpu,omitempty"`
+	PocGpu bool `json:"poc_gpu,omitempty" yaml:"poc_gpu,omitempty"`
 }
 
 // Telemetry holds the config details for metric services.
@@ -53,6 +57,7 @@ type Network struct {
 	NoDiscover       bool   `json:"no_discover" yaml:"no_discover"`
 	Libp2pAddr       string `json:"libp2p_addr" yaml:"libp2p_addr"`
 	EdgeLibp2pAddr   string `json:"edge_libp2p_addr" yaml:"libp2p_addr"`
+	RelayLibp2pAddr  string `json:"relay_libp2p_addr" yaml:"libp2p_addr"`
 	NatAddr          string `json:"nat_addr" yaml:"nat_addr"`
 	DNSAddr          string `json:"dns_addr" yaml:"dns_addr"`
 	MaxPeers         int64  `json:"max_peers,omitempty" yaml:"max_peers,omitempty"`
@@ -114,6 +119,10 @@ func DefaultConfig() *Config {
 				defaultNetworkConfig.Addr.IP,
 				network.DefaultEdgeLibp2pPort,
 			),
+			RelayLibp2pAddr: fmt.Sprintf("%s:%d",
+				defaultNetworkConfig.Addr.IP,
+				network.DefaultRelayLibp2pPort,
+			),
 		},
 		Telemetry:  &Telemetry{},
 		ShouldSeal: true,
@@ -131,7 +140,7 @@ func DefaultConfig() *Config {
 		LogFilePath:              "",
 		JSONRPCBatchRequestLimit: DefaultJSONRPCBatchRequestLimit,
 		JSONRPCBlockRangeLimit:   DefaultJSONRPCBlockRangeLimit,
-		Relayer:                  false,
+		RelayOn:                  false,
 		NumBlockConfirmations:    DefaultNumBlockConfirmations,
 		RunningMode:              DefaultRunningMode,
 	}

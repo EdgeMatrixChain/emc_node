@@ -140,6 +140,8 @@ type TelegramPool struct {
 	network     *network.Server
 	edgeNetwork *network.Server
 
+	appSyncer application.Syncer
+
 	// gauge for measuring pool capacity
 	gauge slotGauge
 
@@ -263,6 +265,10 @@ func (p *TelegramPool) addGossipTele(obj interface{}, _ peer.ID) {
 	}
 }
 
+func (p *TelegramPool) SetAppSyncer(appSyncer application.Syncer) {
+	p.appSyncer = appSyncer
+}
+
 // AddTele adds a new telegram to the pool (sent from json-RPC/gRPC endpoints)
 // and broadcasts it to the network (if enabled).
 func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
@@ -274,7 +280,15 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 			return "", err
 		}
 		if call.Endpoint == "/poc_cpu_request" || call.Endpoint == "/poc_cpu_validate" {
-			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call)
+			relayAddr := ""
+			if p.appSyncer != nil {
+				appPeer := p.appSyncer.GetAppPeer(call.PeerId)
+				if appPeer != nil {
+					relayAddr = appPeer.Relay
+				}
+			}
+			p.logger.Info("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, "Relay", relayAddr)
+			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call, relayAddr)
 			if callErr != nil {
 				return "", callErr
 			}
@@ -370,7 +384,15 @@ func (p *TelegramPool) addTele(origin teleOrigin, tele *types.Telegram) (string,
 
 			//respBuf, callErr := application.CallWithFrom(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call, tele.From)
 			// TODO relpace Call to CallWithFrom
-			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call)
+			relayAddr := ""
+			if p.appSyncer != nil {
+				appPeer := p.appSyncer.GetAppPeer(call.PeerId)
+				if appPeer != nil {
+					relayAddr = appPeer.Relay
+				}
+			}
+
+			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call, relayAddr)
 			if callErr != nil {
 				return "", callErr
 			}

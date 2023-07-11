@@ -27,6 +27,7 @@ type Chain struct {
 	Params        *Params  `json:"params"`
 	Bootnodes     []string `json:"bootnodes,omitempty"`
 	BaseBootnodes []string `json:"base_bootnodes,omitempty"`
+	Relaynodes    []string `json:"relaynodes,omitempty"`
 	TeleVersion   string   `json:"tele_version,omitempty""`
 }
 

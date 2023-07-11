@@ -61,8 +61,6 @@ func (p *serverParams) initRawParams() error {
 	p.initPeerLimits()
 	p.initLogFileLocation()
 
-	p.relayer = p.rawConfig.Relayer
-
 	return p.initAddresses()
 }
 
@@ -270,6 +268,13 @@ func (p *serverParams) initLibp2pAddress() error {
 
 	if p.edgeLibp2pAddress, parseErr = helper.ResolveAddr(
 		p.rawConfig.Network.EdgeLibp2pAddr,
+		helper.LocalHostBinding,
+	); parseErr != nil {
+		return parseErr
+	}
+
+	if p.relayLibp2pAddress, parseErr = helper.ResolveAddr(
+		p.rawConfig.Network.RelayLibp2pAddr,
 		helper.LocalHostBinding,
 	); parseErr != nil {
 		return parseErr

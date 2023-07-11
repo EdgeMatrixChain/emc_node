@@ -27,10 +27,11 @@ const (
 )
 
 type syncAppPeerClient struct {
-	logger     hclog.Logger // logger used for console logging
-	network    Network      // reference to the network module
-	host       host.Host
-	minerAgent *miner.MinerAgent
+	logger           hclog.Logger // logger used for console logging
+	network          Network      // reference to the network module
+	host             host.Host
+	minerAgent       *miner.MinerAgent
+	applicationStore ApplicationStore
 
 	subscription           Subscription          // reference to the application subscription
 	topic                  *network.Topic        // reference to the network topic
@@ -52,11 +53,10 @@ func (m *syncAppPeerClient) Start(subscription Subscription, topicSubFlag bool) 
 	// Mark client active.
 	atomic.StoreUint64(m.closed, 0)
 
-	// TODO remove
-	//if err := m.startGossip(topicSubFlag); err != nil {
-	//	return err
-	//}
-	//m.logger.Info("startGossip", "topicSubFlag", topicSubFlag)
+	if err := m.startGossip(topicSubFlag); err != nil {
+		return err
+	}
+	m.logger.Info("startGossip", "topicSubFlag", topicSubFlag)
 
 	go m.startApplicationEventProcess(subscription)
 	go m.startPeerEventProcess()
@@ -114,7 +114,7 @@ func (m *syncAppPeerClient) GetPeerStatus(peerID peer.ID) (*AppPeer, error) {
 	}
 
 	return &AppPeer{
-		ID:           peerID,
+		ID:           peerID.String(),
 		Starup_time:  status.StartupTime,
 		Uptime:       status.Uptime,
 		Guage_height: status.GuageHeight,
@@ -180,7 +180,7 @@ func (m *syncAppPeerClient) startGossip(topicSubFlag bool) error {
 	m.topic = topic
 
 	if topicSubFlag {
-		if err := topic.Subscribe(m.handleStatusUpdate); err != nil {
+		if err := topic.Subscribe(m.handleGossipAppStatusUpdate); err != nil {
 			return fmt.Errorf("unable to subscribe to gossip topic, %w", err)
 		}
 		m.logger.Info("subscribe to gossip topic=AppStatus")
@@ -189,8 +189,8 @@ func (m *syncAppPeerClient) startGossip(topicSubFlag bool) error {
 	return nil
 }
 
-// handleStatusUpdate is a handler of gossip
-func (m *syncAppPeerClient) handleStatusUpdate(obj interface{}, from peer.ID) {
+// handleGossipAppStatusUpdate is a handler of gossip
+func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from peer.ID) {
 	status, ok := obj.(*proto.AppStatus)
 	if !ok {
 		m.logger.Error("failed to cast gossiped message to status")
@@ -198,28 +198,31 @@ func (m *syncAppPeerClient) handleStatusUpdate(obj interface{}, from peer.ID) {
 		return
 	}
 
-	if !m.network.IsConnected(from) {
-		if m.id != from.String() {
-			m.logger.Debug("received status from non-connected peer, ignore", "id", from)
-		}
+	//if !m.network.IsConnected(from) {
+	//	if m.id != from.String() {
+	//		m.logger.Debug("received status from non-connected peer, ignore", "id", from)
+	//	}
+	//
+	//	return
+	//}
 
-		return
-	}
+	//if atomic.LoadUint64(m.closed) > 0 {
+	//	m.logger.Debug("received status from peer after client was closed, ignoring", "id", from)
+	//
+	//	return
+	//}
 
-	if atomic.LoadUint64(m.closed) > 0 {
-		m.logger.Debug("received status from peer after client was closed, ignoring", "id", from)
-
-		return
-	}
-
+	// TODO validate AppStatus
+	m.logger.Info("handleGossipAppStatusUpdate", "from", from.String(), "ID", status.NodeId, "Name", status.Name, "Relay", status.Relay)
 	m.peerStatusUpdateCh <- &AppPeer{
-		ID:           from,
+		ID:           status.NodeId,
 		Name:         status.Name,
 		Starup_time:  status.StartupTime,
 		Uptime:       status.Uptime,
 		Guage_height: status.GuageHeight,
 		Guage_max:    status.GuageMax,
 		Distance:     m.network.GetPeerDistance(from),
+		Relay:        status.Relay,
 	}
 }
 
@@ -243,6 +246,27 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 			latest := event.NewApp[l-1]
 			m.logger.Debug("event", "latest", latest)
 
+			// TODO remove
+			//if m.topic != nil {
+			// Publish status
+			//relay := ""
+			//if latest.RelayInfo != nil && latest.RelayInfo.Info != nil {
+			//	relay = fmt.Sprintf("%s/p2p/%s", latest.RelayInfo.Info.Info.Addrs[0].String(), latest.RelayInfo.Info.Info.ID.String())
+			//}
+			//m.logger.Info("AppStatus Publish", "ID", latest.PeerID.String(), "Name", latest.Name, "Relay", relay)
+			//
+			//if err := m.topic.Publish(&proto.AppStatus{
+			//	NodeId:      latest.PeerID.String(),
+			//	Name:        latest.Name,
+			//	StartupTime: latest.StartupTime,
+			//	Uptime:      latest.Uptime,
+			//	GuageHeight: latest.GuageHeight,
+			//	GuageMax:    latest.GuageMax,
+			//	Relay:       relay,
+			//}); err != nil {
+			//	m.logger.Warn("failed to publish application status", "err", err)
+			//}
+			//}
 		}
 	}
 }
@@ -411,7 +435,7 @@ func NewSyncAppPeerClient(
 	host host.Host,
 	jsonRpcClient *rpc.JsonRpcClient,
 	privateKey *ecdsa.PrivateKey,
-	endpoint *Endpoint,
+	applicationStore ApplicationStore,
 ) SyncAppPeerClient {
 	return &syncAppPeerClient{
 		logger:                 logger.Named(SyncAppPeerClientLoggerName),
@@ -426,6 +450,6 @@ func NewSyncAppPeerClient(
 		host:                   host,
 		jsonRpcClient:          jsonRpcClient,
 		privateKey:             privateKey,
-		endpoint:               endpoint,
+		applicationStore:       applicationStore,
 	}
 }

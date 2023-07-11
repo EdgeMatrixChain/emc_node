@@ -83,6 +83,13 @@ func setFlags(cmd *cobra.Command) {
 	)
 
 	cmd.Flags().StringVar(
+		&params.rawConfig.Network.RelayLibp2pAddr,
+		relayLibp2pAddressFlag,
+		defaultConfig.Network.RelayLibp2pAddr,
+		"the address and port for the relay libp2p service",
+	)
+
+	cmd.Flags().StringVar(
 		&params.rawConfig.Network.NatAddr,
 		natFlag,
 		"",
@@ -168,6 +175,13 @@ func setFlags(cmd *cobra.Command) {
 		"the mode for running",
 	)
 
+	cmd.Flags().BoolVar(
+		&params.rawConfig.RelayOn,
+		relayOnFlag,
+		false,
+		"should the client start in relay mode (default false)",
+	)
+
 	cmd.Flags().StringVar(
 		&params.rawConfig.AppName,
 		appNameFlag,
@@ -180,6 +194,25 @@ func setFlags(cmd *cobra.Command) {
 		appUrlFlag,
 		"",
 		"the url used for application native api calling",
+	)
+	cmd.Flags().StringVar(
+		&params.rawConfig.AppOrigin,
+		appOriginFlag,
+		"",
+		"the origin name of application",
+	)
+
+	cmd.Flags().BoolVar(
+		&params.rawConfig.PocCpu,
+		pocCpuFlag,
+		false,
+		"should the POC in cpu mode (default false)",
+	)
+	cmd.Flags().BoolVar(
+		&params.rawConfig.PocGpu,
+		pocGpuFlag,
+		false,
+		"should the POC in gpu mode (default false)",
 	)
 
 	cmd.Flags().StringVar(

@@ -2,7 +2,9 @@ package application
 
 import (
 	"github.com/emc-protocol/edge-matrix/secrets"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -26,6 +28,32 @@ type mockSecretManager struct {
 
 	HasSecretFunc func(name string) bool
 	GetSecretFunc func(name string) ([]byte, error)
+}
+
+func TestRunPocSubmitSlice(t *testing.T) {
+	batchSize := 500
+	sliceSize := 100
+	sliceBegin := 0
+	sliceEnd := 0
+	wg := sync.WaitGroup{}
+	for sliceBegin < batchSize {
+		sliceEnd += sliceSize
+		if sliceEnd > batchSize {
+			sliceEnd = batchSize
+		}
+		t.Log(sliceBegin, ":", sliceEnd)
+		wg.Add(1)
+		go func(begin, end int) {
+			t.Log("do slice [", begin, ":", end, "]")
+			time.Sleep(1 * time.Second)
+			wg.Done()
+		}(sliceBegin, sliceEnd)
+
+		sliceBegin += sliceSize
+	}
+	wg.Wait()
+	t.Log("done")
+
 }
 
 //func TestLocal(t *testing.T) {

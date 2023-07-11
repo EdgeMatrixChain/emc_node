@@ -90,12 +90,6 @@ func (i *IdentityService) GetNotifyBundle() *network.NotifyBundle {
 			peerID := conn.RemotePeer()
 			i.logger.Debug("Conn", "peer", peerID, "direction", conn.Stat().Direction)
 
-			//i.logger.Info("Conn", "peer", peerID, "direction", conn.Stat().Direction, "RemoteMultiaddr", conn.RemoteMultiaddr().String(), "NodeID", conn.RemotePeer().String())
-			//2023-06-27T08:07:24.486Z [INFO]  edge-matrix.edge.network.identity: Conn: peer=16Uiu2HAmAd9HhJP1rFhULYRQTkDkXWGVDpzrGyEoczxhcUagz22b direction=Inbound RemoteMultiaddr=/ip4/117.84.124.13/tcp/23619 NodeID=16Uiu2HAmAd9HhJP1rFhULYRQTkDkXWGVDpzrGyEoczxhcUagz22b
-			//if conn.Stat().Direction == network.DirInbound {
-			//	i.baseServer.AddAddr(conn.RemotePeer(), conn.RemoteMultiaddr())
-			//}
-
 			if i.hasPendingStatus(peerID) {
 				// handshake has already started
 				return
@@ -215,7 +209,7 @@ func (i *IdentityService) Hello(_ context.Context, req *proto.Status) (*proto.St
 func (i *IdentityService) constructStatus(peerID peer.ID) *proto.Status {
 	return &proto.Status{
 		Metadata: map[string]string{
-			PeerID: i.hostID.Pretty(),
+			PeerID: i.hostID.String(),
 		},
 		Chain:         i.chainID,
 		TemporaryDial: i.baseServer.IsTemporaryDial(peerID),

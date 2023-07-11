@@ -19,6 +19,7 @@ const (
 	dataDirFlag                  = "data-dir"
 	libp2pAddressFlag            = "base-libp2p"
 	edgeLibp2pAddressFlag        = "libp2p"
+	relayLibp2pAddressFlag       = "relay-libp2p"
 	prometheusAddressFlag        = "prometheus"
 	natFlag                      = "nat"
 	dnsFlag                      = "dns"
@@ -40,14 +41,18 @@ const (
 	corsOriginFlag               = "access-control-allow-origins"
 	logFileLocationFlag          = "log-to"
 
-	relayerFlag               = "relayer"
 	numBlockConfirmationsFlag = "num-block-confirmations"
 
+	relayOnFlag        = "relay-on"
 	runningModeFlag    = "running-mode"
 	appNameFlag        = "app-name"
 	appUrlFlag         = "app-url"
+	appOriginFlag      = "app-origin"
 	icHostFlag         = "ic-host"
 	minerCanistertFlag = "miner-canister"
+
+	pocCpuFlag = "poc-cpu"
+	pocGpuFlag = "poc-gpu"
 )
 
 // Flags that are deprecated, but need to be preserved for
@@ -78,13 +83,14 @@ type serverParams struct {
 	rawConfig  *config.Config
 	configPath string
 
-	libp2pAddress     *net.TCPAddr
-	edgeLibp2pAddress *net.TCPAddr
-	prometheusAddress *net.TCPAddr
-	natAddress        net.IP
-	dnsAddress        multiaddr.Multiaddr
-	grpcAddress       *net.TCPAddr
-	jsonRPCAddress    *net.TCPAddr
+	libp2pAddress      *net.TCPAddr
+	edgeLibp2pAddress  *net.TCPAddr
+	relayLibp2pAddress *net.TCPAddr
+	prometheusAddress  *net.TCPAddr
+	natAddress         net.IP
+	dnsAddress         multiaddr.Multiaddr
+	grpcAddress        *net.TCPAddr
+	jsonRPCAddress     *net.TCPAddr
 
 	blockGasTarget uint64
 	devInterval    uint64
@@ -98,8 +104,6 @@ type serverParams struct {
 	secretsConfig *secrets.SecretsManagerConfig
 
 	logFileLocation string
-
-	relayer bool
 }
 
 func (p *serverParams) isMaxPeersSet() bool {
@@ -191,8 +195,9 @@ func (p *serverParams) generateConfig() *server.Config {
 			MaxOutboundPeers: p.rawConfig.Network.MaxOutboundPeers,
 			Chain:            p.genesisConfig,
 		},
-		DataDir: p.rawConfig.DataDir,
-		Seal:    p.rawConfig.ShouldSeal,
+		RelayAddr: p.relayLibp2pAddress,
+		DataDir:   p.rawConfig.DataDir,
+		Seal:      p.rawConfig.ShouldSeal,
 		//PriceLimit:         p.rawConfig.TelePool.PriceLimit,
 		MaxSlots:           p.rawConfig.TelePool.MaxSlots,
 		MaxAccountEnqueued: p.rawConfig.TelePool.MaxAccountEnqueued,
@@ -203,15 +208,19 @@ func (p *serverParams) generateConfig() *server.Config {
 		JSONLogFormat:      p.rawConfig.JSONLogFormat,
 		LogFilePath:        p.logFileLocation,
 
-		Relayer:               p.relayer,
+		RelayOn:               p.rawConfig.RelayOn,
 		NumBlockConfirmations: p.rawConfig.NumBlockConfirmations,
 
 		RunningMode: p.rawConfig.RunningMode,
 		AppName:     p.rawConfig.AppName,
 		AppUrl:      p.rawConfig.AppUrl,
+		AppOrigin:   p.rawConfig.AppOrigin,
 
 		IcHost:        p.rawConfig.IcHost,
 		MinerCanister: p.rawConfig.MinerCanister,
 		EmcHost:       p.rawConfig.EmcHost,
+
+		PocCpu: p.rawConfig.PocCpu,
+		PocGpu: p.rawConfig.PocGpu,
 	}
 }

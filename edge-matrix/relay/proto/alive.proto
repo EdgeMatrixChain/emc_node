@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "/network/proto";
+
+service Alive {
+  rpc Hello(AliveStatus) returns (AliveStatusResp);
+}
+
+message AliveStatus {
+  string name = 1;
+  // app startup time
+  uint64 startup_time = 2;
+  // app uptime
+  uint64 uptime = 3;
+  // amount of slots currently occupying the app
+  uint64 guage_height = 4;
+  // max limit
+  uint64 guage_max = 5;
+  // relay addr string
+  string relay = 6;
+}
+
+message AliveStatusResp {
+  bool success = 1;
+}

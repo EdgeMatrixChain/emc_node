@@ -47,4 +47,8 @@ message AppStatus {
   uint64 guage_height = 4;
   // max limit
   uint64 guage_max = 5;
+  // relay addr string
+  string relay = 6;
+  // PeerID
+  string node_id = 7;
 }

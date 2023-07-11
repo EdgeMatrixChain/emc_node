@@ -290,7 +290,7 @@ func (s *Server) RemoveTemporaryDial(peerID peer.ID) {
 }
 
 // setupDiscovery Sets up the discovery service for the node
-func (s *Server) setupDiscovery() error {
+func (s *Server) setupDiscovery(startDiscoverty bool) error {
 	// Set up a fresh routing table
 	keyID := kb.ConvertPeerID(s.host.ID())
 
@@ -308,8 +308,10 @@ func (s *Server) setupDiscovery() error {
 
 	// Set the PeerAdded event handler
 	routingTable.PeerAdded = func(p peer.ID) {
-		info := s.host.Peerstore().PeerInfo(p)
-		s.addToDialQueue(&info, common.PriorityRandomDial)
+		if startDiscoverty {
+			info := s.host.Peerstore().PeerInfo(p)
+			s.addToDialQueue(&info, common.PriorityRandomDial)
+		}
 	}
 
 	// Set the PeerRemoved event handler
@@ -337,7 +339,9 @@ func (s *Server) setupDiscovery() error {
 	discoveryService.ConnectToBootnodes(s.bootnodes.getBootnodes())
 
 	// Start the discovery service
-	discoveryService.Start()
+	if startDiscoverty {
+		discoveryService.Start()
+	}
 
 	// Set the discovery service reference
 	s.discovery = discoveryService

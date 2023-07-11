@@ -33,3 +33,10 @@ type Network interface {
 	// CloseProtocolStream closes stream
 	CloseProtocolStream(protocol string, peerID peer.ID) error
 }
+
+type ApplicationStore interface {
+	// ApplicationStore returns the application of endpoint
+	GetEndpointApplication() *Application
+	// UpdateApplicationPeer set/add application to applicationPeers map
+	//UpdateApplicationPeer(app *Application)
+}

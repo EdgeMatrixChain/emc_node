@@ -8,9 +8,11 @@ import (
 
 type AppPeer struct {
 	// identifier
-	ID peer.ID
+	ID string
 	// name
 	Name string
+	// relay string
+	Relay string
 	// peer's distance
 	Distance *big.Int
 	// app startup time
@@ -45,7 +47,7 @@ func NewPeerMap(peers []*AppPeer) *PeerMap {
 
 func (m *PeerMap) Put(peers ...*AppPeer) {
 	for _, peer := range peers {
-		m.Store(peer.ID.String(), peer)
+		m.Store(peer.ID, peer)
 	}
 }
 
@@ -54,8 +56,16 @@ func (m *PeerMap) Remove(peerID peer.ID) {
 	m.Delete(peerID.String())
 }
 
+func (m *PeerMap) Get(id string) *AppPeer {
+	value, ok := m.Load(id)
+	if ok {
+		return value.(*AppPeer)
+	}
+	return nil
+}
+
 // BestPeer returns the top of heap
-func (m *PeerMap) BestPeer(skipMap map[peer.ID]bool) *AppPeer {
+func (m *PeerMap) BestPeer(skipMap map[string]bool) *AppPeer {
 	var bestPeer *AppPeer
 
 	m.Range(func(key, value interface{}) bool {

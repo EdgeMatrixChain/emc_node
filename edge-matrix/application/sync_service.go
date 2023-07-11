@@ -18,14 +18,13 @@ type syncAppService struct {
 	proto.UnimplementedSyncAppServer
 	logger hclog.Logger
 
-	endpoint          *Endpoint
-	syncAppPeerClient SyncAppPeerClient
-	blockchainStore   blockchainStore
-	minerAgent        *miner.MinerAgent
-	network           *network.Server
-	stream            *grpc.GrpcStream // reference to the grpc stream
+	applicationStore ApplicationStore
+	blockchainStore  blockchainStore
+	minerAgent       *miner.MinerAgent
+	network          *network.Server
+	stream           *grpc.GrpcStream // reference to the grpc stream
 
-	peersBlockNumMap map[peer.ID]uint64
+	//peersBlockNumMap map[peer.ID]uint64
 }
 
 type SyncAppPeerService interface {
@@ -38,18 +37,16 @@ type SyncAppPeerService interface {
 func NewSyncAppPeerService(
 	logger hclog.Logger,
 	network *network.Server,
-	endpoint *Endpoint,
-	syncAppPeerClient SyncAppPeerClient,
+	applicationStore ApplicationStore,
 	blockchainStore blockchainStore,
 	minerAgent *miner.MinerAgent,
 ) SyncAppPeerService {
 	return &syncAppService{
-		logger:            logger,
-		network:           network,
-		endpoint:          endpoint,
-		syncAppPeerClient: syncAppPeerClient,
-		blockchainStore:   blockchainStore,
-		minerAgent:        minerAgent,
+		logger:           logger,
+		network:          network,
+		applicationStore: applicationStore,
+		blockchainStore:  blockchainStore,
+		minerAgent:       minerAgent,
 	}
 }
 
@@ -110,17 +107,18 @@ func (s *syncAppService) GetData(
 	return nil
 }
 
-// GetStatus is a gRPC endpoint to return the latest block number as a node status
+// GetStatus is a gRPC endpoint to return the latest  application status
 func (s *syncAppService) GetStatus(
 	ctx context.Context,
 	req *empty.Empty,
 ) (*proto.AppStatus, error) {
+	application := s.applicationStore.GetEndpointApplication()
 	return &proto.AppStatus{
-		Name:        s.endpoint.application.Name,
-		StartupTime: s.endpoint.application.StartupTime,
-		Uptime:      s.endpoint.application.Uptime,
-		GuageMax:    s.endpoint.application.GuageMax,
-		GuageHeight: s.endpoint.application.GuageHeight,
+		Name:        application.Name,
+		StartupTime: application.StartupTime,
+		Uptime:      application.Uptime,
+		GuageMax:    application.GuageMax,
+		GuageHeight: application.GuageHeight,
 	}, nil
 }
 

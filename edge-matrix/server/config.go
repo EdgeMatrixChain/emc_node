@@ -20,6 +20,7 @@ type Config struct {
 	JSONRPC    *JSONRPC
 	GRPCAddr   *net.TCPAddr
 	LibP2PAddr *net.TCPAddr
+	RelayAddr  *net.TCPAddr // the relay address
 
 	PriceLimit         uint64
 	MaxAccountEnqueued uint64
@@ -43,17 +44,21 @@ type Config struct {
 
 	LogFilePath string
 
-	Relayer bool
+	RelayOn bool
 
 	NumBlockConfirmations uint64
 
 	AppName     string
 	AppUrl      string
+	AppOrigin   string
 	RunningMode string
 
 	IcHost        string
 	MinerCanister string
 	EmcHost       string
+
+	PocCpu bool
+	PocGpu bool
 }
 
 // Telemetry holds the config details for metric services

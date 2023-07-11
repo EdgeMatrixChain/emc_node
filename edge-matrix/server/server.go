@@ -18,6 +18,7 @@ import (
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
 	minerProto "github.com/emc-protocol/edge-matrix/miner/proto"
+	"github.com/emc-protocol/edge-matrix/relay"
 	"github.com/emc-protocol/edge-matrix/rtc"
 	rtcCrypto "github.com/emc-protocol/edge-matrix/rtc/crypto"
 	"github.com/emc-protocol/edge-matrix/secrets/helper"
@@ -27,6 +28,7 @@ import (
 	"github.com/emc-protocol/edge-matrix/telepool"
 	"github.com/emc-protocol/edge-matrix/types"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/multiformats/go-multiaddr"
 	"math/big"
 	"net"
 	"net/http"
@@ -54,8 +56,8 @@ const (
 const (
 	BaseDiscProto     = "/base/disc/0.1"
 	BaseIdentityProto = "/base/id/0.1"
-	EdgeDiscProto     = "/disc/0.1"
-	EdgeIdentityProto = "/id/0.1"
+	EdgeDiscProto     = "/disc/0.2"
+	EdgeIdentityProto = "/id/0.2"
 )
 
 // Server is the central manager of the blockchain client
@@ -85,6 +87,12 @@ type Server struct {
 
 	// edge libp2p network
 	edgeNetwork *network.Server
+
+	// relay client
+	relayClient *relay.RelayClient
+
+	// relay server
+	relayServer *relay.RelayServer
 
 	// telegram pool
 	telepool *telepool.TelegramPool
@@ -205,7 +213,28 @@ func NewServer(config *Config) (*Server, error) {
 		return nil, err
 	}
 	m.edgeNetwork = edgeNetwork
-	//edgeNetwork := coreNetwork
+
+	// start relay server
+	if config.RelayAddr.Port > 0 {
+		relayListenAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", config.RelayAddr.IP.String(), config.RelayAddr.Port))
+		if err != nil {
+			return nil, err
+		}
+
+		relayServer, err := relay.NewRelayServer(logger, m.secretsManager, relayListenAddr)
+		if err != nil {
+			return nil, err
+		}
+
+		err = relayServer.SetupAliveService()
+		if err != nil {
+			return nil, fmt.Errorf("unable to setup alive service, %w", err)
+		}
+
+		m.relayServer = relayServer
+
+		logger.Info("LibP2P Relay server running", "addr", relayListenAddr.String()+"/p2p/"+relayServer.GetHost().ID().String())
+	}
 
 	// start blockchain object
 	stateStorage, err := itrie.NewLevelDBStorage(filepath.Join(m.config.DataDir, "trie"), logger)
@@ -234,7 +263,9 @@ func NewServer(config *Config) (*Server, error) {
 	}
 
 	m.executor.GetHash = m.blockchain.GetHashHelper
+
 	{
+		// Setup telegram pool
 		hub := &telepoolHub{
 			state:      m.state,
 			Blockchain: m.blockchain,
@@ -261,9 +292,7 @@ func NewServer(config *Config) (*Server, error) {
 		}
 
 		m.telepool.SetSigner(signer)
-	}
 
-	{
 		// Setup consensus
 		if err := m.setupConsensus(); err != nil {
 			return nil, err
@@ -321,7 +350,7 @@ func NewServer(config *Config) (*Server, error) {
 	{
 		if m.runningMode == RunningModeFull {
 			// start base network
-			if err := m.network.Start("Base", m.config.Chain.BaseBootnodes); err != nil {
+			if err := m.network.Start("Base", m.config.Chain.BaseBootnodes, false); err != nil {
 				return nil, err
 			}
 
@@ -334,15 +363,39 @@ func NewServer(config *Config) (*Server, error) {
 			if err := m.consensus.Start(); err != nil {
 				return nil, err
 			}
-		}
-		// start edge network
-		if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes); err != nil {
-			return nil, err
+
+			// start edge network
+			if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes, false); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes, true); err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	// setup edge application
 	{
+		endpointHost := edgeNetwork.GetHost()
+
+		if m.runningMode == RunningModeEdge {
+			// start edge network relay reserv
+			relayClient, err := relay.NewRelayClient(logger, m.secretsManager, m.config.Chain.Relaynodes)
+			if err != nil {
+				return nil, err
+			}
+
+			m.relayClient = relayClient
+			if m.config.RelayOn {
+				if err := relayClient.StartRelayReserv(); err != nil {
+					return nil, err
+				}
+				endpointHost = relayClient.GetHost()
+			}
+			relayClient.StartAlive()
+		}
+
 		keyBytes, err := m.secretsManager.GetSecret(secrets.ValidatorKey)
 		if err != nil {
 			return nil, err
@@ -354,10 +407,16 @@ func NewServer(config *Config) (*Server, error) {
 		}
 
 		jsonRpcClient := rpc.NewJsonRpcClient(m.config.EmcHost)
-		endpoint, err := application.NewApplicationEndpoint(m.logger, key, edgeNetwork.GetHost(), m.config.AppName, m.config.AppUrl, m.blockchain, minerAgent, jsonRpcClient)
+		endpoint, err := application.NewApplicationEndpoint(m.logger, key, endpointHost, m.config.AppName, m.config.AppUrl, m.config.AppOrigin, m.blockchain, minerAgent, jsonRpcClient, m.relayClient, m.runningMode == RunningModeEdge)
 		if err != nil {
 			return nil, err
 		}
+		m.logger.Info("POC", "cpu", m.config.PocCpu)
+		endpoint.EnablePocCpuValidate(m.config.PocCpu)
+
+		m.logger.Info("POC", "gpu", m.config.PocGpu)
+		endpoint.EnablePocGpuValidate(m.config.PocGpu)
+
 		endpoint.SetSigner(application.NewEIP155Signer(chain.AllForksEnabled.At(0), uint64(m.config.Chain.Params.ChainID)))
 
 		// setup app status syncer
@@ -365,18 +424,19 @@ func NewServer(config *Config) (*Server, error) {
 		syncer := application.NewSyncer(
 			m.logger,
 			ayncAppclient,
-			application.NewSyncAppPeerService(m.logger, edgeNetwork, endpoint, ayncAppclient, m.blockchain, minerAgent),
+			application.NewSyncAppPeerService(m.logger, edgeNetwork, endpoint, m.blockchain, minerAgent),
 			m.edgeNetwork.GetHost(),
 			m.blockchain)
-
 		// start app status syncer
 		err = syncer.Start(endpoint.SubscribeEvents(), m.runningMode == RunningModeFull)
 		if err != nil {
 			return nil, err
 		}
+		m.telepool.SetAppSyncer(syncer)
 	}
 
 	if m.runningMode == RunningModeFull {
+
 		// start telepool
 		m.telepool.Start()
 
