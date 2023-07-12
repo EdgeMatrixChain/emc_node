@@ -13,6 +13,8 @@ type AppPeer struct {
 	Name string
 	// relay string
 	Relay string
+	// addr string
+	Addr string
 	// peer's distance
 	Distance *big.Int
 	// app startup time

@@ -1,8 +1,10 @@
-package alive
+package relay
 
 import (
 	"context"
 	"errors"
+	"github.com/emc-protocol/edge-matrix/application"
+	appProto "github.com/emc-protocol/edge-matrix/application/proto"
 	"github.com/emc-protocol/edge-matrix/network/grpc"
 	"github.com/emc-protocol/edge-matrix/relay/proto"
 	"github.com/hashicorp/go-hclog"
@@ -17,31 +19,40 @@ const (
 
 // networkingServer defines the base communication interface between
 // any networking server implementation and the AliveService
+type networkingServer interface {
 
+	// GetPeerAddrInfo fetches the AddrInfo of a peer
+	GetPeerAddrInfo(peerID peer.ID) peer.AddrInfo
+}
+
+// BOOTNODE QUERIES //
 // AliveService is a service that finds other peers in the network
 // and connects them to the current running node
 type AliveService struct {
 	proto.UnimplementedAliveServer
 	pendingPeerConnections sync.Map // Map that keeps track of the pending status of peers; peerID -> bool
 
-	//baseServer   networkingServer // The interface towards the base networking server
+	baseServer   networkingServer // The interface towards the base networking server
 	logger       hclog.Logger     // The AliveService logger
 	routingTable *kb.RoutingTable // Kademlia 'k-bucket' routing table that contains connected nodes info
 
-	closeCh chan struct{} // Channel used for stopping the AliveService
+	syncAppPeerClient application.SyncAppPeerClient
+	closeCh           chan struct{} // Channel used for stopping the AliveService
 }
 
 // NewAliveService creates a new instance of the alive service
 func NewAliveService(
-	//server networkingServer,
+	server networkingServer,
 	routingTable *kb.RoutingTable,
 	logger hclog.Logger,
+	syncAppPeerClient application.SyncAppPeerClient,
 ) *AliveService {
 	return &AliveService{
-		logger: logger.Named("discovery"),
-		//baseServer:   server,
-		routingTable: routingTable,
-		closeCh:      make(chan struct{}),
+		logger:            logger.Named("discovery"),
+		baseServer:        server,
+		routingTable:      routingTable,
+		syncAppPeerClient: syncAppPeerClient,
+		closeCh:           make(chan struct{}),
 	}
 }
 
@@ -68,11 +79,20 @@ func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*p
 	}
 
 	from := grpcContext.PeerID
-	d.logger.Info("-------->Receive Hello", "from", from, "stats", status.String())
-
-	//if info := d.baseServer.GetPeerInfo(id); len(info.Addrs) > 0 {
-	//	filteredPeers = append(filteredPeers, common.AddrInfoToString(info))
-	//}
+	addr := ""
+	addrInfo := d.baseServer.GetPeerAddrInfo(from)
+	if len(addrInfo.Addrs) > 0 {
+		addr = addrInfo.Addrs[0].String()
+	}
+	d.logger.Info("-------->Receive Hello", "from", from, "name", status.Name, "addr", addr, "relay", status.Relay)
+	d.syncAppPeerClient.PublishApplicationStatus(&appProto.AppStatus{
+		Name:        status.Name,
+		NodeId:      from.String(),
+		Uptime:      status.Uptime,
+		StartupTime: status.StartupTime,
+		Relay:       status.Relay,
+		Addr:        addr,
+	})
 
 	return &proto.AliveStatusResp{
 		Success: true,

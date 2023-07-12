@@ -22,7 +22,7 @@ import (
 
 const (
 	SyncAppPeerClientLoggerName = "sync-app-peer-client"
-	statusTopicName             = "appsyncer/status/0.1"
+	statusTopicName             = "appsyncer/status/0.2"
 	defaultTimeoutForStatus     = 10 * time.Second
 )
 
@@ -223,6 +223,7 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		Guage_max:    status.GuageMax,
 		Distance:     m.network.GetPeerDistance(from),
 		Relay:        status.Relay,
+		Addr:         status.Addr,
 	}
 }
 
@@ -267,6 +268,16 @@ func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscriptio
 			//	m.logger.Warn("failed to publish application status", "err", err)
 			//}
 			//}
+		}
+	}
+}
+
+func (m *syncAppPeerClient) PublishApplicationStatus(status *proto.AppStatus) {
+	if m.topic != nil {
+		m.logger.Info("AppStatus Publish", "ID", status.NodeId, "Name", status.Name, "Relay", status.Relay, "Addr", status.Addr)
+
+		if err := m.topic.Publish(status); err != nil {
+			m.logger.Warn("failed to publish application status", "err", err)
 		}
 	}
 }
@@ -426,6 +437,8 @@ type SyncAppPeerClient interface {
 	DisablePublishingPeerStatus()
 	// EnablePublishingPeerStatus enables publishing status in syncer topic
 	EnablePublishingPeerStatus()
+	// PublishApplicationStatus publish application status
+	PublishApplicationStatus(status *proto.AppStatus)
 }
 
 func NewSyncAppPeerClient(

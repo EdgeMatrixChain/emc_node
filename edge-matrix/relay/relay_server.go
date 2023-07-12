@@ -2,8 +2,8 @@ package relay
 
 import (
 	"fmt"
+	"github.com/emc-protocol/edge-matrix/application"
 	"github.com/emc-protocol/edge-matrix/network/grpc"
-	"github.com/emc-protocol/edge-matrix/relay/alive"
 	"github.com/emc-protocol/edge-matrix/relay/proto"
 	"github.com/emc-protocol/edge-matrix/secrets"
 	"github.com/hashicorp/go-hclog"
@@ -12,6 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
@@ -63,6 +64,9 @@ func (pci *PeerConnInfo) getProtocolStream(protocol string) *rawGrpc.ClientConn 
 type RelayServer struct {
 	logger hclog.Logger // the logger
 
+	//peers     map[peer.ID]*peer.AddrInfo // map of all peer AddrInfo
+	//peersLock sync.Mutex                 // lock for the peer map
+
 	protocols     map[string]Protocol // supported protocols
 	protocolsLock sync.Mutex          // lock for the supported protocols map
 
@@ -76,6 +80,16 @@ func (s *RelayServer) GetHost() host.Host {
 type Protocol interface {
 	Client(network.Stream) *rawGrpc.ClientConn
 	Handler() func(network.Stream)
+}
+
+func (s *RelayServer) GetNotifyBundle() *network.NotifyBundle {
+	return &network.NotifyBundle{
+		ConnectedF: func(net network.Network, conn network.Conn) {
+			peerID := conn.RemotePeer()
+			s.logger.Info("Conn", "peer", peerID, "direction", conn.Stat().Direction)
+			s.host.Peerstore().AddAddr(peerID, conn.RemoteMultiaddr(), peerstore.PermanentAddrTTL)
+		},
+	}
 }
 
 func (s *RelayServer) RegisterProtocol(id string, p Protocol) {
@@ -96,7 +110,7 @@ func (s *RelayServer) wrapStream(id string, handle func(network.Stream)) {
 }
 
 // setupAlive Sets up the live service for the node
-func (s *RelayServer) SetupAliveService() error {
+func (s *RelayServer) SetupAliveService(syncAppPeerClient application.SyncAppPeerClient) error {
 	// Set up a fresh routing table
 	keyID := kb.ConvertPeerID(s.host.ID())
 
@@ -115,7 +129,7 @@ func (s *RelayServer) SetupAliveService() error {
 	// Set the PeerAdded event handler
 	routingTable.PeerAdded = func(p peer.ID) {
 		//info := s.host.Peerstore().PeerInfo(p)
-		//s.addToDialQueue(&info, common.PriorityRandomDial)
+		//s.peers[p] = &info
 	}
 
 	// Set the PeerRemoved event handler
@@ -123,10 +137,15 @@ func (s *RelayServer) SetupAliveService() error {
 		//s.dialQueue.DeleteTask(p)
 	}
 
+	// Register the network notify bundle handlers
+	s.host.Network().Notify(s.GetNotifyBundle())
+
 	// Create an instance of the alive service
-	aliveService := alive.NewAliveService(
+	aliveService := NewAliveService(
+		s,
 		routingTable,
 		s.logger,
+		syncAppPeerClient,
 	)
 
 	// Register the actual alive service as a valid protocol
@@ -135,18 +154,23 @@ func (s *RelayServer) SetupAliveService() error {
 	return nil
 }
 
+// GetPeerAddrInfo fetches the AddrInfo of a peer
+func (s *RelayServer) GetPeerAddrInfo(peerID peer.ID) peer.AddrInfo {
+	return s.host.Peerstore().PeerInfo(peerID)
+}
+
 // registerDiscoveryService registers the discovery protocol to be available
-func (s *RelayServer) registerAliveService(aliveService *alive.AliveService) {
+func (s *RelayServer) registerAliveService(aliveService *AliveService) {
 	grpcStream := grpc.NewGrpcStream()
 	proto.RegisterAliveServer(grpcStream.GrpcServer(), aliveService)
 	grpcStream.Serve()
 
-	s.RegisterProtocol(alive.EdgeAliveProto, grpcStream)
+	s.RegisterProtocol(EdgeAliveProto, grpcStream)
 }
 
 // NewRelayServer returns a new instance of the relay server
 func NewRelayServer(logger hclog.Logger, secretsManager secrets.SecretsManager, relayListenAddr multiaddr.Multiaddr) (*RelayServer, error) {
-	logger = logger.Named("network")
+	logger = logger.Named("relay-server")
 
 	key, err := setupLibp2pKey(secretsManager)
 	if err != nil {
@@ -170,6 +194,22 @@ func NewRelayServer(logger hclog.Logger, secretsManager secrets.SecretsManager, 
 	srv := &RelayServer{
 		logger:    logger,
 		host:      relayHost,
+		protocols: map[string]Protocol{},
+	}
+
+	return srv, nil
+}
+func NewRelayServerWithHost(logger hclog.Logger, host host.Host) (*RelayServer, error) {
+	logger = logger.Named("network")
+
+	_, err := relay.New(host)
+	if err != nil {
+		logger.Error(fmt.Sprintf("Failed to instantiate the relay: %v", err))
+	}
+
+	srv := &RelayServer{
+		logger:    logger,
+		host:      host,
 		protocols: map[string]Protocol{},
 	}
 

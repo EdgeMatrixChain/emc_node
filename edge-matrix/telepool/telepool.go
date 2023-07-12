@@ -1,6 +1,7 @@
 package telepool
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,8 +14,15 @@ import (
 	"github.com/emc-protocol/edge-matrix/types"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-hclog"
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/umbracle/fastrlp"
+	"io"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -280,15 +288,25 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 			return "", err
 		}
 		if call.Endpoint == "/poc_cpu_request" || call.Endpoint == "/poc_cpu_validate" {
-			relayAddr := ""
-			if p.appSyncer != nil {
-				appPeer := p.appSyncer.GetAppPeer(call.PeerId)
-				if appPeer != nil {
-					relayAddr = appPeer.Relay
+			host := p.edgeNetwork.GetHost()
+
+			relayAddr, addr := p.getAppPeerAddr(call.PeerId)
+			p.logger.Info("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, addr, "Relay", relayAddr)
+			if relayAddr != "" || addr != "" {
+				clientHost, err2 := p.newTempHost()
+				if err2 != nil {
+					return "", err2
+				}
+				defer clientHost.Close()
+
+				host = clientHost
+				err := p.addAddrToHost(call.PeerId, host, addr, relayAddr)
+				if err != nil {
+					return "", err
 				}
 			}
-			p.logger.Info("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, "Relay", relayAddr)
-			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call, relayAddr)
+
+			respBuf, callErr := application.Call(host, application.ProtoTagEcApp, call)
 			if callErr != nil {
 				return "", callErr
 			}
@@ -346,6 +364,54 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 	return respString, nil
 }
 
+func (p *TelegramPool) addAddrToHost(peerId string, host host.Host, addr string, relayAddr string) error {
+	if relayAddr != "" {
+		targetRelayInfo, err := peer.AddrInfoFromString(fmt.Sprintf("%s/p2p-circuit/p2p/%s", relayAddr, peerId))
+		if err != nil {
+			return err
+		}
+		host.Peerstore().AddAddrs(targetRelayInfo.ID, targetRelayInfo.Addrs, peerstore.AddressTTL)
+	} else if addr != "" {
+		addrInfo, err := peer.AddrInfoFromString(fmt.Sprintf("%s/p2p/%s", addr, peerId))
+		if err != nil {
+			return err
+		}
+		host.Peerstore().AddAddrs(addrInfo.ID, addrInfo.Addrs, peerstore.RecentlyConnectedAddrTTL)
+	}
+	return nil
+}
+
+func (p *TelegramPool) newTempHost() (host.Host, error) {
+	var r io.Reader
+	r = rand.Reader
+	prvKey, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
+	if err != nil {
+		return nil, err
+	}
+	listen, _ := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/10001")
+	clientHost, err := libp2p.New(
+		libp2p.ListenAddrs(listen),
+		libp2p.Security(noise.ID, noise.New),
+		libp2p.Identity(prvKey),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return clientHost, nil
+}
+
+func (p *TelegramPool) getAppPeerAddr(peerId string) (relayAddr string, addr string) {
+	if p.appSyncer != nil {
+		appPeer := p.appSyncer.GetAppPeer(peerId)
+		if appPeer != nil {
+			relayAddr = appPeer.Relay
+			addr = appPeer.Addr
+			return
+		}
+	}
+	return "", ""
+}
+
 // addTele is the main entry point to the pool
 // for all new transactions. If the call is
 // successful, an account is created for this address
@@ -382,17 +448,27 @@ func (p *TelegramPool) addTele(origin teleOrigin, tele *types.Telegram) (string,
 				return "", err
 			}
 
-			//respBuf, callErr := application.CallWithFrom(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call, tele.From)
-			// TODO relpace Call to CallWithFrom
-			relayAddr := ""
-			if p.appSyncer != nil {
-				appPeer := p.appSyncer.GetAppPeer(call.PeerId)
-				if appPeer != nil {
-					relayAddr = appPeer.Relay
+			host := p.edgeNetwork.GetHost()
+
+			relayAddr, addr := p.getAppPeerAddr(call.PeerId)
+			p.logger.Info("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, addr, "Relay", relayAddr)
+			if relayAddr != "" || addr != "" {
+				clientHost, err2 := p.newTempHost()
+				if err2 != nil {
+					return "", err2
+				}
+				defer clientHost.Close()
+
+				host = clientHost
+				err := p.addAddrToHost(call.PeerId, host, addr, relayAddr)
+				if err != nil {
+					return "", err
 				}
 			}
 
-			respBuf, callErr := application.Call(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call, relayAddr)
+			// TODO relpace Call to CallWithFrom
+			//respBuf, callErr := application.CallWithFrom(p.edgeNetwork.GetHost(), application.ProtoTagEcApp, call, tele.From)
+			respBuf, callErr := application.Call(host, application.ProtoTagEcApp, call)
 			if callErr != nil {
 				return "", callErr
 			}

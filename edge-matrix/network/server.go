@@ -326,6 +326,30 @@ func (s *Server) Start(netName string, bootnodes []string, edgeMode bool) error 
 	return nil
 }
 
+// Start starts the networking services
+func (s *Server) StartMininum(netName string) error {
+	s.logger.Info(netName+" LibP2P server running", "addr", common.AddrInfoToString(s.AddrInfo()))
+
+	if setupErr := s.setupIdentity(); setupErr != nil {
+		return fmt.Errorf("unable to setup identity, %w", setupErr)
+	}
+
+	// Set up the peer discovery mechanism if needed
+	if setupErr := s.setupDiscovery(false); setupErr != nil {
+		return fmt.Errorf("unable to setup discovery, %w", setupErr)
+	}
+
+	// watch for disconnected peers
+	s.host.Network().Notify(&network.NotifyBundle{
+		DisconnectedF: func(net network.Network, conn network.Conn) {
+			// Update the local connection metrics
+			s.removePeer(conn.RemotePeer())
+		},
+	})
+
+	return nil
+}
+
 // setupBootnodes sets up the node's bootnode connections
 func (s *Server) setupBootnodes(bootnodes []string) error {
 	// Check the bootnode config is present

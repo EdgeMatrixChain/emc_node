@@ -12,7 +12,6 @@ import (
 	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
-	"github.com/emc-protocol/edge-matrix/relay"
 	"github.com/emc-protocol/edge-matrix/types"
 	"github.com/hashicorp/go-hclog"
 	gostream "github.com/libp2p/go-libp2p-gostream"
@@ -37,50 +36,15 @@ const (
 )
 
 const (
-	txSlotSize  = 32 * 1024 // 32kB
-	topicNameV1 = "em_app/0.1"
+	txSlotSize = 32 * 1024 // 32kB
 )
 
 const (
 	DefaultBlockNumSyncDuration  = 2 * time.Second
-	DefaultAppStatusSyncDuration = 15 * 60 * time.Second
+	DefaultAppStatusSyncDuration = 5 * time.Second
 	PocSubmitBatchSize           = 1
 	PocSubmitSliceSize           = 1
 )
-
-type Application struct {
-	Name    string
-	Tag     string
-	Version string
-	PeerID  peer.ID
-
-	RelayInfo *relay.RelayPeerInfo
-
-	// app startup time
-	StartupTime uint64
-	// app uptime
-	Uptime uint64
-	// amount of slots currently occupying the app
-	GuageHeight uint64
-	// max limit
-	GuageMax uint64
-}
-
-func (a *Application) Copy() *Application {
-	newApp := &Application{
-		Name:        a.Name,
-		Tag:         a.Tag,
-		Version:     a.Version,
-		PeerID:      a.PeerID,
-		StartupTime: a.StartupTime,
-		Uptime:      a.Uptime,
-		GuageHeight: a.GuageHeight,
-		GuageMax:    a.GuageMax,
-		RelayInfo:   a.RelayInfo,
-	}
-
-	return newApp
-}
 
 type Endpoint struct {
 	logger hclog.Logger
@@ -106,7 +70,6 @@ type Endpoint struct {
 	application     *Application
 	minerAgent      *miner.MinerAgent
 	jsonRpcClient   *rpc.JsonRpcClient
-	relayClient     *relay.RelayClient
 	blockchainStore blockchainStore
 
 	peersPocRequestMap cmap.ConcurrentMap[string, proof.PocCpuRequest]
@@ -519,7 +482,6 @@ func NewApplicationEndpoint(
 	blockchainStore blockchainStore,
 	minerAgent *miner.MinerAgent,
 	jsonRpcClient *rpc.JsonRpcClient,
-	relayClient *relay.RelayClient,
 	isEdgeMode bool) (*Endpoint, error) {
 	endpoint := &Endpoint{
 		logger:              logger.Named("app_endpoint"),
@@ -531,7 +493,6 @@ func NewApplicationEndpoint(
 		stream:              &eventStream{},
 		minerAgent:          minerAgent,
 		jsonRpcClient:       jsonRpcClient,
-		relayClient:         relayClient,
 		pocQueue:            proof.NewPocQueue(),
 		pocSubmitQueue:      proof.NewPocSubmitQueue(),
 		nonceCacheEnable:    false,
@@ -585,15 +546,9 @@ func NewApplicationEndpoint(
 				GuageHeight: endpoint.application.GuageHeight,
 				GuageMax:    endpoint.application.GuageMax,
 			}
-			if endpoint.relayClient != nil {
-				relayPeerInfo := endpoint.relayClient.GetRelayPeerInfo()
-				if relayPeerInfo != nil {
-					app.RelayInfo = relayPeerInfo
-				}
-			}
 			event.AddNewApp(app)
 			endpoint.stream.push(event)
-			endpoint.logger.Info("endpoint----> push event", "len", len(event.NewApp))
+			//endpoint.logger.Info("endpoint----> push event", "len", len(event.NewApp))
 		}
 		ticker.Stop()
 	}()
@@ -780,6 +735,12 @@ func NewApplicationEndpoint(
 			writeResponse(w, info, endpoint)
 		})
 
+		http.HandleFunc("/alive", func(w http.ResponseWriter, r *http.Request) {
+			defer r.Body.Close()
+			resp := fmt.Sprintf("%s", time.Now().String())
+			w.Write([]byte(resp))
+		})
+
 		http.HandleFunc("/idl", func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 			idlData, err := os.ReadFile("idl.json")
@@ -789,7 +750,6 @@ func NewApplicationEndpoint(
 			}
 			writeResponse(w, idlData, endpoint)
 		})
-
 		http.HandleFunc("/poc_cpu_validate", func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 			pocResp := []byte(fmt.Sprintf("{\"message\":\"validate failed\"}"))

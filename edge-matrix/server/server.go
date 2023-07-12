@@ -214,28 +214,6 @@ func NewServer(config *Config) (*Server, error) {
 	}
 	m.edgeNetwork = edgeNetwork
 
-	// start relay server
-	if config.RelayAddr.Port > 0 {
-		relayListenAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", config.RelayAddr.IP.String(), config.RelayAddr.Port))
-		if err != nil {
-			return nil, err
-		}
-
-		relayServer, err := relay.NewRelayServer(logger, m.secretsManager, relayListenAddr)
-		if err != nil {
-			return nil, err
-		}
-
-		err = relayServer.SetupAliveService()
-		if err != nil {
-			return nil, fmt.Errorf("unable to setup alive service, %w", err)
-		}
-
-		m.relayServer = relayServer
-
-		logger.Info("LibP2P Relay server running", "addr", relayListenAddr.String()+"/p2p/"+relayServer.GetHost().ID().String())
-	}
-
 	// start blockchain object
 	stateStorage, err := itrie.NewLevelDBStorage(filepath.Join(m.config.DataDir, "trie"), logger)
 	if err != nil {
@@ -375,8 +353,8 @@ func NewServer(config *Config) (*Server, error) {
 		}
 	}
 
-	// setup edge application
 	{
+		// setup edge application
 		endpointHost := edgeNetwork.GetHost()
 
 		if m.runningMode == RunningModeEdge {
@@ -393,7 +371,6 @@ func NewServer(config *Config) (*Server, error) {
 				}
 				endpointHost = relayClient.GetHost()
 			}
-			relayClient.StartAlive()
 		}
 
 		keyBytes, err := m.secretsManager.GetSecret(secrets.ValidatorKey)
@@ -407,7 +384,7 @@ func NewServer(config *Config) (*Server, error) {
 		}
 
 		jsonRpcClient := rpc.NewJsonRpcClient(m.config.EmcHost)
-		endpoint, err := application.NewApplicationEndpoint(m.logger, key, endpointHost, m.config.AppName, m.config.AppUrl, m.config.AppOrigin, m.blockchain, minerAgent, jsonRpcClient, m.relayClient, m.runningMode == RunningModeEdge)
+		endpoint, err := application.NewApplicationEndpoint(m.logger, key, endpointHost, m.config.AppName, m.config.AppUrl, m.config.AppOrigin, m.blockchain, minerAgent, jsonRpcClient, m.runningMode == RunningModeEdge)
 		if err != nil {
 			return nil, err
 		}
@@ -419,32 +396,74 @@ func NewServer(config *Config) (*Server, error) {
 
 		endpoint.SetSigner(application.NewEIP155Signer(chain.AllForksEnabled.At(0), uint64(m.config.Chain.Params.ChainID)))
 
-		// setup app status syncer
-		ayncAppclient := application.NewSyncAppPeerClient(m.logger, edgeNetwork, minerAgent, m.edgeNetwork.GetHost(), jsonRpcClient, key, endpoint)
-		syncer := application.NewSyncer(
-			m.logger,
-			ayncAppclient,
-			application.NewSyncAppPeerService(m.logger, edgeNetwork, endpoint, m.blockchain, minerAgent),
-			m.edgeNetwork.GetHost(),
-			m.blockchain)
-		// start app status syncer
-		err = syncer.Start(endpoint.SubscribeEvents(), m.runningMode == RunningModeFull)
-		if err != nil {
-			return nil, err
+		if m.runningMode == RunningModeEdge {
+			// keep edge peer alive
+			m.relayClient.StartAlive(endpoint.SubscribeEvents())
 		}
-		m.telepool.SetAppSyncer(syncer)
-	}
 
-	if m.runningMode == RunningModeFull {
+		if m.runningMode == RunningModeFull {
+			// setup app status syncer
+			ayncAppclient := application.NewSyncAppPeerClient(m.logger, edgeNetwork, minerAgent, m.edgeNetwork.GetHost(), jsonRpcClient, key, endpoint)
+			syncer := application.NewSyncer(
+				m.logger,
+				ayncAppclient,
+				application.NewSyncAppPeerService(m.logger, edgeNetwork, endpoint, m.blockchain, minerAgent),
+				m.edgeNetwork.GetHost(),
+				m.blockchain)
+			// start app status syncer
+			err = syncer.Start(endpoint.SubscribeEvents(), true)
+			if err != nil {
+				return nil, err
+			}
 
-		// start telepool
-		m.telepool.Start()
+			// start relay server
+			if config.RelayAddr.Port > 0 {
+				relayListenAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", config.RelayAddr.IP.String(), config.RelayAddr.Port))
+				if err != nil {
+					return nil, err
+				}
+				relayServer, err := relay.NewRelayServer(logger, m.secretsManager, relayListenAddr)
+				logger.Info("LibP2P Relay server running", "addr", relayListenAddr.String()+"/p2p/"+relayServer.GetHost().ID().String())
 
-		// start edge-network routetable gossip
-		//err := m.edgeNetwork.StartPeerStoreUpdateGossip()
-		//if err != nil {
-		//	return nil, err
-		//}
+				// setup relay libp2p network
+				//relayNetConfig := config.EdgeNetwork
+				//relayNetConfig.Chain = m.config.Chain
+				//relayNetConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
+				//relayNetConfig.SecretsManager = m.secretsManager
+				//relayNetConfig.Addr = &net.TCPAddr{
+				//	IP:   net.ParseIP(config.RelayAddr.IP.String()),
+				//	Port: config.RelayAddr.Port,
+				//}
+				//relayNetwork, err := network.NewServer(logger.Named("Relay"), relayNetConfig, EdgeDiscProto, EdgeIdentityProto, true)
+				//if err != nil {
+				//	return nil, err
+				//}
+				//relayNetwork.StartMininum("Relay")
+				//relayServer, err := relay.NewRelayServerWithHost(logger, relayNetwork.GetHost())
+				//if err != nil {
+				//	return nil, err
+				//}
+
+				err = relayServer.SetupAliveService(ayncAppclient)
+				if err != nil {
+					return nil, fmt.Errorf("unable to setup alive service, %w", err)
+				}
+
+				m.relayServer = relayServer
+
+			}
+
+			// start edge-network alive gossip
+			//err := m.edgeNetwork.StartPeerAliveGossip()
+			//if err != nil {
+			//	return nil, err
+			//}
+
+			// start telepool
+			m.telepool.SetAppSyncer(syncer)
+			m.telepool.Start()
+
+		}
 	}
 
 	return m, nil

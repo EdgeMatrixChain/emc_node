@@ -51,4 +51,6 @@ message AppStatus {
   string relay = 6;
   // PeerID
   string node_id = 7;
+  // Addr
+  string addr = 8;
 }

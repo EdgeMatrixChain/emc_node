@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/network/event"
 	"github.com/hashicorp/go-hclog"
-	"github.com/multiformats/go-multiaddr"
 	"sync"
 
 	"github.com/emc-protocol/edge-matrix/network/proto"
@@ -53,7 +52,7 @@ type networkingServer interface {
 	// HasFreeConnectionSlot checks if there are available outbound connection slots [Thread safe]
 	HasFreeConnectionSlot(direction network.Direction) bool
 
-	AddAddr(p peer.ID, addr multiaddr.Multiaddr)
+	//AddAddr(p peer.ID, addr multiaddr.Multiaddr)
 }
 
 // IdentityService is a networking service used to handle peer handshaking.

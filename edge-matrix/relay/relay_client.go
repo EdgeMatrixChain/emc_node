@@ -3,11 +3,12 @@ package relay
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
+	"github.com/emc-protocol/edge-matrix/application"
 	emcNetwork "github.com/emc-protocol/edge-matrix/network"
 	"github.com/emc-protocol/edge-matrix/network/common"
 	"github.com/emc-protocol/edge-matrix/network/grpc"
-	"github.com/emc-protocol/edge-matrix/relay/alive"
 	"github.com/emc-protocol/edge-matrix/relay/proto"
 	"github.com/emc-protocol/edge-matrix/secrets"
 	"github.com/hashicorp/go-hclog"
@@ -48,7 +49,8 @@ type RelayConnInfo struct {
 type RelayClient struct {
 	logger hclog.Logger // the logger
 
-	closeCh chan struct{} // the channel used for closing the RelayClient
+	subscription application.Subscription // reference to the application subscription
+	closeCh      chan struct{}            // the channel used for closing the RelayClient
 
 	host host.Host // the libp2p host reference
 
@@ -63,6 +65,7 @@ type RelayClient struct {
 
 	relaynodes *relaynodesWrapper // reference of all relaynodes for the node
 
+	application *application.Application // reference of application
 }
 
 // RelayPeerInfo holds the relay information about the peer
@@ -318,7 +321,7 @@ func setupLibp2pKey(secretsManager secrets.SecretsManager) (crypto.PrivKey, erro
 }
 
 // setupAlive Sets up the live service for the node
-func (s *RelayClient) StartAlive() error {
+func (s *RelayClient) StartAlive(subscription application.Subscription) error {
 	// Set up a fresh routing table
 	keyID := kb.ConvertPeerID(s.host.ID())
 
@@ -351,6 +354,9 @@ func (s *RelayClient) StartAlive() error {
 	// Make sure the alive service has the bootnodes in its routing table,
 	// and instantiates connections to them
 	s.ConnectToBootnodes(s.relaynodes.getRelaynodes())
+
+	// Start application event update process
+	go s.startApplicationEventProcess(subscription)
 
 	// Start the alive job
 	go s.startAliveService()
@@ -499,7 +505,7 @@ func (s *RelayClient) SaveProtocolStream(
 
 func (s *RelayClient) registerAliveProtocol() {
 	grpcStream := grpc.NewGrpcStream()
-	s.RegisterProtocol(alive.EdgeAliveProto, grpcStream)
+	s.RegisterProtocol(EdgeAliveProto, grpcStream)
 }
 
 func (s *RelayClient) NewStream(proto string, id peer.ID) (network.Stream, error) {
@@ -515,12 +521,12 @@ func (s *RelayClient) RegisterProtocol(id string, p Protocol) {
 
 // NewAliveClient returns a new or existing alive service client connection
 func (s *RelayClient) NewAliveClient(peerID peer.ID) (proto.AliveClient, error) {
-	conn, err := s.NewProtoConnection(alive.EdgeAliveProto, peerID)
+	conn, err := s.NewProtoConnection(EdgeAliveProto, peerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a stream, err %w", err)
 	}
 
-	s.SaveProtocolStream(alive.EdgeAliveProto, conn, peerID)
+	s.SaveProtocolStream(EdgeAliveProto, conn, peerID)
 
 	return proto.NewAliveClient(conn), nil
 }
@@ -541,21 +547,37 @@ func (s *RelayClient) CloseProtocolStream(protocol string, peerID peer.ID) error
 func (d *RelayClient) sayHello(
 	peerID peer.ID,
 ) (bool, error) {
+
+	if d.application == nil {
+		return false, errors.New("no application info")
+	}
+
 	clt, clientErr := d.NewAliveClient(peerID)
 	if clientErr != nil {
 		return false, fmt.Errorf("unable to create new alive client connection, %w", clientErr)
 	}
 	d.logger.Info("-------->Say Hello", "to", peerID.String())
-	// TODO get latest app status
+	//get latest app status
+	relay := ""
+	relayPeerInfo := d.GetRelayPeerInfo()
+	if relayPeerInfo != nil && relayPeerInfo.Info != nil {
+		relay = fmt.Sprintf("%s/p2p/%s", relayPeerInfo.Info.Info.Addrs[0].String(), relayPeerInfo.Info.Info.ID.String())
+	}
+
 	resp, err := clt.Hello(
 		context.Background(),
-		&proto.AliveStatus{},
+		&proto.AliveStatus{
+			Name:        d.application.Name,
+			StartupTime: d.application.StartupTime,
+			Uptime:      d.application.Uptime,
+			Relay:       relay,
+		},
 	)
 	if err != nil {
 		return false, err
 	}
 
-	if closeErr := d.CloseProtocolStream(alive.EdgeAliveProto, peerID); closeErr != nil {
+	if closeErr := d.CloseProtocolStream(EdgeAliveProto, peerID); closeErr != nil {
 		return false, closeErr
 	}
 
@@ -599,12 +621,14 @@ func (d *RelayClient) keepAliveToBootnodes() {
 			return
 		}
 
-		_, err := d.sayHello(bootnode.ID)
-		if err != nil {
-			d.logger.Error("Unable to execute bootnode peer alive call",
-				"bootnode", bootnode.ID.String(),
-				"err", err.Error(),
-			)
+		if d.application != nil {
+			_, err := d.sayHello(bootnode.ID)
+			if err != nil {
+				d.logger.Error("Unable to execute bootnode peer alive call",
+					"bootnode", bootnode.ID.String(),
+					"err", err.Error(),
+				)
+			}
 		}
 		//d.disconnectFromPeer(bootnode.ID, "alive")
 	}
@@ -616,6 +640,42 @@ func (s *RelayClient) disconnectFromPeer(peer peer.ID, reason string) {
 
 		if closeErr := s.host.Network().ClosePeer(peer); closeErr != nil {
 			s.logger.Error(fmt.Sprintf("Unable to gracefully close peer connection, %v", closeErr))
+		}
+	}
+}
+
+// startApplicationEventProcess starts application event subscription
+func (m *RelayClient) startApplicationEventProcess(subscrption application.Subscription) {
+	m.subscription = subscrption
+	for {
+		var event *application.Event
+
+		select {
+		case <-m.closeCh:
+			return
+		case event = <-m.subscription.GetEventCh():
+		}
+
+		if l := len(event.NewApp); l > 0 {
+			latest := event.NewApp[l-1]
+
+			// TODO remove
+			//if m.topic != nil {
+			// Publish status
+			m.application = latest
+
+			//if err := m.topic.Publish(&proto.AppStatus{
+			//	NodeId:      latest.PeerID.String(),
+			//	Name:        latest.Name,
+			//	StartupTime: latest.StartupTime,
+			//	Uptime:      latest.Uptime,
+			//	GuageHeight: latest.GuageHeight,
+			//	GuageMax:    latest.GuageMax,
+			//	Relay:       relay,
+			//}); err != nil {
+			//	m.logger.Warn("failed to publish application status", "err", err)
+			//}
+			//}
 		}
 	}
 }

@@ -7,8 +7,6 @@ import (
 	"github.com/emc-protocol/edge-matrix/types"
 	p2phttp "github.com/libp2p/go-libp2p-http"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"io"
 	"net/http"
@@ -50,15 +48,7 @@ func DecodeEdgeCallFromInterface(i interface{}) (*EdgeCall, error) {
 	return call, nil
 }
 
-func Call(clientHost host.Host, protoTag string, call *EdgeCall, relayAddr string) ([]byte, error) {
-	if len(relayAddr) > 0 {
-		targetRelayInfo, err := peer.AddrInfoFromString(fmt.Sprintf("%s/p2p-circuit/p2p/%s", relayAddr, call.PeerId))
-		if err != nil {
-			return nil, err
-		}
-		clientHost.Peerstore().AddAddrs(targetRelayInfo.ID, targetRelayInfo.Addrs, peerstore.PermanentAddrTTL)
-	}
-
+func Call(clientHost host.Host, protoTag string, call *EdgeCall) ([]byte, error) {
 	tr := &http.Transport{}
 	tr.RegisterProtocol("libp2p", p2phttp.NewTransport(clientHost, p2phttp.ProtocolOption(protocol.ID(protoTag))))
 	client := &http.Client{Transport: tr}
