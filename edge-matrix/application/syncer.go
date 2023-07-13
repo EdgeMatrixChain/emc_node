@@ -63,7 +63,7 @@ type ValidatorStore interface {
 
 type Syncer interface {
 	// Start starts syncer processes
-	Start(s Subscription, topicSubFlag bool) error
+	Start(topicSubFlag bool) error
 	// Close terminates syncer process
 	Close() error
 	// GetAppPeer get AppPeer by PeerID
@@ -108,8 +108,8 @@ func (s *syncer) Close() error {
 	return nil
 }
 
-func (s *syncer) Start(sub Subscription, topicSubFlag bool) error {
-	if err := s.syncAppPeerClient.Start(sub, topicSubFlag); err != nil {
+func (s *syncer) Start(topicSubFlag bool) error {
+	if err := s.syncAppPeerClient.Start(topicSubFlag); err != nil {
 		return err
 	}
 

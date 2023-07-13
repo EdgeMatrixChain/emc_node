@@ -94,6 +94,9 @@ type Server struct {
 	// relay server
 	relayServer *relay.RelayServer
 
+	// application syncer Client
+	syncAppPeerClient application.SyncAppPeerClient
+
 	// telegram pool
 	telepool *telepool.TelegramPool
 
@@ -203,17 +206,6 @@ func NewServer(config *Config) (*Server, error) {
 	}
 	m.network = coreNetwork
 
-	// setup edge libp2p network
-	edgeNetConfig := config.EdgeNetwork
-	edgeNetConfig.Chain = m.config.Chain
-	edgeNetConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
-	edgeNetConfig.SecretsManager = m.secretsManager
-	edgeNetwork, err := network.NewServer(logger.Named("edge"), edgeNetConfig, EdgeDiscProto, EdgeIdentityProto, true)
-	if err != nil {
-		return nil, err
-	}
-	m.edgeNetwork = edgeNetwork
-
 	// start blockchain object
 	stateStorage, err := itrie.NewLevelDBStorage(filepath.Join(m.config.DataDir, "trie"), logger)
 	if err != nil {
@@ -241,6 +233,19 @@ func NewServer(config *Config) (*Server, error) {
 	}
 
 	m.executor.GetHash = m.blockchain.GetHashHelper
+
+	if m.runningMode == RunningModeFull {
+		// setup edge libp2p network
+		edgeNetConfig := config.EdgeNetwork
+		edgeNetConfig.Chain = m.config.Chain
+		edgeNetConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
+		edgeNetConfig.SecretsManager = m.secretsManager
+		edgeNetwork, err := network.NewServer(logger.Named("edge"), edgeNetConfig, EdgeDiscProto, EdgeIdentityProto, true)
+		if err != nil {
+			return nil, err
+		}
+		m.edgeNetwork = edgeNetwork
+	}
 
 	{
 		// Setup telegram pool
@@ -296,7 +301,10 @@ func NewServer(config *Config) (*Server, error) {
 
 	// init IC agent
 	if !m.secretsManager.HasSecret(secrets.ICPIdentityKey) {
-		helper.InitICPIdentityKey(m.secretsManager)
+		_, err := helper.InitICPIdentityKey(m.secretsManager)
+		if err != nil {
+			return nil, err
+		}
 	}
 	icPrivKey, err := m.secretsManager.GetSecret(secrets.ICPIdentityKey)
 	if err != nil {
@@ -304,9 +312,9 @@ func NewServer(config *Config) (*Server, error) {
 	}
 
 	decodedPrivKey, err := crypto.BytesToEd25519PrivateKey(icPrivKey)
-	identity := identity.New(false, decodedPrivKey.Seed())
-	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
-	m.logger.Info("Init IC Agent", "node identity", p.Encode())
+	icIdentity := identity.New(false, decodedPrivKey.Seed())
+	p := principal.NewSelfAuthenticating(icIdentity.PubKeyBytes())
+	m.logger.Info("Init IC Agent", "node IC identity", p.Encode())
 
 	icAgent := agent.NewWithHost(config.IcHost, false, hex.EncodeToString(decodedPrivKey.Seed()))
 	minerAgent := miner.NewMinerAgent(m.logger, icAgent, config.MinerCanister)
@@ -328,12 +336,7 @@ func NewServer(config *Config) (*Server, error) {
 	{
 		if m.runningMode == RunningModeFull {
 			// start base network
-			if err := m.network.Start("Base", m.config.Chain.BaseBootnodes, false); err != nil {
-				return nil, err
-			}
-
-			// setup and start jsonrpc server
-			if err := m.setupJSONRPC(); err != nil {
+			if err := m.network.Start("Base", m.config.Chain.BaseBootnodes); err != nil {
 				return nil, err
 			}
 
@@ -343,33 +346,41 @@ func NewServer(config *Config) (*Server, error) {
 			}
 
 			// start edge network
-			if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes, false); err != nil {
+			if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes); err != nil {
 				return nil, err
 			}
 		} else {
-			if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes, true); err != nil {
-				return nil, err
-			}
+			//if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes, true); err != nil {
+			//	return nil, err
+			//}
 		}
 	}
 
 	{
 		// setup edge application
-		endpointHost := edgeNetwork.GetHost()
+		var endpointHost host.Host
 
+		if m.edgeNetwork != nil {
+			endpointHost = m.edgeNetwork.GetHost()
+		}
 		if m.runningMode == RunningModeEdge {
+			relayNetConfig := config.EdgeNetwork
+			relayNetConfig.Chain = m.config.Chain
+			relayNetConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
+			relayNetConfig.SecretsManager = m.secretsManager
+
 			// start edge network relay reserv
-			relayClient, err := relay.NewRelayClient(logger, m.secretsManager, m.config.Chain.Relaynodes)
+			relayClient, err := relay.NewRelayClient(logger, relayNetConfig)
 			if err != nil {
 				return nil, err
 			}
+			endpointHost = relayClient.GetHost()
 
 			m.relayClient = relayClient
 			if m.config.RelayOn {
 				if err := relayClient.StartRelayReserv(); err != nil {
 					return nil, err
 				}
-				endpointHost = relayClient.GetHost()
 			}
 		}
 
@@ -398,21 +409,31 @@ func NewServer(config *Config) (*Server, error) {
 
 		if m.runningMode == RunningModeEdge {
 			// keep edge peer alive
-			m.relayClient.StartAlive(endpoint.SubscribeEvents())
+			err := m.relayClient.StartAlive(endpoint.SubscribeEvents())
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if m.runningMode == RunningModeFull {
 			// setup app status syncer
-			ayncAppclient := application.NewSyncAppPeerClient(m.logger, edgeNetwork, minerAgent, m.edgeNetwork.GetHost(), jsonRpcClient, key, endpoint)
+			syncAppclient := application.NewSyncAppPeerClient(m.logger, m.edgeNetwork, minerAgent, m.edgeNetwork.GetHost(), jsonRpcClient, key, endpoint)
+			m.syncAppPeerClient = syncAppclient
+
 			syncer := application.NewSyncer(
 				m.logger,
-				ayncAppclient,
-				application.NewSyncAppPeerService(m.logger, edgeNetwork, endpoint, m.blockchain, minerAgent),
+				syncAppclient,
+				application.NewSyncAppPeerService(m.logger, m.edgeNetwork, endpoint, m.blockchain, minerAgent),
 				m.edgeNetwork.GetHost(),
 				m.blockchain)
 			// start app status syncer
-			err = syncer.Start(endpoint.SubscribeEvents(), true)
+			err = syncer.Start(true)
 			if err != nil {
+				return nil, err
+			}
+
+			// setup and start jsonrpc server
+			if err := m.setupJSONRPC(); err != nil {
 				return nil, err
 			}
 
@@ -444,7 +465,7 @@ func NewServer(config *Config) (*Server, error) {
 				//	return nil, err
 				//}
 
-				err = relayServer.SetupAliveService(ayncAppclient)
+				err = relayServer.SetupAliveService(syncAppclient)
 				if err != nil {
 					return nil, fmt.Errorf("unable to setup alive service, %w", err)
 				}
@@ -593,7 +614,7 @@ func (s *Server) setupConsensus() error {
 		Path:   filepath.Join(s.config.DataDir, "consensus"),
 	}
 
-	consensus, err := engine(
+	chainConsensus, err := engine(
 		&consensus.Params{
 			Context:               context.Background(),
 			Config:                config,
@@ -613,7 +634,7 @@ func (s *Server) setupConsensus() error {
 		return err
 	}
 
-	s.consensus = consensus
+	s.consensus = chainConsensus
 
 	return nil
 }
@@ -662,6 +683,7 @@ type jsonRPCHub struct {
 	*network.Server
 	consensus.Consensus
 	*rtc.Rtc
+	application.SyncAppPeerClient
 	//consensus.BridgeDataProvider
 }
 
@@ -887,6 +909,7 @@ func (s *Server) setupJSONRPC() error {
 		Executor:           s.executor,
 		Consensus:          s.consensus,
 		Server:             s.network,
+		SyncAppPeerClient:  s.syncAppPeerClient,
 		//BridgeDataProvider: s.consensus.GetBridgeProvider(),
 	}
 	rt, err := rtc.NewRtc(s.network, s.logger)

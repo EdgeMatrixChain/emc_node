@@ -22,6 +22,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	"github.com/multiformats/go-multiaddr"
 	rawGrpc "google.golang.org/grpc"
 	"math/big"
 	"sync"
@@ -681,19 +682,40 @@ func (m *RelayClient) startApplicationEventProcess(subscrption application.Subsc
 }
 
 // NewRelayClient returns a new instance of the relay client
-func NewRelayClient(logger hclog.Logger, secretsManager secrets.SecretsManager, relaynodes []string) (*RelayClient, error) {
-	logger = logger.Named("network")
-
-	key, err := setupLibp2pKey(secretsManager)
+func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config) (*RelayClient, error) {
+	logger = logger.Named("relay-client")
+	relaynodes := config.Chain.Relaynodes
+	key, err := setupLibp2pKey(config.SecretsManager)
 	if err != nil {
 		return nil, err
 	}
 
+	listenAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", config.Addr.IP.String(), config.Addr.Port))
+	if err != nil {
+		return nil, err
+	}
+
+	addrsFactory := func(addrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
+		if config.NatAddr != nil {
+			addr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", config.NatAddr.String(), config.Addr.Port))
+
+			if addr != nil {
+				addrs = []multiaddr.Multiaddr{addr}
+			}
+		} else if config.DNS != nil {
+			addrs = []multiaddr.Multiaddr{config.DNS}
+		}
+
+		return addrs
+	}
+
 	privateSrvHost, err := libp2p.New(
 		libp2p.Security(noise.ID, noise.New),
-		libp2p.NoListenAddrs,
+		libp2p.ListenAddrs(listenAddr),
+		libp2p.AddrsFactory(addrsFactory),
 		libp2p.EnableRelay(),
 		libp2p.Identity(key),
+		libp2p.NATPortMap(),
 		libp2p.ForceReachabilityPrivate(),
 	)
 	if err != nil {
@@ -713,6 +735,9 @@ func NewRelayClient(logger hclog.Logger, secretsManager secrets.SecretsManager, 
 			relaynodeConnCount: 0,
 		},
 	}
+
+	clt.logger.Info("LibP2P Relay client running", "addr", privateSrvHost.Addrs()[0].String()+"/p2p/"+privateSrvHost.ID().String())
+
 	if setupErr := clt.setupRelaynodes(relaynodes); setupErr != nil {
 		return nil, fmt.Errorf("unable to parse relaynode data, %w", setupErr)
 	}

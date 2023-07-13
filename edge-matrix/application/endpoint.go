@@ -93,6 +93,11 @@ type Endpoint struct {
 	pastRound  *sd.PocSDRound
 }
 
+// SubscribeEvents returns a application event subscription
+func (b *Endpoint) SubscribeEvents() Subscription {
+	return b.stream.subscribe()
+}
+
 func (e *Endpoint) EnablePocCpuValidate(flag bool) {
 	e.pocCpuValidateFlag = flag
 }
@@ -134,7 +139,7 @@ func (e *Endpoint) GetNextNonce() (uint64, error) {
 	if !e.nonceCacheEnable {
 		nonce, err := e.jsonRpcClient.GetNextNonce(e.address.String())
 		if err != nil {
-			e.logger.Error("runPoc --> unable to GetNextNonce, %v", err)
+			e.logger.Error("doPocTask --> unable to GetNextNonce, %v", err)
 			return 0, err
 		}
 		e.nextNonce = nonce
@@ -227,7 +232,7 @@ func (e *Endpoint) submitToIc(vecValues []interface{}) {
 	}
 }
 
-func (e *Endpoint) runPoc() {
+func (e *Endpoint) doPocTask() {
 	for {
 		// TODO  get available slot from slotGauge
 		tt := e.pocQueue.PopTask()
@@ -248,7 +253,7 @@ func (e *Endpoint) runPoc() {
 			seedNum, _ := pocSD.MakeSeedByHashString(pocData.Seed)
 			sdModelHash, md5sum, err := pocSD.ProofByTxt2img(prompt, seedNum)
 			if err != nil {
-				e.logger.Error("runPoc -->ProofByTxt2img", "err", err.Error())
+				e.logger.Error("doPocTask -->ProofByTxt2img", "err", err.Error())
 			}
 			var obj struct {
 				NodeId    string `json:"node_id"`
@@ -263,7 +268,7 @@ func (e *Endpoint) runPoc() {
 
 			jsonBuf, err := json.Marshal(obj)
 			if err != nil {
-				e.logger.Error("runPoc -->Marshal() error", "err", err.Error())
+				e.logger.Error("doPocTask -->Marshal() error", "err", err.Error())
 			}
 			inputData := string(jsonBuf)
 			inputString = fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_gpu_validate\",\"Input\": %s}", pocData.Validator, inputData)
@@ -277,18 +282,18 @@ func (e *Endpoint) runPoc() {
 				seed := fmt.Sprintf("%s,%d", pocData.Seed, i)
 				_, bytes, err := proof.ProofByCalcHash(seed, target, time.Second*5)
 				if err != nil {
-					e.logger.Error("runPoc -->ProofByCalcHash", "err", err.Error())
+					e.logger.Error("doPocTask -->ProofByCalcHash", "err", err.Error())
 				} else {
 					if bytes != nil && len(bytes) > 0 {
 						data[seed] = bytes
 					} else {
-						e.logger.Warn("runPoc -->ProofByCalcHash failed", "seed", seed)
+						e.logger.Warn("doPocTask -->ProofByCalcHash failed", "seed", seed)
 					}
 				}
 				i += 1
 			}
 			if len(data) < proof.DefaultHashProofCount-3 {
-				e.logger.Warn("runPoc -->validate data size too low", "size", len(data))
+				e.logger.Warn("doPocTask -->validate data size too low", "size", len(data))
 				continue
 			}
 			pocDataBuf := "["
@@ -316,7 +321,7 @@ func (e *Endpoint) runPoc() {
 		for attemptCount <= redoMax {
 			nonce, err := e.GetNextNonce()
 			if err != nil {
-				e.logger.Error("\"runPoc -->GetNextNonce", "err:", err.Error())
+				e.logger.Error("\"doPocTask -->GetNextNonce", "err:", err.Error())
 				attemptCount += 1
 				continue
 			}
@@ -329,12 +334,12 @@ func (e *Endpoint) runPoc() {
 			)
 			if err != nil {
 				e.DisableNonceCache()
-				e.logger.Warn("\"runPoc -->SendRawTelegram for poc", "nonce", nonce, "attemptCount", attemptCount, "err", err.Error())
+				e.logger.Warn("\"doPocTask -->SendRawTelegram for poc", "nonce", nonce, "attemptCount", attemptCount, "err", err.Error())
 				if attemptCount >= redoMax {
 					break
 				}
 			} else {
-				e.logger.Info("runPoc -->SendRawTelegram for poc", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "attemptCount", attemptCount)
+				e.logger.Info("doPocTask -->SendRawTelegram for poc", "TelegramHash", response.Result.TelegramHash, "nonce", nonce, "attemptCount", attemptCount)
 				teleResponse = *response
 				callFail = false
 				break
@@ -346,7 +351,7 @@ func (e *Endpoint) runPoc() {
 		}
 		respBytes, err := base64.StdEncoding.DecodeString(teleResponse.Result.Response)
 		if err != nil {
-			e.logger.Warn("runPoc -->base64 decode err: ", err.Error())
+			e.logger.Warn("doPocTask -->base64 decode err: ", err.Error())
 			continue
 		}
 		var obj struct {
@@ -354,12 +359,12 @@ func (e *Endpoint) runPoc() {
 			Err     json.RawMessage `json:"err"`
 		}
 		if err := json.Unmarshal(respBytes, &obj); err != nil {
-			e.logger.Error("runPoc -->json.Unmarsha", "err", err.Error())
+			e.logger.Error("doPocTask -->json.Unmarsha", "err", err.Error())
 			continue
 		}
-		e.logger.Info("runPoc -->", "message", obj.Message)
+		e.logger.Info("doPocTask -->", "message", obj.Message)
 		if obj.Err != nil && len(obj.Err) > 0 {
-			e.logger.Warn("runPoc -->", "response.Err", string(obj.Err))
+			e.logger.Warn("doPocTask -->", "response.Err", string(obj.Err))
 		}
 	}
 }
@@ -390,20 +395,20 @@ func (e *Endpoint) doPocRequest() {
 	//	return
 	//}
 
-	//validators, err := e.minerAgent.ListValidatorsNodeId()
-	//if err != nil {
-	//	e.logger.Error("endpoint.miner -->ListValidatorsNodeId", err.Error())
-	//	return
-	//}
-	validators := []string{
-		"16Uiu2HAmGpKZdnpaaYgKTZqagLVJcnMphdeqaHtKBaFFkb5MYRUy",
-		"16Uiu2HAmTPfBgUkQ4V8qaBvTaJp54Cm32TWGvYZaxcuPxoaSbZAS",
-		"16Uiu2HAmPfFVHNnYKdDQywJXnzbgM1MdAi6P1MsCkxN7Hr6VaiYa",
-		"16Uiu2HAmKt7agigzA6oGDdMre4eCU7QER91vrW9M3aneiHEvGu1Y",
-		"16Uiu2HAmEoDReK7pKygYYYFgJ8uuXS8oWsYFWiiEbCSF9HjYcih2",
-		"16Uiu2HAkyPw8SEeDpErEwcEZ2QtXzPq5KQf4woWybsr7KN6VH7yX",
-		"16Uiu2HAm7BqtmjH7JECa5Y4iNgiZXuet3HqXYZbeXNN9XiQwgSbf",
+	validators, err := e.minerAgent.ListValidatorsNodeId()
+	if err != nil {
+		e.logger.Error("endpoint.miner -->ListValidatorsNodeId", err.Error())
+		return
 	}
+	//validators := []string{
+	//	"16Uiu2HAmGpKZdnpaaYgKTZqagLVJcnMphdeqaHtKBaFFkb5MYRUy",
+	//	"16Uiu2HAmTPfBgUkQ4V8qaBvTaJp54Cm32TWGvYZaxcuPxoaSbZAS",
+	//	"16Uiu2HAmPfFVHNnYKdDQywJXnzbgM1MdAi6P1MsCkxN7Hr6VaiYa",
+	//	"16Uiu2HAmKt7agigzA6oGDdMre4eCU7QER91vrW9M3aneiHEvGu1Y",
+	//	"16Uiu2HAmEoDReK7pKygYYYFgJ8uuXS8oWsYFWiiEbCSF9HjYcih2",
+	//	"16Uiu2HAkyPw8SEeDpErEwcEZ2QtXzPq5KQf4woWybsr7KN6VH7yX",
+	//	"16Uiu2HAm7BqtmjH7JECa5Y4iNgiZXuet3HqXYZbeXNN9XiQwgSbf",
+	//}
 	if len(validators) < 1 {
 		return
 	}
@@ -554,8 +559,8 @@ func NewApplicationEndpoint(
 	}()
 
 	go func() {
-		//ticker := time.NewTicker(proof.DefaultProofDuration)
-		ticker := time.NewTicker(1 * 60 * time.Second)
+		ticker := time.NewTicker(proof.DefaultProofDuration)
+		//ticker := time.NewTicker(1 * 60 * time.Second) // for test
 		for {
 			<-ticker.C
 			go endpoint.doPocRequest()
@@ -1015,7 +1020,7 @@ func NewApplicationEndpoint(
 		server.Serve(listener)
 	}()
 
-	go endpoint.runPoc()
+	go endpoint.doPocTask()
 	if !endpoint.isEdgeMode {
 		go endpoint.runPocSubmit()
 	}

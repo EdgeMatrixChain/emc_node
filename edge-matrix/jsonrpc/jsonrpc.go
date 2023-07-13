@@ -56,6 +56,7 @@ type JSONRPCStore interface {
 	telePoolStore
 	filterManagerStore
 	rtcFilterManagerStore
+	nodeFilterManagerStore
 	//bridgeStore
 	//debugStore
 }

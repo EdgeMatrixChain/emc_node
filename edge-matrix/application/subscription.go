@@ -119,11 +119,6 @@ func (e *Event) AddNewApp(newApp *Application) {
 	e.NewApp = append(e.NewApp, app)
 }
 
-// SubscribeEvents returns a application event subscription
-func (b *Endpoint) SubscribeEvents() Subscription {
-	return b.stream.subscribe()
-}
-
 // eventStream is the structure that contains the event list,
 // as well as the update channel which it uses to notify of updates
 type eventStream struct {

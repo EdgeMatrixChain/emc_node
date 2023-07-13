@@ -186,7 +186,12 @@ func NewRelayServer(logger hclog.Logger, secretsManager secrets.SecretsManager, 
 		log.Printf("Failed to create relay server host: %v", err)
 		return nil, err
 	}
-	_, err = relay.New(relayHost)
+
+	//rc := relay.DefaultResources()
+	//rc.Limit.Duration = time.Second
+	//_, err = relay.New(relayHost, relay.WithResources(rc))
+
+	_, err = relay.New(relayHost, relay.WithInfiniteLimits())
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to instantiate the relay: %v", err))
 	}

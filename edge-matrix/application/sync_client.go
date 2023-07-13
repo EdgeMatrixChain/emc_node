@@ -33,7 +33,9 @@ type syncAppPeerClient struct {
 	minerAgent       *miner.MinerAgent
 	applicationStore ApplicationStore
 
-	subscription           Subscription          // reference to the application subscription
+	//subscription           Subscription          // reference to the application subscription
+	stream *eventStream // Event subscriptions
+
 	topic                  *network.Topic        // reference to the network topic
 	id                     string                // node id
 	peerStatusUpdateCh     chan *AppPeer         // peer status update channel
@@ -48,8 +50,13 @@ type syncAppPeerClient struct {
 	closed         *uint64 // ACTIVE == 0, CLOSED == non-zero.
 }
 
+// SubscribeAppEvents returns a application event subscription
+func (b *syncAppPeerClient) SubscribeAppEvents() Subscription {
+	return b.stream.subscribe()
+}
+
 // Start processes for SyncAppPeerClient
-func (m *syncAppPeerClient) Start(subscription Subscription, topicSubFlag bool) error {
+func (m *syncAppPeerClient) Start(topicSubFlag bool) error {
 	// Mark client active.
 	atomic.StoreUint64(m.closed, 0)
 
@@ -58,7 +65,7 @@ func (m *syncAppPeerClient) Start(subscription Subscription, topicSubFlag bool) 
 	}
 	m.logger.Info("startGossip", "topicSubFlag", topicSubFlag)
 
-	go m.startApplicationEventProcess(subscription)
+	//go m.startApplicationEventProcess(subscription)
 	go m.startPeerEventProcess()
 
 	return nil
@@ -75,11 +82,11 @@ func (m *syncAppPeerClient) Close() {
 		m.topic.Close()
 	}
 
-	if m.subscription != nil {
-		m.subscription.Close()
-
-		m.subscription = nil
-	}
+	//if m.subscription != nil {
+	//	m.subscription.Close()
+	//
+	//	m.subscription = nil
+	//}
 
 	if m.closeCh != nil {
 		close(m.closeCh)
@@ -198,6 +205,21 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		return
 	}
 
+	peerId, err := peer.Decode(status.NodeId)
+	if err != nil {
+		return
+	}
+	event := &Event{}
+	app := &Application{
+		Name:        status.Name,
+		PeerID:      peerId,
+		StartupTime: status.StartupTime,
+		Uptime:      status.StartupTime,
+		GuageHeight: status.GuageHeight,
+		GuageMax:    status.GuageMax,
+	}
+	event.AddNewApp(app)
+	m.stream.push(event)
 	//if !m.network.IsConnected(from) {
 	//	if m.id != from.String() {
 	//		m.logger.Debug("received status from non-connected peer, ignore", "id", from)
@@ -228,53 +250,53 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 }
 
 // startNewBlockProcess starts application event subscription
-func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscription) {
-	m.subscription = subscrption
-	for {
-		var event *Event
-
-		select {
-		case <-m.closeCh:
-			return
-		case event = <-m.subscription.GetEventCh():
-		}
-
-		if !m.shouldEmitData {
-			continue
-		}
-
-		if l := len(event.NewApp); l > 0 {
-			latest := event.NewApp[l-1]
-			m.logger.Debug("event", "latest", latest)
-
-			// TODO remove
-			//if m.topic != nil {
-			// Publish status
-			//relay := ""
-			//if latest.RelayInfo != nil && latest.RelayInfo.Info != nil {
-			//	relay = fmt.Sprintf("%s/p2p/%s", latest.RelayInfo.Info.Info.Addrs[0].String(), latest.RelayInfo.Info.Info.ID.String())
-			//}
-			//m.logger.Info("AppStatus Publish", "ID", latest.PeerID.String(), "Name", latest.Name, "Relay", relay)
-			//
-			//if err := m.topic.Publish(&proto.AppStatus{
-			//	NodeId:      latest.PeerID.String(),
-			//	Name:        latest.Name,
-			//	StartupTime: latest.StartupTime,
-			//	Uptime:      latest.Uptime,
-			//	GuageHeight: latest.GuageHeight,
-			//	GuageMax:    latest.GuageMax,
-			//	Relay:       relay,
-			//}); err != nil {
-			//	m.logger.Warn("failed to publish application status", "err", err)
-			//}
-			//}
-		}
-	}
-}
+//func (m *syncAppPeerClient) startApplicationEventProcess(subscrption Subscription) {
+//	m.subscription = subscrption
+//	for {
+//		var event *Event
+//
+//		select {
+//		case <-m.closeCh:
+//			return
+//		case event = <-m.subscription.GetEventCh():
+//		}
+//
+//		if !m.shouldEmitData {
+//			continue
+//		}
+//
+//		if l := len(event.NewApp); l > 0 {
+//			latest := event.NewApp[l-1]
+//			m.logger.Debug("event", "latest", latest)
+//
+//			// TODO remove
+//			//if m.topic != nil {
+//			// Publish status
+//			//relay := ""
+//			//if latest.RelayInfo != nil && latest.RelayInfo.Info != nil {
+//			//	relay = fmt.Sprintf("%s/p2p/%s", latest.RelayInfo.Info.Info.Addrs[0].String(), latest.RelayInfo.Info.Info.ID.String())
+//			//}
+//			//m.logger.Info("AppStatus Publish", "ID", latest.PeerID.String(), "Name", latest.Name, "Relay", relay)
+//			//
+//			//if err := m.topic.Publish(&proto.AppStatus{
+//			//	NodeId:      latest.PeerID.String(),
+//			//	Name:        latest.Name,
+//			//	StartupTime: latest.StartupTime,
+//			//	Uptime:      latest.Uptime,
+//			//	GuageHeight: latest.GuageHeight,
+//			//	GuageMax:    latest.GuageMax,
+//			//	Relay:       relay,
+//			//}); err != nil {
+//			//	m.logger.Warn("failed to publish application status", "err", err)
+//			//}
+//			//}
+//		}
+//	}
+//}
 
 func (m *syncAppPeerClient) PublishApplicationStatus(status *proto.AppStatus) {
 	if m.topic != nil {
-		m.logger.Info("AppStatus Publish", "ID", status.NodeId, "Name", status.Name, "Relay", status.Relay, "Addr", status.Addr)
+		m.logger.Debug("AppStatus Publish", "ID", status.NodeId, "Name", status.Name, "Relay", status.Relay, "Addr", status.Addr)
 
 		if err := m.topic.Publish(status); err != nil {
 			m.logger.Warn("failed to publish application status", "err", err)
@@ -418,7 +440,7 @@ func dataStreamToChannel(stream proto.SyncApp_GetDataClient) (chan map[string][]
 
 type SyncAppPeerClient interface {
 	// Start processes for SyncAppPeerClient
-	Start(subscription Subscription, topicSubFlag bool) error
+	Start(topicSubFlag bool) error
 	// Close terminates running processes for SyncAppPeerClient
 	Close()
 	// GetPeerStatus fetches peer status
@@ -439,6 +461,8 @@ type SyncAppPeerClient interface {
 	EnablePublishingPeerStatus()
 	// PublishApplicationStatus publish application status
 	PublishApplicationStatus(status *proto.AppStatus)
+	// SubscribeAppEvents returns a application event subscription
+	SubscribeAppEvents() Subscription
 }
 
 func NewSyncAppPeerClient(
@@ -450,13 +474,14 @@ func NewSyncAppPeerClient(
 	privateKey *ecdsa.PrivateKey,
 	applicationStore ApplicationStore,
 ) SyncAppPeerClient {
-	return &syncAppPeerClient{
+	c := &syncAppPeerClient{
 		logger:                 logger.Named(SyncAppPeerClientLoggerName),
 		network:                network,
 		id:                     network.AddrInfo().ID.String(),
 		peerStatusUpdateCh:     make(chan *AppPeer, 1),
 		peerConnectionUpdateCh: make(chan *event.PeerEvent, 1),
 		shouldEmitData:         true,
+		stream:                 &eventStream{},
 		closeCh:                make(chan struct{}),
 		closed:                 new(uint64),
 		minerAgent:             minerAgent,
@@ -465,4 +490,7 @@ func NewSyncAppPeerClient(
 		privateKey:             privateKey,
 		applicationStore:       applicationStore,
 	}
+	c.stream.push(&Event{})
+
+	return c
 }

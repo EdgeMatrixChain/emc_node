@@ -294,7 +294,7 @@ func setupLibp2pKey(secretsManager secrets.SecretsManager) (crypto.PrivKey, erro
 }
 
 // Start starts the networking services
-func (s *Server) Start(netName string, bootnodes []string, edgeMode bool) error {
+func (s *Server) Start(netName string, bootnodes []string) error {
 	s.logger.Info(netName+" LibP2P server running", "addr", common.AddrInfoToString(s.AddrInfo()))
 
 	if setupErr := s.setupIdentity(); setupErr != nil {
@@ -306,12 +306,12 @@ func (s *Server) Start(netName string, bootnodes []string, edgeMode bool) error 
 		return fmt.Errorf("unable to parse bootnode data, %w", setupErr)
 	}
 	// Set up the peer discovery mechanism if needed
-	if setupErr := s.setupDiscovery(!edgeMode); setupErr != nil {
+	if setupErr := s.setupDiscovery(true); setupErr != nil {
 		return fmt.Errorf("unable to setup discovery, %w", setupErr)
 	}
 
 	go s.runDial()
-	if !s.config.NoDiscover && !edgeMode {
+	if !s.config.NoDiscover {
 		go s.keepAliveMinimumPeerConnections()
 	}
 

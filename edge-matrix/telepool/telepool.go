@@ -291,7 +291,7 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 			host := p.edgeNetwork.GetHost()
 
 			relayAddr, addr := p.getAppPeerAddr(call.PeerId)
-			p.logger.Info("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, addr, "Relay", relayAddr)
+			p.logger.Debug("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, "addr", addr, "Relay", relayAddr)
 			if relayAddr != "" || addr != "" {
 				clientHost, err2 := p.newTempHost()
 				if err2 != nil {
@@ -451,7 +451,7 @@ func (p *TelegramPool) addTele(origin teleOrigin, tele *types.Telegram) (string,
 			host := p.edgeNetwork.GetHost()
 
 			relayAddr, addr := p.getAppPeerAddr(call.PeerId)
-			p.logger.Info("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, addr, "Relay", relayAddr)
+			p.logger.Info("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, "addr", addr, "Relay", relayAddr)
 			if relayAddr != "" || addr != "" {
 				clientHost, err2 := p.newTempHost()
 				if err2 != nil {

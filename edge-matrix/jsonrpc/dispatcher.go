@@ -45,13 +45,14 @@ type endpoints struct {
 // Dispatcher handles all json rpc requests by delegating
 // the execution flow to the corresponding service
 type Dispatcher struct {
-	logger           hclog.Logger
-	serviceMap       map[string]*serviceData
-	filterManager    *FilterManager
-	rtcFilterManager *RtcFilterManager
-	endpoints        endpoints
-	params           *dispatcherParams
-	host             host.Host
+	logger            hclog.Logger
+	serviceMap        map[string]*serviceData
+	filterManager     *FilterManager
+	rtcFilterManager  *RtcFilterManager
+	nodeFilterManager *NodeFilterManager
+	endpoints         endpoints
+	params            *dispatcherParams
+	host              host.Host
 }
 
 type dispatcherParams struct {
@@ -79,6 +80,9 @@ func newDispatcher(
 
 		d.rtcFilterManager = NewRtcFilterManager(logger, store)
 		go d.rtcFilterManager.Run()
+
+		d.nodeFilterManager = NewNodeFilterManager(logger, store)
+		go d.nodeFilterManager.Run()
 
 		d.host = store.GetHost()
 	}
@@ -245,6 +249,12 @@ func (d *Dispatcher) handleEdgeSubscribe(req Request, conn wsConn) (string, Erro
 		}
 
 		filterID = d.rtcFilterManager.NewRtcFilter(rtcQuery, conn)
+	} else if subscribeMethod == "node" {
+		nodeQuery, err := decodeNodeQueryFromInterface(params[1])
+		if err != nil {
+			return "", NewInternalError(err.Error())
+		}
+		filterID = d.nodeFilterManager.NewNodeFilter(nodeQuery, conn)
 	} else {
 		return "", NewSubscriptionNotFoundError(subscribeMethod)
 	}
@@ -301,38 +311,38 @@ func (d *Dispatcher) handleUnsubscribe(req Request) (bool, Error) {
 	return d.filterManager.Uninstall(filterID), nil
 }
 
-func (d *Dispatcher) handleSendMsg(req Request, conn wsConn) (string, Error) {
-	var params []interface{}
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		return "", NewInvalidRequestError("Invalid json request")
-	}
-
-	if len(params) == 0 {
-		return "", NewInvalidParamsError("Invalid params")
-	}
-
-	subscribeMethod, ok := params[0].(string)
-	if !ok {
-		return "", NewSubscriptionNotFoundError(subscribeMethod)
-	}
-
-	var result string
-	if subscribeMethod == "rtc" {
-		rtcMsg, err := DecodeRtcMsgFromInterface(params[1])
-		if err != nil {
-			return "", NewInternalError(err.Error())
-		}
-		_, err = d.endpoints.Edge.SendMsg(rtcMsg)
-		if err != nil {
-			return "0x0", nil
-		}
-		result = "0x1"
-	} else {
-		return "", NewSubscriptionNotFoundError(subscribeMethod)
-	}
-
-	return result, nil
-}
+//func (d *Dispatcher) handleSendMsg(req Request, conn wsConn) (string, Error) {
+//	var params []interface{}
+//	if err := json.Unmarshal(req.Params, &params); err != nil {
+//		return "", NewInvalidRequestError("Invalid json request")
+//	}
+//
+//	if len(params) == 0 {
+//		return "", NewInvalidParamsError("Invalid params")
+//	}
+//
+//	subscribeMethod, ok := params[0].(string)
+//	if !ok {
+//		return "", NewSubscriptionNotFoundError(subscribeMethod)
+//	}
+//
+//	var result string
+//	if subscribeMethod == "rtc" {
+//		rtcMsg, err := DecodeRtcMsgFromInterface(params[1])
+//		if err != nil {
+//			return "", NewInternalError(err.Error())
+//		}
+//		_, err = d.endpoints.Edge.SendMsg(rtcMsg)
+//		if err != nil {
+//			return "0x0", nil
+//		}
+//		result = "0x1"
+//	} else {
+//		return "", NewSubscriptionNotFoundError(subscribeMethod)
+//	}
+//
+//	return result, nil
+//}
 
 func (d *Dispatcher) RemoveFilterByWs(conn wsConn) {
 	d.filterManager.RemoveFilterByWs(conn)
@@ -412,20 +422,20 @@ func (d *Dispatcher) HandleWs(reqBody []byte, conn wsConn) ([]byte, error) {
 		return []byte(resp), nil
 	}
 
-	if req.Method == "edge_sendMsg" {
-		sendResult, err := d.handleSendMsg(req, conn)
-		if err != nil {
-			return NewRPCResponse(req.ID, "2.0", nil, err).Bytes()
-		}
-
-		resp, err := formatFilterResponse(req.ID, sendResult)
-
-		if err != nil {
-			return NewRPCResponse(req.ID, "2.0", nil, err).Bytes()
-		}
-
-		return []byte(resp), nil
-	}
+	//if req.Method == "edge_sendMsg" {
+	//	sendResult, err := d.handleSendMsg(req, conn)
+	//	if err != nil {
+	//		return NewRPCResponse(req.ID, "2.0", nil, err).Bytes()
+	//	}
+	//
+	//	resp, err := formatFilterResponse(req.ID, sendResult)
+	//
+	//	if err != nil {
+	//		return NewRPCResponse(req.ID, "2.0", nil, err).Bytes()
+	//	}
+	//
+	//	return []byte(resp), nil
+	//}
 
 	// its a normal query that we handle with the dispatcher
 	resp, err := d.handleReq(req)
