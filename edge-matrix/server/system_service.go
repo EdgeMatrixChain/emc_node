@@ -152,14 +152,16 @@ func (s *systemService) PeersList(
 	resp.Peers = append(resp.Peers, &proto.Peer{
 		Id: "-----------------------------------------------------",
 	})
-	edgePeers := s.server.edgeNetwork.Peers()
-	for _, p := range edgePeers {
-		peer, err := s.getPeer(p.Info.ID)
-		if err != nil {
-			return nil, err
-		}
+	if s.server.edgeNetwork != nil {
+		edgePeers := s.server.edgeNetwork.Peers()
+		for _, p := range edgePeers {
+			peer, err := s.getPeer(p.Info.ID)
+			if err != nil {
+				return nil, err
+			}
 
-		resp.Peers = append(resp.Peers, peer)
+			resp.Peers = append(resp.Peers, peer)
+		}
 	}
 
 	return resp, nil
