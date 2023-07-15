@@ -668,6 +668,7 @@ func (d *RelayClient) keepAliveToBootnodes() {
 				"bootnode", bootnode.ID.String(),
 				"err", err.Error(),
 			)
+			bootnode = nil
 		}
 	}
 }
