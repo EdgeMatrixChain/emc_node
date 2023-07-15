@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
-	"log"
 	"math/big"
 )
 
@@ -135,7 +134,6 @@ func (p *PocSD) ProofByTxt2img(prompt string, seed int64) (sdModelHash string, m
 	}
 	images := response.Images
 	imageBas64 := images[0]
-	log.Println("len", len(images[0]))
 	sum := md5.Sum([]byte(imageBas64))
 	md5sum = fmt.Sprintf("%x", sum)
 

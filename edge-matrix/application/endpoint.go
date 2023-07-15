@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application/proof"
+	"github.com/emc-protocol/edge-matrix/application/proof/helper"
 	"github.com/emc-protocol/edge-matrix/application/proof/sd"
 	"github.com/emc-protocol/edge-matrix/crypto"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
@@ -13,6 +14,7 @@ import (
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/types"
+	"github.com/emc-protocol/edge-matrix/versioning"
 	"github.com/hashicorp/go-hclog"
 	gostream "github.com/libp2p/go-libp2p-gostream"
 	p2phttp "github.com/libp2p/go-libp2p-http"
@@ -381,19 +383,42 @@ func (e *Endpoint) GetEndpointApplication() *Application {
 }
 
 func (e *Endpoint) doPocRequest() {
-	if !e.pocGpuValidateFlag {
+	if !e.pocGpuValidateFlag || e.appUrl == "" {
 		return
 	}
 	// check miner status
-	//_, _, wallet, _, _, err := e.minerAgent.MyNode(e.h.ID().String())
-	//if err != nil {
-	//	e.logger.Error("doPocRequest -->MyNode", "err", err.Error())
-	//	return
-	//}
-	//if wallet == "" {
-	//	e.logger.Info("doPocRequest -->wallet princial=nil")
-	//	return
-	//}
+	_, _, wallet, _, _, err := e.minerAgent.MyNode(e.h.ID().String())
+	if err != nil {
+		e.logger.Error("doPocRequest -->MyNode", "err", err.Error())
+		return
+	}
+	if wallet == "" {
+		e.logger.Info("doPocRequest -->wallet princial=nil")
+		return
+	}
+
+	// Do test poc by gpu
+	pocSD := sd.NewPocSD(e.appUrl)
+	randBytes := make([]byte, 32)
+	_, err = rand.Read(randBytes)
+	if err != nil {
+		return
+	}
+	prompt := hex.EncodeToHex(randBytes)
+	seedNum, _ := pocSD.MakeSeedByHashString(prompt)
+	sdModelHash, md5sum, err := pocSD.ProofByTxt2img(prompt, seedNum)
+	if err != nil {
+		e.logger.Error("doPocRequest", "err", err.Error())
+		return
+	}
+
+	e.logger.Info("doPocRequest", "sdModelHash", sdModelHash)
+	if sdModelHash == "" || md5sum == "" {
+		e.logger.Error("doPocRequest sd call fail")
+		return
+	}
+	// update application mode hash
+	e.application.ModelHash = sdModelHash
 
 	validators, err := e.minerAgent.ListValidatorsNodeId()
 	if err != nil {
@@ -528,13 +553,19 @@ func NewApplicationEndpoint(
 	endpoint.stream.push(&Event{})
 
 	// init application metric
+	mac, _ := helper.GetLocalMac()
 	endpoint.application = &Application{
 		Name:        name,
 		PeerID:      srvHost.ID(),
 		StartupTime: uint64(time.Now().UnixMilli()),
 		Uptime:      0,
+		AppOrigin:   appOrigin,
 		GuageHeight: 0,
 		GuageMax:    200,
+		Mac:         mac,
+		CpuInfo:     helper.GetCpuInfo(),
+		MemInfo:     helper.GetMemInfo(),
+		Version:     versioning.Version + " Build" + versioning.Build,
 	}
 
 	// TODO check miner status
@@ -546,14 +577,19 @@ func NewApplicationEndpoint(
 			app := &Application{
 				Name:        endpoint.application.Name,
 				PeerID:      endpoint.application.PeerID,
+				AppOrigin:   endpoint.application.AppOrigin,
 				StartupTime: endpoint.application.StartupTime,
 				Uptime:      uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime,
 				GuageHeight: endpoint.application.GuageHeight,
 				GuageMax:    endpoint.application.GuageMax,
+				ModelHash:   endpoint.application.ModelHash,
+				Mac:         mac,
+				CpuInfo:     helper.GetCpuInfo(),
+				MemInfo:     helper.GetMemInfo(),
 			}
 			event.AddNewApp(app)
 			endpoint.stream.push(event)
-			//endpoint.logger.Info("endpoint----> push event", "len", len(event.NewApp))
+			endpoint.logger.Info("endpoint----> status", "ModelHash", app.ModelHash, "Mac", app.Mac, "CpuInfo", app.CpuInfo, "MemInfo", app.MemInfo)
 		}
 		ticker.Stop()
 	}()
@@ -723,13 +759,25 @@ func NewApplicationEndpoint(
 				StartupTime uint64 `json:"startupTime"`
 				Version     string `json:"version"`
 				Tag         string `json:"tag"`
+				// ai model hash string
+				ModelHash string `json:"model_hash"`
+				// mac addr
+				Mac string `json:"mac"`
+				// memory info
+				MemInfo string `json:"mem_info"`
+				// cpu info
+				CpuInfo string `json:"cpu_info"`
 			}
 			infoObj.PeerID = endpoint.application.PeerID.String()
 			infoObj.Version = endpoint.application.Version
-			infoObj.Tag = endpoint.application.Tag
+			infoObj.Tag = endpoint.application.AppOrigin
 			infoObj.Uptime = uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime
 			infoObj.StartupTime = endpoint.application.StartupTime
 			infoObj.Name = endpoint.application.Name
+			infoObj.CpuInfo = endpoint.application.CpuInfo
+			infoObj.MemInfo = endpoint.application.MemInfo
+			infoObj.Mac = endpoint.application.Mac
+			infoObj.ModelHash = endpoint.application.ModelHash
 
 			info := make([]byte, 0)
 			info, err := json.Marshal(infoObj)

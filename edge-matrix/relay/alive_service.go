@@ -84,7 +84,7 @@ func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*p
 	if len(addrInfo.Addrs) > 0 {
 		addr = addrInfo.Addrs[0].String()
 	}
-	d.logger.Info("-------->Receive Hello", "from", from, "name", status.Name, "addr", addr, "relay", status.Relay)
+	d.logger.Info("-------->Alive status", "from", from, "name", status.Name, "app_origin", status.AppOrigin, "addr", addr, "relay", status.Relay)
 	d.syncAppPeerClient.PublishApplicationStatus(&appProto.AppStatus{
 		Name:        status.Name,
 		NodeId:      from.String(),
@@ -92,6 +92,11 @@ func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*p
 		StartupTime: status.StartupTime,
 		Relay:       status.Relay,
 		Addr:        addr,
+		AppOrigin:   status.AppOrigin,
+		Mac:         status.Mac,
+		CpuInfo:     status.CpuInfo,
+		MemInfo:     status.MemInfo,
+		ModelHash:   status.ModelHash,
 	})
 
 	return &proto.AliveStatusResp{

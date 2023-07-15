@@ -127,13 +127,6 @@ func (s *syncer) startPeerStatusUpdateProcess() {
 	for peerStatus := range s.syncAppPeerClient.GetPeerStatusUpdateCh() {
 		s.logger.Info("AppPeerStatus updated ", "NodeID", peerStatus.ID)
 
-		//defer func() {
-		//	err := s.syncAppPeerClient.CloseStream(peerStatus.ID)
-		//	if err != nil {
-		//		s.logger.Error("Failed to close stream: ", err)
-		//	}
-		//}()
-
 		// TODO validate peer status
 		// store app in store
 		s.putToPeerMap(peerStatus)

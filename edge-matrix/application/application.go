@@ -10,7 +10,18 @@ type Application struct {
 	Version string
 	PeerID  peer.ID
 
-	//RelayInfo *relay.RelayPeerInfo
+	// ip4 addr string
+	IpAddr string
+	// ai app origin name
+	AppOrigin string
+	// ai model hash string
+	ModelHash string
+	// mac addr
+	Mac string
+	// memory info
+	MemInfo string
+	// cpu info
+	CpuInfo string
 
 	// app startup time
 	StartupTime uint64
@@ -32,7 +43,8 @@ func (a *Application) Copy() *Application {
 		Uptime:      a.Uptime,
 		GuageHeight: a.GuageHeight,
 		GuageMax:    a.GuageMax,
-		//RelayInfo:   a.RelayInfo,
+		IpAddr:      a.IpAddr,
+		AppOrigin:   a.AppOrigin,
 	}
 
 	return newApp

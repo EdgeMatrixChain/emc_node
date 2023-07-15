@@ -187,11 +187,20 @@ func NewRelayServer(logger hclog.Logger, secretsManager secrets.SecretsManager, 
 		return nil, err
 	}
 
-	//rc := relay.DefaultResources()
-	//rc.Limit.Duration = time.Second
-	//_, err = relay.New(relayHost, relay.WithResources(rc))
+	rc := relay.Resources{
+		Limit:          nil,
+		ReservationTTL: time.Hour,
 
-	_, err = relay.New(relayHost, relay.WithInfiniteLimits())
+		MaxReservations: 5000,
+		MaxCircuits:     1024,
+		BufferSize:      2048,
+
+		MaxReservationsPerPeer: 24,
+		MaxReservationsPerIP:   255,
+		MaxReservationsPerASN:  32,
+	}
+	rc.Limit = nil
+	_, err = relay.New(relayHost, relay.WithResources(rc))
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to instantiate the relay: %v", err))
 	}

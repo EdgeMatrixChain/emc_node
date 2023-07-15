@@ -15,6 +15,18 @@ type AppPeer struct {
 	Relay string
 	// addr string
 	Addr string
+	// app origin name string
+	AppOrigin string
+
+	// ai model hash string
+	ModelHash string
+	// mac addr
+	Mac string
+	// memory info
+	MemInfo string
+	// cpu info
+	CpuInfo string
+
 	// peer's distance
 	Distance *big.Int
 	// app startup time

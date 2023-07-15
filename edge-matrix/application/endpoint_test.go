@@ -1,7 +1,9 @@
 package application
 
 import (
+	"fmt"
 	"github.com/emc-protocol/edge-matrix/secrets"
+	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -28,6 +30,24 @@ type mockSecretManager struct {
 
 	HasSecretFunc func(name string) bool
 	GetSecretFunc func(name string) ([]byte, error)
+}
+
+func TestMultiAddrTest(t *testing.T) {
+	ip_addr_string := "/ip4/21.229.33.23/tcp/51004"
+	ma, err := multiaddr.NewMultiaddr(ip_addr_string)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	addr, err := ma.ValueForProtocol(multiaddr.P_IP4)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	t.Log(addr)
+
+	re := regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)\.(\d+)`)
+	submatches := re.FindStringSubmatch(addr)
+	fmt.Printf("%s.%s.%s.%s\n", submatches[1], submatches[2], submatches[3], submatches[4])
+
 }
 
 func TestRunPocSubmitSlice(t *testing.T) {

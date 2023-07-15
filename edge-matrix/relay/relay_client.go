@@ -32,11 +32,10 @@ import (
 const (
 	// maxDiscoveryPeerReqCount is the max peer count that
 	// can be requested from other peers
-	maxDiscoveryPeerReqCount = 16
 
 	// bootnodeAliveInterval is the interval at which
 	// random bootnodes are dialed for their peer sets
-	bootnodeAliveInterval = 60 * time.Second
+	bootnodeAliveInterval = 15 * 60 * time.Second
 )
 
 // RelayConnInfo holds the connection information about the peer
@@ -175,19 +174,51 @@ func (s *RelayClient) keepAliveMinimumRelayConnections() {
 			return
 		}
 
+		relayPeersSnapshot := make(map[peer.ID]*RelayPeerInfo, 0)
+		for _, relayPeerInfo := range s.relayPeers {
+			relayPeersSnapshot[relayPeerInfo.Info.Info.ID] = relayPeerInfo
+		}
+		for _, relayPeerInfo := range relayPeersSnapshot {
+			if relayPeerInfo != nil {
+				if relayPeerInfo.reservation.Expiration.Before(time.Now()) {
+					// dial random unconnected relaynode
+					s.connectToRandomRelayNodes()
+
+					// disconncet expired relaynode
+					s.removeRelayPeerInfo(relayPeerInfo.Info.Info.ID)
+					s.disconnectFromPeer(relayPeerInfo.Info.Info.ID, "reconnect for reservation")
+					s.RemoveFromPeerStore(&relayPeerInfo.Info.Info)
+
+					// update alive status
+					go s.keepAliveToBootnodes()
+				}
+			}
+		}
+
 		if s.numRelayPeers() < MinimumRelayConnections {
 			// dial random unconnected relaynode
-			if relayinfo := s.GetRandomRelaynode(); relayinfo != nil {
-				s.logger.Info("keepAliveMinimumRelayConnections", "relayinfo", relayinfo.String())
+			s.connectToRandomRelayNodes()
+			// update alive status
+			go s.keepAliveToBootnodes()
+		}
+	}
+}
 
-				resv, err := client.Reserve(context.Background(), s.host, *relayinfo)
-				if err != nil {
-					s.logger.Error(fmt.Sprintf("privateSrvHost failed to receive a relay reservation from %v. %v", relayinfo.Addrs[0], err))
-					continue
-				}
-				s.addRelayPeerInfo(relayinfo, network.DirUnknown, resv)
-				s.logger.Info(fmt.Sprintf("reservation: LimitData=%d, LimitDuration=%v, Expiration=%v, Addrs=%v", resv.LimitData, resv.LimitDuration, resv.Expiration, resv.Addrs))
+func (s *RelayClient) connectToRandomRelayNodes() {
+	if relayinfo := s.GetRandomRelaynode(); relayinfo != nil {
+		s.logger.Info("connectToRandomRelayNodes", "relayinfo", relayinfo.String())
+
+		resv, err := client.Reserve(context.Background(), s.host, *relayinfo)
+		if err != nil {
+			s.logger.Error(fmt.Sprintf("privateSrvHost failed to receive a relay reservation from %v. %v", relayinfo.Addrs[0], err))
+			var re client.ReservationError
+			if !errors.As(err, &re) {
+				s.logger.Error("expected error to be of type %T", re)
 			}
+			s.logger.Error(re.Error())
+		} else {
+			s.addRelayPeerInfo(relayinfo, network.DirUnknown, resv)
+			s.logger.Info(fmt.Sprintf("reservation: LimitData=%d, LimitDuration=%v, Expiration=%v, Addrs=%v", resv.LimitData, resv.LimitDuration, resv.Expiration, resv.Addrs))
 		}
 	}
 }
@@ -557,7 +588,7 @@ func (d *RelayClient) sayHello(
 	if clientErr != nil {
 		return false, fmt.Errorf("unable to create new alive client connection, %w", clientErr)
 	}
-	d.logger.Info("-------->Say Hello", "to", peerID.String())
+	d.logger.Info("Keep alive", "to", peerID.String())
 	//get latest app status
 	relay := ""
 	relayPeerInfo := d.GetRelayPeerInfo()
@@ -572,6 +603,11 @@ func (d *RelayClient) sayHello(
 			StartupTime: d.application.StartupTime,
 			Uptime:      d.application.Uptime,
 			Relay:       relay,
+			AppOrigin:   d.application.AppOrigin,
+			Mac:         d.application.Mac,
+			CpuInfo:     d.application.CpuInfo,
+			MemInfo:     d.application.MemInfo,
+			ModelHash:   d.application.ModelHash,
 		},
 	)
 	if err != nil {
@@ -589,6 +625,7 @@ func (d *RelayClient) sayHello(
 // in which random peers are dialed for their peer sets,
 // and random bootnodes are dialed for their peer sets
 func (d *RelayClient) startAliveService() {
+	go d.keepAliveToBootnodes()
 	bootnodeAliveTicker := time.NewTicker(bootnodeAliveInterval)
 
 	defer func() {
@@ -622,16 +659,16 @@ func (d *RelayClient) keepAliveToBootnodes() {
 			return
 		}
 
-		if d.application != nil {
-			_, err := d.sayHello(bootnode.ID)
-			if err != nil {
-				d.logger.Error("Unable to execute bootnode peer alive call",
-					"bootnode", bootnode.ID.String(),
-					"err", err.Error(),
-				)
-			}
+		for d.application == nil {
+			time.Sleep(1 * time.Second)
 		}
-		//d.disconnectFromPeer(bootnode.ID, "alive")
+		_, err := d.sayHello(bootnode.ID)
+		if err != nil {
+			d.logger.Error("Unable to execute bootnode peer alive call",
+				"bootnode", bootnode.ID.String(),
+				"err", err.Error(),
+			)
+		}
 	}
 }
 
@@ -665,18 +702,6 @@ func (m *RelayClient) startApplicationEventProcess(subscrption application.Subsc
 			// Publish status
 			m.application = latest
 
-			//if err := m.topic.Publish(&proto.AppStatus{
-			//	NodeId:      latest.PeerID.String(),
-			//	Name:        latest.Name,
-			//	StartupTime: latest.StartupTime,
-			//	Uptime:      latest.Uptime,
-			//	GuageHeight: latest.GuageHeight,
-			//	GuageMax:    latest.GuageMax,
-			//	Relay:       relay,
-			//}); err != nil {
-			//	m.logger.Warn("failed to publish application status", "err", err)
-			//}
-			//}
 		}
 	}
 }

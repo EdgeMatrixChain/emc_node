@@ -130,7 +130,6 @@ func TestCpuInfo(t *testing.T) {
 	}
 	fmt.Println(string(out))
 	str := string(out)
-	//匹配一个或多个空白符的正则表达式
 	reg := regexp.MustCompile("\\s+")
 	str = reg.ReplaceAllString(str, "")
 	t.Log(str)

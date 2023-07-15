@@ -11,7 +11,19 @@ import (
 )
 
 func TestGetMemInfo(t *testing.T) {
-	GetMemInfo()
+	t.Log(GetMemInfo())
+}
+
+func TestMacInfo(t *testing.T) {
+	mac, err := GetLocalMac()
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(mac)
+}
+
+func Test_cpuinfo(t *testing.T) {
+	t.Log(GetCpuInfo())
 }
 
 func TestCpu_times(t *testing.T) {
@@ -115,6 +127,7 @@ func TestCpuInfo(t *testing.T) {
 		}
 		t.Log(vv)
 	}
+
 }
 
 func testCPUPercent(t *testing.T, percpu bool) {

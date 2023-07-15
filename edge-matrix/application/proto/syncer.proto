@@ -53,4 +53,15 @@ message AppStatus {
   string node_id = 7;
   // Addr
   string addr = 8;
+  // App origin name
+  string app_origin = 9;
+  // ai model hash string
+  string model_hash = 10;
+  // mac addr
+  string mac = 11;
+  // memory info
+  string memInfo = 12;
+  // cpu info
+  string cpu_info = 13;
+
 }

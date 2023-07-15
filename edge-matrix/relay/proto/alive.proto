@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "/network/proto";
+option go_package = "/relay/proto";
 
 service Alive {
   rpc Hello(AliveStatus) returns (AliveStatusResp);
@@ -20,6 +20,17 @@ message AliveStatus {
   uint64 guage_max = 5;
   // relay addr string
   string relay = 6;
+  // app origin name string
+  string app_origin = 7;
+  // ai model hash string
+  string model_hash = 8;
+  // mac addr
+  string mac = 9;
+  // memory info
+  string memInfo = 10;
+  // cpu info
+  string cpu_info = 11;
+
 }
 
 message AliveStatusResp {
