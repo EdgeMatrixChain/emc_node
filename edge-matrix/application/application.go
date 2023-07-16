@@ -45,6 +45,10 @@ func (a *Application) Copy() *Application {
 		GuageMax:    a.GuageMax,
 		IpAddr:      a.IpAddr,
 		AppOrigin:   a.AppOrigin,
+		Mac:         a.Mac,
+		MemInfo:     a.MemInfo,
+		CpuInfo:     a.CpuInfo,
+		ModelHash:   a.ModelHash,
 	}
 
 	return newApp

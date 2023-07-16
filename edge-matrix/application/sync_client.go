@@ -222,7 +222,7 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		return
 	}
 
-	m.logger.Info("handleGossipAppStatusUpdate", "from", from.String(), "ID", status.NodeId, "Name", status.Name, "Addr", status.Addr, "Relay", status.Relay)
+	m.logger.Debug("handleGossipAppStatusUpdate", "from", from.String(), "ID", status.NodeId, "Name", status.Name, "Addr", status.Addr, "Relay", status.Relay)
 
 	peerId, err := peer.Decode(status.NodeId)
 	if err != nil {

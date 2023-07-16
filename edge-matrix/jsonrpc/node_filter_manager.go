@@ -322,7 +322,7 @@ func (f *NodeFilterManager) processEvent(evnt *application.Event) {
 	defer f.RUnlock()
 
 	for _, newMsg := range evnt.NewApp {
-		if processErr := f.appendRtcMsgsToFilters(newMsg); processErr != nil {
+		if processErr := f.appendNodeLogToFilters(newMsg); processErr != nil {
 			f.logger.Error(fmt.Sprintf("Unable to process new RtcMsg, %v", processErr))
 		}
 
@@ -343,8 +343,8 @@ func (f *NodeFilterManager) NewNodeFilter(nodeQuery *NodeQuery, ws wsConn) strin
 	return f.addFilter(filter)
 }
 
-// appendLogsToFilters makes each LogFilters append logs in the msg
-func (f *NodeFilterManager) appendRtcMsgsToFilters(msg *application.Application) error {
+// appendNodeLogToFilters makes each NodeFilters append logs in the msg
+func (f *NodeFilterManager) appendNodeLogToFilters(msg *application.Application) error {
 	// Get nodeFilters from filters
 	nodeFilters := make([]*nodeFilter, 0)
 

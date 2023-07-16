@@ -574,22 +574,12 @@ func NewApplicationEndpoint(
 		for {
 			<-ticker.C
 			event := &Event{}
-			app := &Application{
-				Name:        endpoint.application.Name,
-				PeerID:      endpoint.application.PeerID,
-				AppOrigin:   endpoint.application.AppOrigin,
-				StartupTime: endpoint.application.StartupTime,
-				Uptime:      uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime,
-				GuageHeight: endpoint.application.GuageHeight,
-				GuageMax:    endpoint.application.GuageMax,
-				ModelHash:   endpoint.application.ModelHash,
-				Mac:         mac,
-				CpuInfo:     helper.GetCpuInfo(),
-				MemInfo:     helper.GetMemInfo(),
-			}
-			event.AddNewApp(app)
+			endpoint.application.Uptime = uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime
+			endpoint.application.MemInfo = helper.GetMemInfo()
+
+			event.AddNewApp(endpoint.application)
 			endpoint.stream.push(event)
-			endpoint.logger.Info("endpoint----> status", "ModelHash", app.ModelHash, "Mac", app.Mac, "CpuInfo", app.CpuInfo, "MemInfo", app.MemInfo)
+			endpoint.logger.Info("endpoint----> status", "ModelHash", endpoint.application.ModelHash, "Mac", endpoint.application.Mac, "CpuInfo", endpoint.application.CpuInfo, "MemInfo", endpoint.application.MemInfo)
 		}
 		ticker.Stop()
 	}()
