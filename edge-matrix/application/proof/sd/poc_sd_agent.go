@@ -71,7 +71,7 @@ func (p *PocSD) MakeSeedByHashString(hashString string) (seedNum int64, err erro
 	return
 }
 
-func (p *PocSD) ProofByTxt2img(prompt string, seed int64) (sdModelHash string, md5sum string, err error) {
+func (p *PocSD) ProofByTxt2img(prompt string, seed int64) (sdModelHash string, md5sum string, infoString string, err error) {
 	sdModelHash = ""
 	md5sum = ""
 	err = nil
@@ -126,11 +126,11 @@ func (p *PocSD) ProofByTxt2img(prompt string, seed int64) (sdModelHash string, m
 	response := &txt2imgResponse{}
 	err = json.Unmarshal(bytes, response)
 	if err != nil {
-		return "", "", errors.New("Response json.Unmarshal error")
+		return "", "", "", errors.New("Response json.Unmarshal error")
 	}
 
 	if response.Images == nil || len(response.Images) < 1 {
-		return "", "", errors.New("Response Images error")
+		return "", "", "", errors.New("Response Images error")
 	}
 	images := response.Images
 	imageBas64 := images[0]
@@ -138,13 +138,13 @@ func (p *PocSD) ProofByTxt2img(prompt string, seed int64) (sdModelHash string, m
 	md5sum = fmt.Sprintf("%x", sum)
 
 	if len(response.Info) < 1 {
-		return "", "", errors.New("Response Info error")
+		return "", "", "", errors.New("Response Info error")
 	}
 	info := &txt2imgResponseInfo{}
-	infoString := response.Info
+	infoString = response.Info
 	err = json.Unmarshal([]byte(infoString), info)
 	if err != nil {
-		return "", "", errors.New("Response json.Unmarshal data.Info  error")
+		return "", "", "", errors.New("Response json.Unmarshal data.Info  error")
 	}
 	sdModelHash = info.SdModelHash
 

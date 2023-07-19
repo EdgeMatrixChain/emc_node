@@ -356,11 +356,11 @@ func (m *MinerAgent) SubmitValidationVec(vecValue []interface{}) error {
 	//fmt.Println(argType, "   ", argValue)
 	m.logger.Debug("SubmitValidation", "argType", argType, "argValue", argValue)
 
-	types, result, err := m.agent.Update(m.canister, methodName, arg, 30)
+	_, result, err := m.agent.Update(m.canister, methodName, arg, 30)
 	if err != nil {
 		return err
 	}
-	m.logger.Debug("SubmitValidation", "types", types[0].String(), "result", result)
+	m.logger.Info("SubmitValidation", "argValue", argValue, "result", result)
 	//fmt.Println("result:", result)
 	// (variant {Ok=0}) -> result: [map[17724:0 EnumIndex:17724]]
 	// (variant {Err=variant {NotAValidator}}) -> result: [map[3456837:map[3734858244:<nil> EnumIndex:3734858244] EnumIndex:3456837]]

@@ -103,6 +103,8 @@ func Test_MyCurrentEPower(t *testing.T) {
 	}
 	t.Log("count:", count)
 	t.Log("e:", e)
+
+	t.Log("average:", e/float32(count))
 }
 
 func Test_MyStack(t *testing.T) {

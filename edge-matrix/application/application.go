@@ -31,6 +31,8 @@ type Application struct {
 	GuageHeight uint64
 	// max limit
 	GuageMax uint64
+	// average e power value
+	AveragePower float32
 }
 
 func (a *Application) Copy() *Application {

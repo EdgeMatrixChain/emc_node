@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application"
+	"github.com/emc-protocol/edge-matrix/miner"
 	emcNetwork "github.com/emc-protocol/edge-matrix/network"
 	"github.com/emc-protocol/edge-matrix/network/common"
 	"github.com/emc-protocol/edge-matrix/network/grpc"
@@ -65,6 +66,7 @@ type RelayClient struct {
 
 	relaynodes *relaynodesWrapper // reference of all relaynodes for the node
 
+	minerAgent  *miner.MinerAgent        // refrence of minerAgent
 	application *application.Application // reference of application
 }
 
@@ -596,18 +598,29 @@ func (d *RelayClient) sayHello(
 		relay = fmt.Sprintf("%s/p2p/%s", relayPeerInfo.Info.Info.Addrs[0].String(), relayPeerInfo.Info.Info.ID.String())
 	}
 
+	var averagePower float32 = 0
+	round, e, err := d.minerAgent.MyCurrentEPower(
+		d.host.ID().String())
+	if err != nil {
+		d.logger.Error(err.Error())
+	} else {
+		averagePower = e / float32(round)
+	}
+	d.logger.Info("e-Power", "average", averagePower)
+
 	resp, err := clt.Hello(
 		context.Background(),
 		&proto.AliveStatus{
-			Name:        d.application.Name,
-			StartupTime: d.application.StartupTime,
-			Uptime:      d.application.Uptime,
-			Relay:       relay,
-			AppOrigin:   d.application.AppOrigin,
-			Mac:         d.application.Mac,
-			CpuInfo:     d.application.CpuInfo,
-			MemInfo:     d.application.MemInfo,
-			ModelHash:   d.application.ModelHash,
+			Name:         d.application.Name,
+			StartupTime:  d.application.StartupTime,
+			Uptime:       d.application.Uptime,
+			Relay:        relay,
+			AppOrigin:    d.application.AppOrigin,
+			Mac:          d.application.Mac,
+			CpuInfo:      d.application.CpuInfo,
+			MemInfo:      d.application.MemInfo,
+			ModelHash:    d.application.ModelHash,
+			AveragePower: averagePower,
 		},
 	)
 	if err != nil {
@@ -708,7 +721,7 @@ func (m *RelayClient) startApplicationEventProcess(subscrption application.Subsc
 }
 
 // NewRelayClient returns a new instance of the relay client
-func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config) (*RelayClient, error) {
+func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *miner.MinerAgent) (*RelayClient, error) {
 	logger = logger.Named("relay-client")
 	relaynodes := config.Chain.Relaynodes
 	key, err := setupLibp2pKey(config.SecretsManager)
@@ -760,6 +773,7 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config) (*RelayClien
 			relaynodesMap:      make(map[peer.ID]*peer.AddrInfo),
 			relaynodeConnCount: 0,
 		},
+		minerAgent: minerAgent,
 	}
 
 	clt.logger.Info("LibP2P Relay client running", "addr", privateSrvHost.Addrs()[0].String()+"/p2p/"+privateSrvHost.ID().String())

@@ -63,5 +63,7 @@ message AppStatus {
   string memInfo = 12;
   // cpu info
   string cpu_info = 13;
+  // average e-power
+  float average_power = 14;
 
 }

@@ -44,8 +44,8 @@ const (
 const (
 	DefaultBlockNumSyncDuration  = 2 * time.Second
 	DefaultAppStatusSyncDuration = 5 * time.Second
-	PocSubmitBatchSize           = 1
-	PocSubmitSliceSize           = 1
+	PocSubmitBatchSize           = 100
+	PocSubmitSliceSize           = 50
 )
 
 type Endpoint struct {
@@ -253,10 +253,11 @@ func (e *Endpoint) doPocTask() {
 			pocSD := sd.NewPocSD(e.appUrl)
 			prompt := pocData.Seed
 			seedNum, _ := pocSD.MakeSeedByHashString(pocData.Seed)
-			sdModelHash, md5sum, err := pocSD.ProofByTxt2img(prompt, seedNum)
+			sdModelHash, md5sum, infoString, err := pocSD.ProofByTxt2img(prompt, seedNum)
 			if err != nil {
 				e.logger.Error("doPocTask -->ProofByTxt2img", "err", err.Error())
 			}
+			e.logger.Info("doPocTask -->info", infoString)
 			var obj struct {
 				NodeId    string `json:"node_id"`
 				ModelHash string `json:"model_hash"`
@@ -406,13 +407,13 @@ func (e *Endpoint) doPocRequest() {
 	}
 	prompt := hex.EncodeToHex(randBytes)
 	seedNum, _ := pocSD.MakeSeedByHashString(prompt)
-	sdModelHash, md5sum, err := pocSD.ProofByTxt2img(prompt, seedNum)
+	sdModelHash, md5sum, infoString, err := pocSD.ProofByTxt2img(prompt, seedNum)
 	if err != nil {
-		e.logger.Error("doPocRequest", "err", err.Error())
+		e.logger.Error("doPocRequest prepare", "err", err.Error())
 		return
 	}
 
-	e.logger.Info("doPocRequest", "sdModelHash", sdModelHash)
+	e.logger.Info("doPocRequest prepare", "sdModelHash", sdModelHash, "info", infoString)
 	if sdModelHash == "" || md5sum == "" {
 		e.logger.Error("doPocRequest sd call fail")
 		return
@@ -425,15 +426,7 @@ func (e *Endpoint) doPocRequest() {
 		e.logger.Error("endpoint.miner -->ListValidatorsNodeId", err.Error())
 		return
 	}
-	//validators := []string{
-	//	"16Uiu2HAmGpKZdnpaaYgKTZqagLVJcnMphdeqaHtKBaFFkb5MYRUy",
-	//	"16Uiu2HAmTPfBgUkQ4V8qaBvTaJp54Cm32TWGvYZaxcuPxoaSbZAS",
-	//	"16Uiu2HAmPfFVHNnYKdDQywJXnzbgM1MdAi6P1MsCkxN7Hr6VaiYa",
-	//	"16Uiu2HAmKt7agigzA6oGDdMre4eCU7QER91vrW9M3aneiHEvGu1Y",
-	//	"16Uiu2HAmEoDReK7pKygYYYFgJ8uuXS8oWsYFWiiEbCSF9HjYcih2",
-	//	"16Uiu2HAkyPw8SEeDpErEwcEZ2QtXzPq5KQf4woWybsr7KN6VH7yX",
-	//	"16Uiu2HAm7BqtmjH7JECa5Y4iNgiZXuet3HqXYZbeXNN9XiQwgSbf",
-	//}
+
 	if len(validators) < 1 {
 		return
 	}
@@ -605,33 +598,39 @@ func NewApplicationEndpoint(
 
 				if endpoint.pocGpuValidateFlag {
 					currentRoundBlockNumber := (endpoint.latestBlockNum / uint64(proof.DefaultProofBlockMinDuration)) * uint64(proof.DefaultProofBlockMinDuration)
-					if endpoint.round == nil {
-						endpoint.round = sd.NewPocSDRound(endpoint.logger, currentRoundBlockNumber, endpoint.latestBlockHeadHash)
+					var roundBlockNum uint64
+					if endpoint.round != nil {
+						roundBlockNum, _ = endpoint.round.GetRoundSeed()
+					} else {
+						roundBlockNum = 0
 					}
-					round := endpoint.round
-					roundBlockNum, _ := round.GetRoundSeed()
-					//endpoint.logger.Info("POC current round", "roundBlockNum", roundBlockNum)
 					if roundBlockNum != currentRoundBlockNumber {
 						endpoint.logger.Info("POC Round change", "newRoundBlockNum", currentRoundBlockNumber)
-						endpoint.pastRound = round
+						endpoint.pastRound = endpoint.round
 						// change to new round
 						endpoint.round = sd.NewPocSDRound(endpoint.logger, currentRoundBlockNumber, endpoint.latestBlockHeadHash)
-						go func() {
-							// complete past round
-							validPocSdData, err := endpoint.pastRound.CompleteRound()
-							if err != nil {
-								endpoint.logger.Info("poc round", "err", err.Error())
-							}
-							for _, pocSdData := range validPocSdData {
-								// valid proof
-								endpoint.pocSubmitQueue.AddTask(&proof.PocSubmitData{
-									ValidationTicket: int64(pocSdData.BlockNum),
-									Validator:        endpoint.minerAgent.GetIdentity(),
-									Power:            pocSdData.Power,
-									TargetNodeID:     pocSdData.NodeId,
-								}, proof.PriorityRequestedPoc)
-							}
-						}()
+
+						if endpoint.pastRound != nil {
+							go func() {
+								// complete past round
+								validPocSdData, err := endpoint.pastRound.CompleteRound()
+								if err != nil {
+									endpoint.logger.Error("poc round", "err", err.Error())
+								}
+
+								endpoint.pastRound.Print()
+
+								for _, pocSdData := range validPocSdData {
+									// valid proof
+									endpoint.pocSubmitQueue.AddTask(&proof.PocSubmitData{
+										ValidationTicket: int64(pocSdData.BlockNum),
+										Validator:        endpoint.minerAgent.GetIdentity(),
+										Power:            pocSdData.Power,
+										TargetNodeID:     pocSdData.NodeId,
+									}, proof.PriorityRequestedPoc)
+								}
+							}()
+						}
 					}
 				}
 			}
@@ -959,7 +958,7 @@ func NewApplicationEndpoint(
 			}
 			err = endpoint.round.AddPocData(pocData)
 			if err != nil {
-				endpoint.logger.Warn("poc_gpu_validate --> invalid request", "err", err.Error())
+				endpoint.logger.Warn("poc_gpu_validate --> invalid request", "err", err.Error(), "nodeId", pocData.NodeId, "modelHash", pocData.ModelHash, "", pocData.BlockNum, "md5Num", pocData.Md5num, "seedHash", pocData.SeedHash)
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", err.Error()))
 				writeResponse(w, pocResp, endpoint)
 				return

@@ -86,17 +86,18 @@ func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*p
 	}
 	d.logger.Debug("-------->Alive status", "from", from, "name", status.Name, "app_origin", status.AppOrigin, "addr", addr, "relay", status.Relay)
 	d.syncAppPeerClient.PublishApplicationStatus(&appProto.AppStatus{
-		Name:        status.Name,
-		NodeId:      from.String(),
-		Uptime:      status.Uptime,
-		StartupTime: status.StartupTime,
-		Relay:       status.Relay,
-		Addr:        addr,
-		AppOrigin:   status.AppOrigin,
-		Mac:         status.Mac,
-		CpuInfo:     status.CpuInfo,
-		MemInfo:     status.MemInfo,
-		ModelHash:   status.ModelHash,
+		Name:         status.Name,
+		NodeId:       from.String(),
+		Uptime:       status.Uptime,
+		StartupTime:  status.StartupTime,
+		Relay:        status.Relay,
+		Addr:         addr,
+		AppOrigin:    status.AppOrigin,
+		Mac:          status.Mac,
+		CpuInfo:      status.CpuInfo,
+		MemInfo:      status.MemInfo,
+		ModelHash:    status.ModelHash,
+		AveragePower: status.AveragePower,
 	})
 
 	return &proto.AliveStatusResp{

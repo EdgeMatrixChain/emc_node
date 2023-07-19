@@ -125,7 +125,7 @@ func (s *syncer) Start(topicSubFlag bool) error {
 // startPeerStatusUpdateProcess subscribes peer status change event and updates peer map
 func (s *syncer) startPeerStatusUpdateProcess() {
 	for peerStatus := range s.syncAppPeerClient.GetPeerStatusUpdateCh() {
-		s.logger.Info("AppPeerStatus updated ", "NodeID", peerStatus.ID)
+		//s.logger.Debug("AppPeerStatus updated ", "NodeID", peerStatus.ID)
 
 		// TODO validate peer status
 		// store app in store

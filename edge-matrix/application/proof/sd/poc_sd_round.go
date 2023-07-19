@@ -1,7 +1,9 @@
 package sd
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/hashicorp/go-hclog"
 	"sync"
 )
@@ -69,6 +71,31 @@ func (r *PocSDRound) CompleteRound() ([]*PocSdData, error) {
 	return validatedData, nil
 }
 
+func (r *PocSDRound) Print() error {
+	all := r.pocMap.getAll()
+	marshalAll, err := json.Marshal(all)
+	if err != nil {
+		return err
+	}
+	r.logger.Info("PocSDRound:", "pocMap", string(marshalAll))
+
+	consensusMarshal, err := json.Marshal(r.consensusResultMap)
+	if err != nil {
+		return err
+	}
+	r.logger.Info("PocSDRound:", "consensusResultMap", string(consensusMarshal))
+
+	for modelHash, consensusCount := range r.consensusCountMap {
+		consensucCountAll, err := json.Marshal(consensusCount.all)
+		if err != nil {
+			return err
+		}
+		r.logger.Info("PocSDRound", "consensusCount", fmt.Sprintf("modelHash:%s, total:%d, all:%s", modelHash, consensusCount.total, string(consensucCountAll)))
+	}
+
+	return nil
+}
+
 func (r *PocSDRound) GetRoundSeed() (blockNum uint64, seedHash string) {
 	r.Lock()
 	defer r.Unlock()
@@ -89,8 +116,10 @@ func (r *PocSDRound) AddPocData(msg *PocSdData) error {
 		return errors.New("invalid round seed hash")
 	}
 
-	r.pocMap.add(msg)
-
+	add := r.pocMap.add(msg)
+	if !add {
+		return errors.New("poc data exist")
+	}
 	// add to consensusCountMap
 	if md5CountData, modelHashExsit := r.consensusCountMap[msg.ModelHash]; modelHashExsit {
 		if count, md5CountExsit := md5CountData.all[msg.Md5num]; md5CountExsit {

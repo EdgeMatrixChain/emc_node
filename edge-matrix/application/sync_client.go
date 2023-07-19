@@ -236,18 +236,19 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 
 	event := &Event{}
 	app := &Application{
-		Name:        status.Name,
-		PeerID:      peerId,
-		StartupTime: status.StartupTime,
-		Uptime:      status.StartupTime,
-		GuageHeight: status.GuageHeight,
-		GuageMax:    status.GuageMax,
-		AppOrigin:   status.AppOrigin,
-		IpAddr:      ip_addr,
-		Mac:         status.Mac,
-		CpuInfo:     status.CpuInfo,
-		MemInfo:     status.MemInfo,
-		ModelHash:   status.ModelHash,
+		Name:         status.Name,
+		PeerID:       peerId,
+		StartupTime:  status.StartupTime,
+		Uptime:       status.StartupTime,
+		GuageHeight:  status.GuageHeight,
+		GuageMax:     status.GuageMax,
+		AppOrigin:    status.AppOrigin,
+		IpAddr:       ip_addr,
+		Mac:          status.Mac,
+		CpuInfo:      status.CpuInfo,
+		MemInfo:      status.MemInfo,
+		ModelHash:    status.ModelHash,
+		AveragePower: status.AveragePower,
 	}
 	event.AddNewApp(app)
 	m.stream.push(event) // push to jsonRpc
@@ -270,12 +271,13 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		CpuInfo:      status.CpuInfo,
 		MemInfo:      status.MemInfo,
 		ModelHash:    status.ModelHash,
+		AveragePower: status.AveragePower,
 	}
 }
 
 func (m *syncAppPeerClient) PublishApplicationStatus(status *proto.AppStatus) {
 	if m.topic != nil {
-		m.logger.Debug("AppStatus Publish", "ID", status.NodeId, "Name", status.Name, "Relay", status.Relay, "Addr", status.Addr)
+		//m.logger.Debug("AppStatus Publish", "ID", status.NodeId, "Name", status.Name, "Relay", status.Relay, "Addr", status.Addr)
 
 		if err := m.topic.Publish(status); err != nil {
 			m.logger.Warn("failed to publish application status", "err", err)

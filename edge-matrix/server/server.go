@@ -370,7 +370,7 @@ func NewServer(config *Config) (*Server, error) {
 			relayNetConfig.SecretsManager = m.secretsManager
 
 			// start edge network relay reserv
-			relayClient, err := relay.NewRelayClient(logger, relayNetConfig)
+			relayClient, err := relay.NewRelayClient(logger, relayNetConfig, minerAgent)
 			if err != nil {
 				return nil, err
 			}

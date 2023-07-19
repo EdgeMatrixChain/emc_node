@@ -37,6 +37,8 @@ type AppPeer struct {
 	Guage_height uint64
 	// max limit
 	Guage_max uint64
+	// average e power value
+	AveragePower float32
 }
 
 func (p *AppPeer) IsBetter(t *AppPeer) bool {
