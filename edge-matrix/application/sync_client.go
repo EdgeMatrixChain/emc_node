@@ -239,7 +239,7 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		Name:         status.Name,
 		PeerID:       peerId,
 		StartupTime:  status.StartupTime,
-		Uptime:       status.StartupTime,
+		Uptime:       status.Uptime,
 		GuageHeight:  status.GuageHeight,
 		GuageMax:     status.GuageMax,
 		AppOrigin:    status.AppOrigin,

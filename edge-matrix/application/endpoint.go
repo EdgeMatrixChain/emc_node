@@ -35,6 +35,8 @@ import (
 const (
 	// proto tag for p2phttp
 	ProtoTagEcApp = "/em-app"
+
+	PocGpuValidateVersion = "1"
 )
 
 const (
@@ -44,8 +46,8 @@ const (
 const (
 	DefaultBlockNumSyncDuration  = 2 * time.Second
 	DefaultAppStatusSyncDuration = 5 * time.Second
-	PocSubmitBatchSize           = 100
-	PocSubmitSliceSize           = 50
+	PocSubmitBatchSize           = 50
+	PocSubmitSliceSize           = 10
 )
 
 type Endpoint struct {
@@ -253,7 +255,7 @@ func (e *Endpoint) doPocTask() {
 			pocSD := sd.NewPocSD(e.appUrl)
 			prompt := pocData.Seed
 			seedNum, _ := pocSD.MakeSeedByHashString(pocData.Seed)
-			sdModelHash, md5sum, infoString, err := pocSD.ProofByTxt2img(prompt, seedNum)
+			sdModelHash, imageHash, md5sum, infoString, err := pocSD.ProofByTxt2img(prompt, seedNum)
 			if err != nil {
 				e.logger.Error("doPocTask -->ProofByTxt2img", "err", err.Error())
 			}
@@ -263,10 +265,12 @@ func (e *Endpoint) doPocTask() {
 				ModelHash string `json:"model_hash"`
 				SeedHash  string `json:"seed_hash"`
 				Md5num    string `json:"md5num"`
+				ImageHash string `json:"image_hash"`
 			}
 			obj.NodeId = e.h.ID().String()
 			obj.ModelHash = sdModelHash
 			obj.Md5num = md5sum
+			obj.ImageHash = imageHash
 			obj.SeedHash = pocData.Seed
 
 			jsonBuf, err := json.Marshal(obj)
@@ -274,7 +278,7 @@ func (e *Endpoint) doPocTask() {
 				e.logger.Error("doPocTask -->Marshal() error", "err", err.Error())
 			}
 			inputData := string(jsonBuf)
-			inputString = fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_gpu_validate\",\"Input\": %s}", pocData.Validator, inputData)
+			inputString = fmt.Sprintf("{\"peerId\": \"%s\",\"endpoint\": \"/poc_gpu_validate/v%s\",\"Input\": %s}", pocData.Validator, PocGpuValidateVersion, inputData)
 		} else if e.pocCpuValidateFlag {
 			// DO poc by cpu
 			var data = make(map[string][]byte)
@@ -399,22 +403,13 @@ func (e *Endpoint) doPocRequest() {
 	}
 
 	// Do test poc by gpu
-	pocSD := sd.NewPocSD(e.appUrl)
-	randBytes := make([]byte, 32)
-	_, err = rand.Read(randBytes)
+	err, sdModelHash, imageHash, md5sum, infoString := e.doSDTest()
 	if err != nil {
-		return
-	}
-	prompt := hex.EncodeToHex(randBytes)
-	seedNum, _ := pocSD.MakeSeedByHashString(prompt)
-	sdModelHash, md5sum, infoString, err := pocSD.ProofByTxt2img(prompt, seedNum)
-	if err != nil {
-		e.logger.Error("doPocRequest prepare", "err", err.Error())
 		return
 	}
 
 	e.logger.Info("doPocRequest prepare", "sdModelHash", sdModelHash, "info", infoString)
-	if sdModelHash == "" || md5sum == "" {
+	if sdModelHash == "" || md5sum == "" || imageHash == "" {
 		e.logger.Error("doPocRequest sd call fail")
 		return
 	}
@@ -495,6 +490,23 @@ func (e *Endpoint) doPocRequest() {
 		}
 	}
 }
+
+func (e *Endpoint) doSDTest() (error, string, string, string, string) {
+	pocSD := sd.NewPocSD(e.appUrl)
+	randBytes := make([]byte, 32)
+	_, err := rand.Read(randBytes)
+	if err != nil {
+		return err, "", "", "", ""
+	}
+	prompt := hex.EncodeToHex(randBytes)
+	seedNum, _ := pocSD.MakeSeedByHashString(prompt)
+	sdModelHash, imageHash, md5sum, infoString, err := pocSD.ProofByTxt2img(prompt, seedNum)
+	if err != nil {
+		e.logger.Error("Do POC test", "err", err.Error())
+		return err, sdModelHash, imageHash, md5sum, infoString
+	}
+	return nil, sdModelHash, imageHash, md5sum, infoString
+}
 func NewApplicationEndpoint(
 	logger hclog.Logger,
 	privateKey *ecdsa.PrivateKey,
@@ -560,6 +572,12 @@ func NewApplicationEndpoint(
 		MemInfo:     helper.GetMemInfo(),
 		Version:     versioning.Version + " Build" + versioning.Build,
 	}
+	// Do test poc by gpu
+	err, sdModelHash, _, _, _ := endpoint.doSDTest()
+	if sdModelHash != "" {
+		// update application mode hash
+		endpoint.application.ModelHash = sdModelHash
+	}
 
 	// TODO check miner status
 	go func() {
@@ -587,6 +605,7 @@ func NewApplicationEndpoint(
 		ticker.Stop()
 	}()
 
+	// POC consensus
 	go func() {
 		ticker := time.NewTicker(DefaultBlockNumSyncDuration)
 		for {
@@ -898,7 +917,7 @@ func NewApplicationEndpoint(
 			writeResponse(w, pocResp, endpoint)
 		})
 
-		http.HandleFunc("/poc_gpu_validate", func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc("/poc_gpu_validate/v"+PocGpuValidateVersion, func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
 			pocResp := []byte(fmt.Sprintf("{\"message\":\"validate failed\"}"))
 			// Close poc_cpu_validate
@@ -925,6 +944,7 @@ func NewApplicationEndpoint(
 				ModelHash string `json:"model_hash"`
 				SeedHash  string `json:"seed_hash"`
 				Md5num    string `json:"md5num"`
+				ImageHash string `json:"image_hash"`
 			}
 			if err := json.Unmarshal(body, &obj); err != nil {
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "json.Unmarshal obj-> "+err.Error()))
@@ -932,7 +952,7 @@ func NewApplicationEndpoint(
 				return
 			}
 
-			if obj.NodeId == "" || obj.SeedHash == "" || obj.Md5num == "" {
+			if obj.NodeId == "" || obj.SeedHash == "" || obj.Md5num == "" || obj.ImageHash == "" {
 				endpoint.logger.Warn("poc_gpu_validate --> invalid poc_data")
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", "invalid request"))
 				writeResponse(w, pocResp, endpoint)
@@ -953,18 +973,19 @@ func NewApplicationEndpoint(
 				ModelHash: obj.ModelHash,
 				SeedHash:  obj.SeedHash,
 				Md5num:    obj.Md5num,
+				ImageHash: obj.ImageHash,
 				BlockNum:  roundBlockNumber,
 				Power:     usedTime,
 			}
 			err = endpoint.round.AddPocData(pocData)
 			if err != nil {
-				endpoint.logger.Warn("poc_gpu_validate --> invalid request", "err", err.Error(), "nodeId", pocData.NodeId, "modelHash", pocData.ModelHash, "", pocData.BlockNum, "md5Num", pocData.Md5num, "seedHash", pocData.SeedHash)
+				endpoint.logger.Warn("poc_gpu_validate --> invalid request", "err", err.Error(), "nodeId", pocData.NodeId, "modelHash", pocData.ModelHash, "", pocData.BlockNum, "md5Num", pocData.Md5num, "imageHash", pocData.ImageHash, "seedHash", pocData.SeedHash)
 				pocResp = []byte(fmt.Sprintf("{\"err\":\"%s\"}", err.Error()))
 				writeResponse(w, pocResp, endpoint)
 				return
 			}
 
-			result := fmt.Sprintf("validate submit\t\t\t: NodeId:%s ModelHash:%s SeedHash:%s Md5num:%s Power:%d", obj.NodeId, obj.ModelHash, obj.SeedHash, obj.Md5num, usedTime)
+			result := fmt.Sprintf("validate submit\t\t\t: NodeId:%s ModelHash:%s SeedHash:%s Md5num:%s ImageHash:%s Power:%d", obj.NodeId, obj.ModelHash, obj.SeedHash, obj.Md5num, obj.ImageHash, usedTime)
 			endpoint.logger.Info(result)
 			pocResp = []byte(fmt.Sprintf("{\"message\":\"SubmitValidation\"}"))
 			writeResponse(w, pocResp, endpoint)

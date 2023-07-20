@@ -604,7 +604,9 @@ func (d *RelayClient) sayHello(
 	if err != nil {
 		d.logger.Error(err.Error())
 	} else {
-		averagePower = e / float32(round)
+		if round > 0 && e > 0 {
+			averagePower = e / float32(round)
+		}
 	}
 	d.logger.Info("e-Power", "average", averagePower)
 

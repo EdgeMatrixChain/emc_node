@@ -8,8 +8,8 @@ import (
 	"sync"
 )
 
-// md5Count:k=Md5num, v=count
-type md5Count struct {
+// hashCount:k=ImageHash, v=count
+type hashCount struct {
 	all   map[string]uint64
 	total uint64
 }
@@ -20,10 +20,10 @@ type PocSDRound struct {
 	blockNum uint64
 	seedHash string
 
-	//modelDataCountMap:k=modeHash, v=md5Count
-	consensusCountMap map[string]*md5Count
+	//modelDataCountMap:k=modeHash, v=hashCount
+	consensusCountMap map[string]*hashCount
 
-	//modelDataCountMap:k=modeHash, v=Md5num
+	//modelDataCountMap:k=modeHash, v=imageHash
 	consensusResultMap map[string]string
 
 	// poc lookup map keeping track of all
@@ -36,6 +36,7 @@ type PocSdData struct {
 	ModelHash string
 	SeedHash  string
 	Md5num    string
+	ImageHash string
 	BlockNum  uint64
 	Power     int64
 }
@@ -49,7 +50,7 @@ func NewPocSDRound(
 		logger:             logger,
 		blockNum:           blockNum,
 		seedHash:           seedHash,
-		consensusCountMap:  make(map[string]*md5Count),
+		consensusCountMap:  make(map[string]*hashCount),
 		consensusResultMap: make(map[string]string),
 		pocMap:             pocLookupMap{all: make(map[string]*PocSdData)},
 	}
@@ -121,29 +122,29 @@ func (r *PocSDRound) AddPocData(msg *PocSdData) error {
 		return errors.New("poc data exist")
 	}
 	// add to consensusCountMap
-	if md5CountData, modelHashExsit := r.consensusCountMap[msg.ModelHash]; modelHashExsit {
-		if count, md5CountExsit := md5CountData.all[msg.Md5num]; md5CountExsit {
-			md5CountData.all[msg.Md5num] = count + 1
+	if hashCountData, modelHashExsit := r.consensusCountMap[msg.ModelHash]; modelHashExsit {
+		if count, hashCountExsit := hashCountData.all[msg.ImageHash]; hashCountExsit {
+			hashCountData.all[msg.ImageHash] = count + 1
 		} else {
-			md5CountData.all[msg.Md5num] = 1
+			hashCountData.all[msg.ImageHash] = 1
 		}
-		md5CountData.total += 1
+		hashCountData.total += 1
 	} else {
-		md5CountData = &md5Count{total: 1, all: make(map[string]uint64)}
-		md5CountData.all[msg.Md5num] = 1
-		r.consensusCountMap[msg.ModelHash] = md5CountData
+		hashCountData = &hashCount{total: 1, all: make(map[string]uint64)}
+		hashCountData.all[msg.ImageHash] = 1
+		r.consensusCountMap[msg.ModelHash] = hashCountData
 	}
 	return nil
 }
 
 func (r *PocSDRound) consensus() error {
 	// fill consensusResultMap
-	for modelHash, md5CountData := range r.consensusCountMap {
-		total := md5CountData.total
-		for md5num, count := range md5CountData.all {
-			// validate Md5num
+	for modelHash, hashCountData := range r.consensusCountMap {
+		total := hashCountData.total
+		for imageHash, count := range hashCountData.all {
+			// validate imageHash count
 			if (count * 2) > total {
-				r.consensusResultMap[modelHash] = md5num
+				r.consensusResultMap[modelHash] = imageHash
 				break
 			}
 		}
@@ -156,8 +157,8 @@ func (r *PocSDRound) validate() []*PocSdData {
 
 	// validate pocData by consensusResultMap
 	for _, data := range r.pocMap.all {
-		if validMd5num, hasValid := r.consensusResultMap[data.ModelHash]; hasValid {
-			if validMd5num == data.Md5num {
+		if validImageHash, hasValid := r.consensusResultMap[data.ModelHash]; hasValid {
+			if validImageHash == data.ImageHash {
 				validatedPocData = append(validatedPocData, data)
 			}
 		}
