@@ -598,18 +598,6 @@ func (d *RelayClient) sayHello(
 		relay = fmt.Sprintf("%s/p2p/%s", relayPeerInfo.Info.Info.Addrs[0].String(), relayPeerInfo.Info.Info.ID.String())
 	}
 
-	var averagePower float32 = 0
-	round, e, err := d.minerAgent.MyCurrentEPower(
-		d.host.ID().String())
-	if err != nil {
-		d.logger.Error(err.Error())
-	} else {
-		if round > 0 && e > 0 {
-			averagePower = e / float32(round)
-		}
-	}
-	d.logger.Info("e-Power", "average", averagePower)
-
 	resp, err := clt.Hello(
 		context.Background(),
 		&proto.AliveStatus{
@@ -622,7 +610,7 @@ func (d *RelayClient) sayHello(
 			CpuInfo:      d.application.CpuInfo,
 			MemInfo:      d.application.MemInfo,
 			ModelHash:    d.application.ModelHash,
-			AveragePower: averagePower,
+			AveragePower: d.application.AveragePower,
 		},
 	)
 	if err != nil {
@@ -713,9 +701,6 @@ func (m *RelayClient) startApplicationEventProcess(subscrption application.Subsc
 		if l := len(event.NewApp); l > 0 {
 			latest := event.NewApp[l-1]
 
-			// TODO remove
-			//if m.topic != nil {
-			// Publish status
 			m.application = latest
 
 		}

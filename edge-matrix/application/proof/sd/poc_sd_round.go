@@ -160,6 +160,11 @@ func (r *PocSDRound) validate() []*PocSdData {
 		if validImageHash, hasValid := r.consensusResultMap[data.ModelHash]; hasValid {
 			if validImageHash == data.ImageHash {
 				validatedPocData = append(validatedPocData, data)
+			} else {
+				count, err := DifferenceBitCount(validImageHash, data.ImageHash)
+				if err == nil && count <= 1 {
+					validatedPocData = append(validatedPocData, data)
+				}
 			}
 		}
 	}

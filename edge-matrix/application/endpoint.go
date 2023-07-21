@@ -579,6 +579,8 @@ func NewApplicationEndpoint(
 		endpoint.application.ModelHash = sdModelHash
 	}
 
+	endpoint.updateEpower()
+
 	// TODO check miner status
 	go func() {
 		ticker := time.NewTicker(DefaultAppStatusSyncDuration)
@@ -600,6 +602,7 @@ func NewApplicationEndpoint(
 		//ticker := time.NewTicker(1 * 60 * time.Second) // for test
 		for {
 			<-ticker.C
+			go endpoint.updateEpower()
 			go endpoint.doPocRequest()
 		}
 		ticker.Stop()
@@ -775,6 +778,8 @@ func NewApplicationEndpoint(
 				MemInfo string `json:"mem_info"`
 				// cpu info
 				CpuInfo string `json:"cpu_info"`
+				// average e power
+				AveragePower float32 `json:"average_power"`
 			}
 			infoObj.PeerID = endpoint.application.PeerID.String()
 			infoObj.Version = endpoint.application.Version
@@ -786,6 +791,7 @@ func NewApplicationEndpoint(
 			infoObj.MemInfo = endpoint.application.MemInfo
 			infoObj.Mac = endpoint.application.Mac
 			infoObj.ModelHash = endpoint.application.ModelHash
+			infoObj.AveragePower = endpoint.application.AveragePower
 
 			info := make([]byte, 0)
 			info, err := json.Marshal(infoObj)
@@ -1083,6 +1089,21 @@ func NewApplicationEndpoint(
 		go endpoint.runPocSubmit()
 	}
 	return endpoint, nil
+}
+
+func (e *Endpoint) updateEpower() {
+	var averagePower float32 = 0
+	round, ep, err := e.minerAgent.MyCurrentEPower(
+		e.h.ID().String())
+	if err != nil {
+		e.logger.Error(err.Error())
+	} else {
+		if round > 0 && ep > 0 {
+			averagePower = ep / float32(round)
+			e.application.AveragePower = averagePower
+		}
+	}
+	e.logger.Info("e-Power", "average", averagePower)
 }
 
 func writeResponse(w http.ResponseWriter, info []byte, endpoint *Endpoint) {

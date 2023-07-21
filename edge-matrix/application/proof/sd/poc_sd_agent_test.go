@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/brett-lempereur/ish"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
+	"github.com/hashicorp/vault/sdk/helper/xor"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -71,4 +72,33 @@ func TestDifferenceHash(t *testing.T) {
 			fmt.Printf("%s <%s>: %s\n", filename, ft, dhs)
 		}
 	}
+}
+
+func TestDifferenceBit(t *testing.T) {
+	hash1 := "3e3cbc6a43863c74"
+	hash2 := "3e3cbc6a43963d74"
+	decodeHex1, err := hex.DecodeHex(hash1)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	decodeHex2, err := hex.DecodeHex(hash2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	xorBytes, err := xor.XORBytes(decodeHex1, decodeHex2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	toHex := hex.EncodeToString(xorBytes)
+	t.Log(toHex)
+
+	differenceBitCount, err := DifferenceBitCount(hash1, hash2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log("differenceBitCount:", differenceBitCount)
 }

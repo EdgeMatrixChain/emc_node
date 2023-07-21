@@ -37,20 +37,21 @@ type Application struct {
 
 func (a *Application) Copy() *Application {
 	newApp := &Application{
-		Name:        a.Name,
-		Tag:         a.Tag,
-		Version:     a.Version,
-		PeerID:      a.PeerID,
-		StartupTime: a.StartupTime,
-		Uptime:      a.Uptime,
-		GuageHeight: a.GuageHeight,
-		GuageMax:    a.GuageMax,
-		IpAddr:      a.IpAddr,
-		AppOrigin:   a.AppOrigin,
-		Mac:         a.Mac,
-		MemInfo:     a.MemInfo,
-		CpuInfo:     a.CpuInfo,
-		ModelHash:   a.ModelHash,
+		Name:         a.Name,
+		Tag:          a.Tag,
+		Version:      a.Version,
+		PeerID:       a.PeerID,
+		StartupTime:  a.StartupTime,
+		Uptime:       a.Uptime,
+		GuageHeight:  a.GuageHeight,
+		GuageMax:     a.GuageMax,
+		IpAddr:       a.IpAddr,
+		AppOrigin:    a.AppOrigin,
+		Mac:          a.Mac,
+		MemInfo:      a.MemInfo,
+		CpuInfo:      a.CpuInfo,
+		ModelHash:    a.ModelHash,
+		AveragePower: a.AveragePower,
 	}
 
 	return newApp

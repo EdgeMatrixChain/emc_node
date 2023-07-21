@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/brett-lempereur/ish"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
+	"github.com/hashicorp/vault/sdk/helper/xor"
 	"image"
 	"math/big"
+	"math/bits"
 )
 
 type PocSD struct {
@@ -61,6 +64,35 @@ type txt2imgResponseInfo struct {
 	JobTimestamp                  string   `json:"job_timestamp"`
 	ClipSkip                      int      `json:"clip_skip"`
 	IsUsingInpaintingConditioning bool     `json:"is_using_inpainting_conditioning"`
+}
+
+func DifferenceBitCount(hash1, hash2 string) (int, error) {
+	decodeHex1, err := hex.DecodeHex(hash1)
+	if err != nil {
+		return 0, err
+	}
+	decodeHex2, err := hex.DecodeHex(hash2)
+	if err != nil {
+		return 0, err
+	}
+	xorBytes, err := xor.XORBytes(decodeHex1, decodeHex2)
+	if err != nil {
+		return 0, err
+	}
+
+	toInt64, err := BytesToInt64(xorBytes)
+	if err != nil {
+		return 0, err
+	}
+
+	return bits.OnesCount64(toInt64), nil
+}
+
+func BytesToInt64(buf []byte) (uint64, error) {
+	if buf == nil || len(buf) != 8 {
+		return 0, errors.New("length for bytes must be 8")
+	}
+	return binary.BigEndian.Uint64(buf), nil
 }
 
 func (p *PocSD) MakeSeedByHashString(hashString string) (seedNum int64, err error) {
