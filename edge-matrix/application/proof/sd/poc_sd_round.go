@@ -8,6 +8,11 @@ import (
 	"sync"
 )
 
+const (
+	// min difference bit count
+	MinDifferenceBitCount = 1
+)
+
 // hashCount:k=ImageHash, v=count
 type hashCount struct {
 	all   map[string]uint64
@@ -162,7 +167,7 @@ func (r *PocSDRound) validate() []*PocSdData {
 				validatedPocData = append(validatedPocData, data)
 			} else {
 				count, err := DifferenceBitCount(validImageHash, data.ImageHash)
-				if err == nil && count <= 1 {
+				if err == nil && count <= MinDifferenceBitCount {
 					validatedPocData = append(validatedPocData, data)
 				}
 			}

@@ -38,8 +38,6 @@ type endpoints struct {
 	Web3     *Web3
 	Net      *Net
 	TelePool *TelePool
-	//Bridge *Bridge
-	//Debug  *Debug
 }
 
 // Dispatcher handles all json rpc requests by delegating
@@ -111,19 +109,11 @@ func (d *Dispatcher) registerEndpoints(store JSONRPCStore) {
 	d.endpoints.TelePool = &TelePool{
 		store,
 	}
-	//d.endpoints.Bridge = &Bridge{
-	//	store,
-	//}
-	//d.endpoints.Debug = &Debug{
-	//	store,
-	//}
 
 	d.registerService("edge", d.endpoints.Edge)
 	d.registerService("net", d.endpoints.Net)
 	d.registerService("web3", d.endpoints.Web3)
 	d.registerService("telepool", d.endpoints.TelePool)
-	//d.registerService("bridge", d.endpoints.Bridge)
-	//d.registerService("debug", d.endpoints.Debug)
 }
 
 func (d *Dispatcher) getFnHandler(req Request) (*serviceData, *funcData, Error) {
@@ -250,6 +240,9 @@ func (d *Dispatcher) handleEdgeSubscribe(req Request, conn wsConn) (string, Erro
 
 		filterID = d.rtcFilterManager.NewRtcFilter(rtcQuery, conn)
 	} else if subscribeMethod == "node" {
+		if len(params) < 2 {
+			return "", NewInvalidRequestError("params[1] is not exist")
+		}
 		nodeQuery, err := decodeNodeQueryFromInterface(params[1])
 		if err != nil {
 			return "", NewInternalError(err.Error())
@@ -281,6 +274,9 @@ func (d *Dispatcher) handleSubscribe(req Request, conn wsConn) (string, Error) {
 	if subscribeMethod == "newHeads" {
 		filterID = d.filterManager.NewBlockFilter(conn)
 	} else if subscribeMethod == "logs" {
+		if len(params) <= 2 {
+			return "", NewInvalidParamsError("Invalid params")
+		}
 		logQuery, err := decodeLogQueryFromInterface(params[1])
 		if err != nil {
 			return "", NewInternalError(err.Error())
@@ -310,39 +306,6 @@ func (d *Dispatcher) handleUnsubscribe(req Request) (bool, Error) {
 
 	return d.filterManager.Uninstall(filterID), nil
 }
-
-//func (d *Dispatcher) handleSendMsg(req Request, conn wsConn) (string, Error) {
-//	var params []interface{}
-//	if err := json.Unmarshal(req.Params, &params); err != nil {
-//		return "", NewInvalidRequestError("Invalid json request")
-//	}
-//
-//	if len(params) == 0 {
-//		return "", NewInvalidParamsError("Invalid params")
-//	}
-//
-//	subscribeMethod, ok := params[0].(string)
-//	if !ok {
-//		return "", NewSubscriptionNotFoundError(subscribeMethod)
-//	}
-//
-//	var result string
-//	if subscribeMethod == "rtc" {
-//		rtcMsg, err := DecodeRtcMsgFromInterface(params[1])
-//		if err != nil {
-//			return "", NewInternalError(err.Error())
-//		}
-//		_, err = d.endpoints.Edge.SendMsg(rtcMsg)
-//		if err != nil {
-//			return "0x0", nil
-//		}
-//		result = "0x1"
-//	} else {
-//		return "", NewSubscriptionNotFoundError(subscribeMethod)
-//	}
-//
-//	return result, nil
-//}
 
 func (d *Dispatcher) RemoveFilterByWs(conn wsConn) {
 	d.filterManager.RemoveFilterByWs(conn)
@@ -390,21 +353,6 @@ func (d *Dispatcher) HandleWs(reqBody []byte, conn wsConn) ([]byte, error) {
 		return []byte(resp), nil
 	}
 
-	//if req.Method == "edge_call" {
-	//	filterID, err := d.handleEdgeCall(req, conn)
-	//	if err != nil {
-	//		return NewRPCResponse(req.ID, "2.0", nil, err).Bytes()
-	//	}
-	//
-	//	resp, err := formatFilterResponse(req.ID, filterID)
-	//
-	//	if err != nil {
-	//		return NewRPCResponse(req.ID, "2.0", nil, err).Bytes()
-	//	}
-	//
-	//	return []byte(resp), nil
-	//}
-
 	// if the request method is edge_subscribe we need to create a
 	// new filter with ws connection
 	if req.Method == "edge_subscribe" {
@@ -421,21 +369,6 @@ func (d *Dispatcher) HandleWs(reqBody []byte, conn wsConn) ([]byte, error) {
 
 		return []byte(resp), nil
 	}
-
-	//if req.Method == "edge_sendMsg" {
-	//	sendResult, err := d.handleSendMsg(req, conn)
-	//	if err != nil {
-	//		return NewRPCResponse(req.ID, "2.0", nil, err).Bytes()
-	//	}
-	//
-	//	resp, err := formatFilterResponse(req.ID, sendResult)
-	//
-	//	if err != nil {
-	//		return NewRPCResponse(req.ID, "2.0", nil, err).Bytes()
-	//	}
-	//
-	//	return []byte(resp), nil
-	//}
 
 	// its a normal query that we handle with the dispatcher
 	resp, err := d.handleReq(req)

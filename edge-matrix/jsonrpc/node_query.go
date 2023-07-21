@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"encoding/json"
 	"github.com/emc-protocol/edge-matrix/application"
 )
 
@@ -10,6 +11,21 @@ type NodeQuery struct {
 	tag     string
 	id      string
 	version string
+}
+
+func decodeNodeQueryFromInterface(i interface{}) (*NodeQuery, error) {
+	// once the node filter is decoded as map[string]interface we cannot use unmarshal json
+	raw, err := json.Marshal(i)
+	if err != nil {
+		return nil, err
+	}
+
+	query := &NodeQuery{}
+	if err := json.Unmarshal(raw, &query); err != nil {
+		return nil, err
+	}
+
+	return query, nil
 }
 
 func (q *NodeQuery) Match(rm *application.Application) bool {
