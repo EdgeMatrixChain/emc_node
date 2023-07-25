@@ -22,6 +22,8 @@ type Application struct {
 	MemInfo string
 	// cpu info
 	CpuInfo string
+	// gpu info
+	GpuInfo string
 
 	// app startup time
 	StartupTime uint64
@@ -50,6 +52,7 @@ func (a *Application) Copy() *Application {
 		Mac:          a.Mac,
 		MemInfo:      a.MemInfo,
 		CpuInfo:      a.CpuInfo,
+		GpuInfo:      a.GpuInfo,
 		ModelHash:    a.ModelHash,
 		AveragePower: a.AveragePower,
 	}

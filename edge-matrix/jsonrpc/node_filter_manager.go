@@ -2,10 +2,13 @@ package jsonrpc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-hclog"
+	"net"
 	"sync"
 	"time"
 )
@@ -90,7 +93,7 @@ func (f *nodeFilter) sendUpdates() error {
 
 func NewNodeFilterManager(logger hclog.Logger, store nodeFilterManagerStore) *NodeFilterManager {
 	m := &NodeFilterManager{
-		logger:   logger.Named("rtc-filter"),
+		logger:   logger.Named("node-filter"),
 		timeout:  defaultTimeout,
 		store:    store,
 		filters:  make(map[string]filter),
@@ -381,14 +384,13 @@ func (f *NodeFilterManager) flushWsFilters() error {
 		if flushErr := filter.sendUpdates(); flushErr != nil {
 			f.logger.Error(fmt.Sprintf("Unable to process flush, %v", flushErr))
 			// mark as closed if the connection is closed
-			//if errors.Is(flushErr, websocket.ErrCloseSent) || errors.Is(flushErr, net.ErrClosed) {
-			closedFilterIDs = append(closedFilterIDs, id)
+			if errors.Is(flushErr, websocket.ErrCloseSent) || errors.Is(flushErr, net.ErrClosed) {
+				closedFilterIDs = append(closedFilterIDs, id)
 
-			f.logger.Warn(fmt.Sprintf("Subscription %s has been closed", id))
+				f.logger.Warn(fmt.Sprintf("Subscription %s has been closed", id))
 
-			continue
-			//}
-
+				continue
+			}
 		}
 	}
 

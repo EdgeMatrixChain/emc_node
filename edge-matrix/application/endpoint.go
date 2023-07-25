@@ -45,7 +45,7 @@ const (
 
 const (
 	DefaultBlockNumSyncDuration  = 2 * time.Second
-	DefaultAppStatusSyncDuration = 5 * time.Second
+	DefaultAppStatusSyncDuration = 15 * time.Second
 	PocSubmitBatchSize           = 50
 	PocSubmitSliceSize           = 10
 )
@@ -223,7 +223,7 @@ func (e *Endpoint) runPocSubmit() {
 }
 
 func (e *Endpoint) submitToIc(vecValues []interface{}) {
-	e.logger.Info("vecValues", "len", len(vecValues))
+	e.logger.Debug("vecValues", "len", len(vecValues))
 	if vecValues == nil || len(vecValues) < 1 {
 		return
 	}
@@ -332,7 +332,7 @@ func (e *Endpoint) doPocTask() {
 				attemptCount += 1
 				continue
 			}
-			e.logger.Info(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.Validator, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce, "data", inputString)
+			// e.logger.Debug(fmt.Sprintf("Calling peer [%s] as validator [%s]", pocData.Validator, e.getID().String()), "queue.len", e.pocQueue.Len(), "nonce", nonce, "data", inputString)
 			response, err := e.jsonRpcClient.SendRawTelegram(
 				rpc.EdgeCallPrecompile,
 				nonce,
@@ -486,7 +486,7 @@ func (e *Endpoint) doPocRequest() {
 				Validator: obj.Validator,
 				Seed:      obj.Seed,
 			}, proof.PriorityRequestedPoc)
-			e.logger.Info("endpoint.miner -->AddPocTask", "Validator", validatorNodeID, "Seed", obj.Seed)
+			e.logger.Info("endpoint.miner -->AddPocTask")
 		}
 	}
 }
@@ -536,7 +536,6 @@ func NewApplicationEndpoint(
 		latestBlockHeadHash: "",
 		latestBlockNum:      0,
 		isEdgeMode:          isEdgeMode,
-		//peersPocRequestMap: PocMap{all: make(map[string]*proof.PocCpuRequest)},
 	}
 	rand.Seed(time.Now().Unix())
 	endpoint.randomNum = rand.Intn(1000)
@@ -569,14 +568,20 @@ func NewApplicationEndpoint(
 		GuageMax:    200,
 		Mac:         mac,
 		CpuInfo:     helper.GetCpuInfo(),
+		GpuInfo:     helper.GetGpuInfo(),
 		MemInfo:     helper.GetMemInfo(),
 		Version:     versioning.Version + " Build" + versioning.Build,
 	}
 	// Do test poc by gpu
-	err, sdModelHash, _, _, _ := endpoint.doSDTest()
-	if sdModelHash != "" {
-		// update application mode hash
-		endpoint.application.ModelHash = sdModelHash
+	if len(endpoint.appUrl) > 0 {
+		err, sdModelHash, _, _, _ := endpoint.doSDTest()
+		if err != nil {
+			endpoint.logger.Error("App Test", "err", err.Error())
+		}
+		if sdModelHash != "" {
+			// update application mode hash
+			endpoint.application.ModelHash = sdModelHash
+		}
 	}
 
 	endpoint.updateEpower()
@@ -589,10 +594,11 @@ func NewApplicationEndpoint(
 			event := &Event{}
 			endpoint.application.Uptime = uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime
 			endpoint.application.MemInfo = helper.GetMemInfo()
+			endpoint.application.GpuInfo = helper.GetGpuInfo()
 
 			event.AddNewApp(endpoint.application)
 			endpoint.stream.push(event)
-			endpoint.logger.Info("endpoint----> status", "ModelHash", endpoint.application.ModelHash, "Mac", endpoint.application.Mac, "CpuInfo", endpoint.application.CpuInfo, "MemInfo", endpoint.application.MemInfo)
+			endpoint.logger.Info("endpoint----> status", "ModelHash", endpoint.application.ModelHash, "Mac", endpoint.application.Mac, "CpuInfo", endpoint.application.CpuInfo, "GpuInfo", endpoint.application.GpuInfo, "MemInfo", endpoint.application.MemInfo)
 		}
 		ticker.Stop()
 	}()
@@ -780,6 +786,8 @@ func NewApplicationEndpoint(
 				CpuInfo string `json:"cpu_info"`
 				// average e power
 				AveragePower float32 `json:"average_power"`
+				// gpu info
+				GpuInfo string `json:"gpu_info"`
 			}
 			infoObj.PeerID = endpoint.application.PeerID.String()
 			infoObj.Version = endpoint.application.Version
@@ -788,6 +796,7 @@ func NewApplicationEndpoint(
 			infoObj.StartupTime = endpoint.application.StartupTime
 			infoObj.Name = endpoint.application.Name
 			infoObj.CpuInfo = endpoint.application.CpuInfo
+			infoObj.GpuInfo = endpoint.application.GpuInfo
 			infoObj.MemInfo = endpoint.application.MemInfo
 			infoObj.Mac = endpoint.application.Mac
 			infoObj.ModelHash = endpoint.application.ModelHash

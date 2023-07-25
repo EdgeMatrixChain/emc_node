@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/brett-lempereur/ish v0.0.0-20161214150457-bbdc45bcf55d
+	github.com/jaypipes/ghw v0.12.0
 	github.com/libp2p/go-libp2p v0.27.7
 	github.com/libp2p/go-libp2p-gostream v0.6.0
 	github.com/libp2p/go-libp2p-http v0.4.0
@@ -82,6 +83,7 @@ require (
 	github.com/Inkeliz/go-opencl v0.0.0-20200806180703-5f0707fba006
 	github.com/aviate-labs/leb128 v0.3.0
 	github.com/fxamacker/cbor/v2 v2.4.0
+	github.com/hashicorp/vault/sdk v0.6.0
 	github.com/valyala/fasthttp v1.37.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.43.1
 )
@@ -98,6 +100,7 @@ require (
 	github.com/DataDog/gostackparse v0.5.0 // indirect
 	github.com/DataDog/sketches-go v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
+	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/bamiaux/rez v0.0.0-20170731184118-29f4463c688b // indirect
@@ -115,6 +118,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
+	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -142,7 +146,6 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.5.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.2 // indirect
-	github.com/hashicorp/vault/sdk v0.6.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/huin/goupnp v1.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
@@ -152,6 +155,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/ipld/go-ipld-prime v0.20.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
+	github.com/jaypipes/pcidb v1.0.0 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
@@ -236,6 +240,8 @@ require (
 	google.golang.org/api v0.114.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
+	howett.net/plist v1.0.0 // indirect
 	inet.af/netaddr v0.0.0-20220617031823-097006376321 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
 )

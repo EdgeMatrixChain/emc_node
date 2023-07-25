@@ -14,6 +14,10 @@ func TestGetMemInfo(t *testing.T) {
 	t.Log(GetMemInfo())
 }
 
+func TestGetGpuInfo(t *testing.T) {
+	t.Log(GetGpuInfo())
+}
+
 func TestMacInfo(t *testing.T) {
 	mac, err := GetLocalMac()
 	if err != nil {

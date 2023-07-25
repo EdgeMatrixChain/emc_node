@@ -39,6 +39,8 @@ type AppPeer struct {
 	Guage_max uint64
 	// average e power value
 	AveragePower float32
+	//gpu info
+	GpuInfo string
 }
 
 func (p *AppPeer) IsBetter(t *AppPeer) bool {

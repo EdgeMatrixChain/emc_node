@@ -608,6 +608,7 @@ func (d *RelayClient) sayHello(
 			AppOrigin:    d.application.AppOrigin,
 			Mac:          d.application.Mac,
 			CpuInfo:      d.application.CpuInfo,
+			GpuInfo:      d.application.GpuInfo,
 			MemInfo:      d.application.MemInfo,
 			ModelHash:    d.application.ModelHash,
 			AveragePower: d.application.AveragePower,

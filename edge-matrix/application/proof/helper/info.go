@@ -3,11 +3,12 @@ package helper
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jaypipes/ghw"
 	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 	"log"
 	"net"
 )
-import "github.com/shirou/gopsutil/v3/mem"
 
 type CpuInfo struct {
 	Cpus      int
@@ -17,6 +18,32 @@ type CpuInfo struct {
 	Cores     int32
 	ModelName string
 	Mhz       float64
+}
+
+type GpuInfo struct {
+	Gpus         int      `json:"gpus"`
+	GraphicsCard []string `json:"graphics_card"`
+}
+
+func GetGpuInfo() string {
+	gpuInfo := GpuInfo{}
+	gpu, err := ghw.GPU()
+	if err != nil {
+		//fmt.Printf("Error getting GPU info: %v", err)
+		return ""
+	}
+
+	//fmt.Printf("%v\n", gpu)
+	gpuInfo.Gpus = len(gpu.GraphicsCards)
+	gpuInfo.GraphicsCard = make([]string, gpuInfo.Gpus)
+	for i, card := range gpu.GraphicsCards {
+		gpuInfo.GraphicsCard[i] = card.String()
+	}
+	marshaledJson, err := json.Marshal(gpuInfo)
+	if err != nil {
+		return ""
+	}
+	return string(marshaledJson)
 }
 
 func GetMemInfo() string {

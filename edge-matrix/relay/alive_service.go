@@ -95,6 +95,7 @@ func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*p
 		AppOrigin:    status.AppOrigin,
 		Mac:          status.Mac,
 		CpuInfo:      status.CpuInfo,
+		GpuInfo:      status.GpuInfo,
 		MemInfo:      status.MemInfo,
 		ModelHash:    status.ModelHash,
 		AveragePower: status.AveragePower,

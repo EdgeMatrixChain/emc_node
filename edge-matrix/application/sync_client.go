@@ -247,6 +247,7 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		Mac:          status.Mac,
 		CpuInfo:      status.CpuInfo,
 		MemInfo:      status.MemInfo,
+		GpuInfo:      status.GpuInfo,
 		ModelHash:    status.ModelHash,
 		AveragePower: status.AveragePower,
 	}
@@ -269,6 +270,7 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		AppOrigin:    status.AppOrigin,
 		Mac:          status.Mac,
 		CpuInfo:      status.CpuInfo,
+		GpuInfo:      status.GpuInfo,
 		MemInfo:      status.MemInfo,
 		ModelHash:    status.ModelHash,
 		AveragePower: status.AveragePower,

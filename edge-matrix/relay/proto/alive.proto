@@ -30,8 +30,10 @@ message AliveStatus {
   string memInfo = 10;
   // cpu info
   string cpu_info = 11;
-
+  // average e power value
   float average_power = 12;
+  // gpu info
+  string gpu_info = 13;
 }
 
 message AliveStatusResp {

@@ -33,7 +33,7 @@ func TestProofByTxt2img(t *testing.T) {
 }
 
 func TestProofByTxt2imgBySeedHash(t *testing.T) {
-	pocSD := NewPocSD("http://192.168.31.14:7860")
+	pocSD := NewPocSD("http://36.155.7.141:7860")
 	hashString := "0xc09008b138b5ad15bebbd28539b6f3c62a1bcc75ee6a09c34ab6b27e96d05c08"
 	bi, _ := pocSD.MakeSeedByHashString(hashString)
 	sdModelHash1, imageHash1, md5sum1, infoString, err := pocSD.ProofByTxt2img(hashString, bi)
