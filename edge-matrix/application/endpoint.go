@@ -10,7 +10,6 @@ import (
 	"github.com/emc-protocol/edge-matrix/application/proof/sd"
 	"github.com/emc-protocol/edge-matrix/crypto"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
-	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
 	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/types"
@@ -186,15 +185,8 @@ func (e *Endpoint) runPocSubmit() {
 		taskCount = 0
 		vecValues := make([]interface{}, len(batchSubmitData))
 		for i, pocSubmitData := range batchSubmitData {
-			p, err := principal.Decode(pocSubmitData.Validator)
-			if err != nil {
-				e.logger.Error("principal.Decode", "err", err)
-				continue
-			}
-
 			vecValues[i] = map[string]interface{}{
 				"validationTicket": big.NewInt(pocSubmitData.ValidationTicket),
-				"validator":        p,
 				"power":            big.NewInt(pocSubmitData.Power),
 				"targetNodeID":     pocSubmitData.TargetNodeID,
 			}

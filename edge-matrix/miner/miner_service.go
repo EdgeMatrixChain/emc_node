@@ -110,10 +110,18 @@ func (s *MinerService) MinerRegiser(ctx context.Context, req *proto.MinerRegiste
 	result := ""
 	if req.Commit == setOpt {
 		result = "register ok"
-		err := s.minerAgent.RegisterNode(NodeType(req.Type), s.host.ID().String(), req.Principal)
-		if err != nil {
-			result = err.Error()
+
+		switch NodeType(req.Type) {
+		case NodeTypeRouter:
+		case NodeTypeValidator:
+		case NodeTypeComputing:
+			err := s.minerAgent.RegisterComputingNode(s.host.ID().String(), req.Principal)
+			if err != nil {
+				result = err.Error()
+			}
+		default:
 		}
+
 	} else if req.Commit == removeOpt {
 		result = "unregister ok"
 		err := s.minerAgent.UnRegisterNode(s.host.ID().String())

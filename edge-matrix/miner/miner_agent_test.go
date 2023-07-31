@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	privKey = "ed1cb741ef10f2e353c6c395f0b91270e762e55cf30d03ab6fa340ff306fb9d9"
+	TestPrivKey = "ed1cb741ef10f2e353c6c395f0b91270e762e55cf30d03ab6fa340ff306fb9d9"
 )
 
 func Test_RegisterNode(t *testing.T) {
-	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
-	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
-	privKeyBytes, err := hex.DecodeHex(privKey)
+	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, TestPrivKey)
+	//icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, TestPrivKey)
+	privKeyBytes, err := hex.DecodeHex(TestPrivKey)
 	if err != nil {
 		return
 	}
@@ -27,10 +27,9 @@ func Test_RegisterNode(t *testing.T) {
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
 
-	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
+	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, "be2us-64aaa-aaaaa-qaabq-cai")
 
-	err = minerAgent.RegisterNode(
-		NodeTypeRouter,
+	err = minerAgent.RegisterComputingNode(
 		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
 		"rlqvd-pzz7a-wluee-rmro3-m6zrt-gjs3v-uwfxq-o3wcu-r2bav-lcsye-yae")
 	if err != nil {
@@ -38,10 +37,17 @@ func Test_RegisterNode(t *testing.T) {
 	}
 }
 
+type nodeData struct {
+	nodeId         string
+	privKey        string
+	nodeType       NodeType
+	minerPrincipal string
+}
+
 func Test_UnRegisterNode(t *testing.T) {
-	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
-	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
-	privKeyBytes, err := hex.DecodeHex(privKey)
+	icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, TestPrivKey)
+	//icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, TestPrivKey)
+	privKeyBytes, err := hex.DecodeHex(TestPrivKey)
 	if err != nil {
 		return
 	}
@@ -49,7 +55,7 @@ func Test_UnRegisterNode(t *testing.T) {
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
 
-	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
+	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, "be2us-64aaa-aaaaa-qaabq-cai")
 
 	err = minerAgent.UnRegisterNode(
 		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC")
@@ -59,9 +65,9 @@ func Test_UnRegisterNode(t *testing.T) {
 }
 
 func Test_MyNode(t *testing.T) {
-	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
-	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
-	privKeyBytes, err := hex.DecodeHex(privKey)
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, TestPrivKey)
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, TestPrivKey)
+	privKeyBytes, err := hex.DecodeHex(TestPrivKey)
 	if err != nil {
 		return
 	}
@@ -69,6 +75,7 @@ func Test_MyNode(t *testing.T) {
 	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
 	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
 
+	//minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, "be2us-64aaa-aaaaa-qaabq-cai")
 	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
 
 	nodeId, nodeIdentity, wp, registered, nodeType, err := minerAgent.MyNode(
@@ -84,9 +91,9 @@ func Test_MyNode(t *testing.T) {
 }
 
 func Test_MyCurrentEPower(t *testing.T) {
-	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
-	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
-	privKeyBytes, err := hex.DecodeHex(privKey)
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, TestPrivKey)
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, TestPrivKey)
+	privKeyBytes, err := hex.DecodeHex(TestPrivKey)
 	if err != nil {
 		return
 	}
@@ -103,14 +110,16 @@ func Test_MyCurrentEPower(t *testing.T) {
 	}
 	t.Log("count:", count)
 	t.Log("e:", e)
+	if count > 0 {
+		t.Log("average:", e/float32(count))
 
-	t.Log("average:", e/float32(count))
+	}
 }
 
 func Test_MyStack(t *testing.T) {
-	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
-	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, privKey)
-	privKeyBytes, err := hex.DecodeHex(privKey)
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, TestPrivKey)
+	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, TestPrivKey)
+	privKeyBytes, err := hex.DecodeHex(TestPrivKey)
 	if err != nil {
 		return
 	}
@@ -129,16 +138,8 @@ func Test_MyStack(t *testing.T) {
 	t.Log("rate:", float32(multiple)/10000.0)
 }
 
-func Test_sub(t *testing.T) {
-	arr := []int{0, 1, 2, 3, 4, 5, 6, 7}
-	arr0 := arr[:2]
-	arr1 := arr[2:7]
-	t.Log(arr0)
-	t.Log(arr1)
-}
-
 func Test_SubmitValidationVec(t *testing.T) {
-	validatorPrivKey := privKey
+	validatorPrivKey := TestPrivKey
 	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, validatorPrivKey)
 	privKeyBytes, err := hex.DecodeHex(validatorPrivKey)
 
@@ -154,13 +155,11 @@ func Test_SubmitValidationVec(t *testing.T) {
 	//vecValues := []interface{}{
 	//	map[string]interface{}{
 	//		"validationTicket": big.NewInt(1000),
-	//		"validator":        p,
 	//		"power":            big.NewInt(150000),
 	//		"targetNodeID":     "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
 	//	},
 	//	map[string]interface{}{
 	//		"validationTicket": big.NewInt(1200),
-	//		"validator":        p,
 	//		"power":            big.NewInt(150000),
 	//		"targetNodeID":     "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
 	//	}}
@@ -187,15 +186,8 @@ func Test_SubmitValidationVec(t *testing.T) {
 		taskCount = 0
 		vecValues := make([]interface{}, len(batchSubmitData))
 		for i, pocSubmitData := range batchSubmitData {
-			p, err := principal.Decode(pocSubmitData.Validator)
-			if err != nil {
-				t.Error("principal.Decode", "err", err)
-				continue
-			}
-
 			vecValues[i] = map[string]interface{}{
 				"validationTicket": big.NewInt(pocSubmitData.ValidationTicket),
-				"validator":        p,
 				"power":            big.NewInt(pocSubmitData.Power),
 				"targetNodeID":     pocSubmitData.TargetNodeID,
 			}
@@ -218,8 +210,8 @@ func submitToIc(t *testing.T, minerAgent *MinerAgent, vecValues []interface{}) {
 	}
 }
 
-func Test_SubmitValidation(t *testing.T) {
-	validatorPrivKey := privKey
+func Test_SubmitComputingValidation(t *testing.T) {
+	validatorPrivKey := TestPrivKey
 	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, validatorPrivKey)
 	privKeyBytes, err := hex.DecodeHex(validatorPrivKey)
 
@@ -232,9 +224,8 @@ func Test_SubmitValidation(t *testing.T) {
 
 	minerAgent := NewMinerAgent(hclog.NewNullLogger(), icAgent, DEFAULT_MINER_CANISTER_ID)
 
-	err = minerAgent.SubmitValidation(
+	err = minerAgent.SubmitComputingValidation(
 		1000,
-		p.Encode(),
 		150000,
 		"16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC",
 	)
@@ -242,10 +233,11 @@ func Test_SubmitValidation(t *testing.T) {
 		t.Log(err)
 	}
 }
+
 func Test_listValidators(t *testing.T) {
-	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, privKey)
-	icAgent := agent.NewWithHost("https://ic0.app", false, privKey)
-	privKeyBytes, err := hex.DecodeHex(privKey)
+	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, TestPrivKey)
+	icAgent := agent.NewWithHost("https://ic0.app", false, TestPrivKey)
+	privKeyBytes, err := hex.DecodeHex(TestPrivKey)
 	if err != nil {
 		return
 	}

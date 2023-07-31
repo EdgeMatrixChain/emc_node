@@ -200,20 +200,18 @@ func (m *MinerAgent) MyStack(nodeId string) (uint64, uint64, uint64, error) {
 }
 
 // call miner canister's registerNode method(update)
-func (m *MinerAgent) RegisterNode(nodeType NodeType, nodeId string, minerPrincipal string) error {
-	methodName := "registerNode"
+func (m *MinerAgent) RegisterComputingNode(nodeId string, minerPrincipal string) error {
+	methodName := "registerComputingNode"
 
 	p, err := principal.Decode(minerPrincipal)
 	if err != nil {
 		return err
 	}
 	var argType []idl.Type
-	argType = append(argType, new(idl.Nat))
 	argType = append(argType, new(idl.Text))
 	argType = append(argType, new(idl.Principal))
 
 	argValue := []interface{}{
-		big.NewInt(int64(nodeType)),
 		nodeId,
 		p}
 	arg, _ := idl.Encode(argType, argValue)
@@ -244,7 +242,7 @@ func (m *MinerAgent) RegisterNode(nodeType NodeType, nodeId string, minerPrincip
 
 // call miner canister's unRegisterNode method(update)
 func (m *MinerAgent) UnRegisterNode(nodeId string) error {
-	methodName := "unregisterNode"
+	methodName := "unregisterComputingNode"
 
 	var argType []idl.Type
 	argType = append(argType, new(idl.Text))
@@ -279,13 +277,8 @@ func (m *MinerAgent) UnRegisterNode(nodeId string) error {
 }
 
 // call miner canister's submitValidation method(update)
-func (m *MinerAgent) SubmitValidation(validationTicket int64, validator string, power int64, targetNodeID string) error {
-	methodName := "submitValidation"
-
-	p, err := principal.Decode(validator)
-	if err != nil {
-		return err
-	}
+func (m *MinerAgent) SubmitComputingValidation(validationTicket int64, power int64, targetNodeID string) error {
+	methodName := "submitComputingValidation"
 
 	var argType []idl.Type
 	argType = append(
@@ -294,7 +287,6 @@ func (m *MinerAgent) SubmitValidation(validationTicket int64, validator string, 
 			idl.NewRec(
 				map[string]idl.Type{
 					"validationTicket": new(idl.Nat),
-					"validator":        new(idl.Principal),
 					"power":            new(idl.Nat),
 					"targetNodeID":     new(idl.Text),
 				})))
@@ -303,7 +295,6 @@ func (m *MinerAgent) SubmitValidation(validationTicket int64, validator string, 
 		[]interface{}{
 			map[string]interface{}{
 				"validationTicket": big.NewInt(validationTicket),
-				"validator":        p,
 				"power":            big.NewInt(power),
 				"targetNodeID":     targetNodeID,
 			}},
@@ -315,7 +306,7 @@ func (m *MinerAgent) SubmitValidation(validationTicket int64, validator string, 
 	if err != nil {
 		return err
 	}
-	m.logger.Debug("SubmitValidation", "types", types[0].String(), "result", result)
+	m.logger.Debug("SubmitComputingValidation", "types", types[0].String(), "result", result)
 	//fmt.Println("result:", result)
 	// (variant {Ok=0}) -> result: [map[17724:0 EnumIndex:17724]]
 	// (variant {Err=variant {NotAValidator}}) -> result: [map[3456837:map[3734858244:<nil> EnumIndex:3734858244] EnumIndex:3456837]]
@@ -334,11 +325,11 @@ func (m *MinerAgent) SubmitValidation(validationTicket int64, validator string, 
 			return errors.New(updateResult.Err.Index)
 		}
 	}
-	return errors.New("SubmitValidation fail")
+	return errors.New("SubmitComputingValidation fail")
 }
 
 func (m *MinerAgent) SubmitValidationVec(vecValue []interface{}) error {
-	methodName := "submitValidation"
+	methodName := "submitComputingValidation"
 	var argType []idl.Type
 	argType = append(
 		argType,
@@ -346,7 +337,6 @@ func (m *MinerAgent) SubmitValidationVec(vecValue []interface{}) error {
 			idl.NewRec(
 				map[string]idl.Type{
 					"validationTicket": new(idl.Nat),
-					"validator":        new(idl.Principal),
 					"power":            new(idl.Nat),
 					"targetNodeID":     new(idl.Text),
 				})))
@@ -354,13 +344,13 @@ func (m *MinerAgent) SubmitValidationVec(vecValue []interface{}) error {
 	argValue := []interface{}{vecValue}
 	arg, _ := idl.Encode(argType, argValue)
 	//fmt.Println(argType, "   ", argValue)
-	m.logger.Debug("SubmitValidation", "argType", argType, "argValue", argValue)
+	m.logger.Debug("SubmitComputingValidation", "argType", argType, "argValue", argValue)
 
 	_, result, err := m.agent.Update(m.canister, methodName, arg, 30)
 	if err != nil {
 		return err
 	}
-	m.logger.Info("SubmitValidation", "argValue", argValue, "result", result)
+	m.logger.Info("SubmitComputingValidation", "argValue", argValue, "result", result)
 	//fmt.Println("result:", result)
 	// (variant {Ok=0}) -> result: [map[17724:0 EnumIndex:17724]]
 	// (variant {Err=variant {NotAValidator}}) -> result: [map[3456837:map[3734858244:<nil> EnumIndex:3734858244] EnumIndex:3456837]]
@@ -378,7 +368,7 @@ func (m *MinerAgent) SubmitValidationVec(vecValue []interface{}) error {
 			return errors.New(updateResult.Err.Index)
 		}
 	}
-	return errors.New("SubmitValidation fail")
+	return errors.New("SubmitComputingValidation fail")
 }
 
 func (m *MinerAgent) ListValidatorsNodeId() ([]string, error) {
@@ -401,7 +391,11 @@ func (m *MinerAgent) ListValidatorsNodeId() ([]string, error) {
 		vec := result[0].([]interface{})
 		for _, recordVec := range vec {
 			record := recordVec.(map[string]interface{})
-			nodeList = append(nodeList, record["0"].(string))
+
+			validatorNode := ValidorNodeInfo{}
+			utils.Decode(&validatorNode, record)
+
+			nodeList = append(nodeList, validatorNode.NodeID)
 		}
 		return nodeList, nil
 	}

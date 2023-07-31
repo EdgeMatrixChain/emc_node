@@ -69,6 +69,7 @@ func isValidCommitType(commit string) bool {
 }
 
 func isValidNodeType(node string) bool {
+	//return node == computingNodeOpt
 	return node == routeNodeOpt || node == computingNodeOpt || node == validatorNodeOpt
 }
 
