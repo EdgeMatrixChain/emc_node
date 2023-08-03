@@ -53,10 +53,10 @@ func (p *registerParams) validateFlags() error {
 	if !isValidCommitType(p.commit) {
 		return errInvalidCommitType
 	}
+	if !isValidNodeType(p.nodeType) {
+		return errInvalidNodeType
+	}
 	if p.commit == setOpt {
-		if !isValidNodeType(p.nodeType) {
-			return errInvalidNodeType
-		}
 		if !isValidPrincipal(p.principal) {
 			return errInvalidPrincipalLen
 		}

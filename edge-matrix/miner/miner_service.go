@@ -113,6 +113,10 @@ func (s *MinerService) MinerRegiser(ctx context.Context, req *proto.MinerRegiste
 
 		switch NodeType(req.Type) {
 		case NodeTypeRouter:
+			err := s.minerAgent.RegisterRouterNode(s.host.ID().String(), req.Principal)
+			if err != nil {
+				result = err.Error()
+			}
 		case NodeTypeValidator:
 		case NodeTypeComputing:
 			err := s.minerAgent.RegisterComputingNode(s.host.ID().String(), req.Principal)
@@ -124,10 +128,22 @@ func (s *MinerService) MinerRegiser(ctx context.Context, req *proto.MinerRegiste
 
 	} else if req.Commit == removeOpt {
 		result = "unregister ok"
-		err := s.minerAgent.UnRegisterNode(s.host.ID().String())
-		if err != nil {
-			result = err.Error()
+
+		switch NodeType(req.Type) {
+		case NodeTypeRouter:
+			err := s.minerAgent.UnRegisterRouterNode(s.host.ID().String())
+			if err != nil {
+				result = err.Error()
+			}
+		case NodeTypeValidator:
+		case NodeTypeComputing:
+			err := s.minerAgent.UnRegisterComputingNode(s.host.ID().String())
+			if err != nil {
+				result = err.Error()
+			}
+		default:
 		}
+
 	}
 	// TODO update minerFlag in application endpoint
 

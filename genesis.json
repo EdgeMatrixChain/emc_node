@@ -36,10 +36,12 @@
         "blockGasTarget": 0
     },
     "relaynodes": [
+        "/ip4/35.177.47.23/tcp/55004/p2p/16Uiu2HAmFxsqE9QNiFh7jfMYgYH5BwgkUZdRVGisw2S5wmXpLjUB",
+        "/ip4/43.202.61.156/tcp/55004/p2p/16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+        "/ip4/18.163.193.180/tcp/55004/p2p/16Uiu2HAmS1HnFC142o3T4C7XtkFTKjPfzQRbcZ1ic4R87TH42rZo",
         "/ip4/36.155.7.130/tcp/51004/p2p/16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU",
         "/ip4/36.155.7.132/tcp/50004/p2p/16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG",
         "/ip4/36.155.7.134/tcp/50004/p2p/16Uiu2HAmLojW7TVsMnSkrH5R77zj8HbmZbnxZvuj62iKFbNruSoT",
-        "/ip4/36.155.7.138/tcp/50004/p2p/16Uiu2HAmC9cDu1HJHMrRADM7gjGeKMqy1vbNHztoapNNPD1DW6eM",
-        "/ip4/36.155.7.140/tcp/50004/p2p/16Uiu2HAmUXLMwWv5sATz1HuTjEK7AfQRmomhVZvUs2RGq2ozUqSn"
+        "/ip4/36.155.7.138/tcp/50004/p2p/16Uiu2HAmC9cDu1HJHMrRADM7gjGeKMqy1vbNHztoapNNPD1DW6eM"
     ]
 }

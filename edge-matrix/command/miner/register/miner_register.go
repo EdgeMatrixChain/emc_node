@@ -53,7 +53,7 @@ func setFlags(cmd *cobra.Command) {
 		),
 	)
 
-	cmd.MarkFlagsRequiredTogether(principalFlag, nodeFlag)
+	//cmd.MarkFlagsRequiredTogether(principalFlag, commitFlag)
 }
 
 func runPreRun(_ *cobra.Command, _ []string) error {

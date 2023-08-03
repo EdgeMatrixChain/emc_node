@@ -191,13 +191,13 @@ func NewRelayServer(logger hclog.Logger, secretsManager secrets.SecretsManager, 
 		Limit:          nil,
 		ReservationTTL: time.Hour,
 
-		MaxReservations: 5000,
-		MaxCircuits:     1024,
+		MaxReservations: 12400,
+		MaxCircuits:     10240,
 		BufferSize:      2048,
 
-		MaxReservationsPerPeer: 24,
+		MaxReservationsPerPeer: 96,
 		MaxReservationsPerIP:   255,
-		MaxReservationsPerASN:  32,
+		MaxReservationsPerASN:  255,
 	}
 	rc.Limit = nil
 	_, err = relay.New(relayHost, relay.WithResources(rc))
