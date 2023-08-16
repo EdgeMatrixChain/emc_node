@@ -709,7 +709,7 @@ func (m *RelayClient) startApplicationEventProcess(subscrption application.Subsc
 }
 
 // NewRelayClient returns a new instance of the relay client
-func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *miner.MinerAgent) (*RelayClient, error) {
+func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *miner.MinerAgent, relayOn bool) (*RelayClient, error) {
 	logger = logger.Named("relay-client")
 	relaynodes := config.Chain.Relaynodes
 	key, err := setupLibp2pKey(config.SecretsManager)
@@ -735,23 +735,36 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *
 
 		return addrs
 	}
-
-	privateSrvHost, err := libp2p.New(
-		libp2p.Security(noise.ID, noise.New),
-		libp2p.ListenAddrs(listenAddr),
-		libp2p.AddrsFactory(addrsFactory),
-		libp2p.EnableRelay(),
-		libp2p.Identity(key),
-		libp2p.NATPortMap(),
-		libp2p.ForceReachabilityPrivate(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create libp2p privateSrvHost: %w", err)
+	var edgeNodeHost host.Host
+	if relayOn {
+		edgeNodeHost, err = libp2p.New(
+			libp2p.Security(noise.ID, noise.New),
+			libp2p.ListenAddrs(listenAddr),
+			libp2p.AddrsFactory(addrsFactory),
+			libp2p.EnableRelay(),
+			libp2p.Identity(key),
+			libp2p.NATPortMap(),
+			libp2p.ForceReachabilityPrivate(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create libp2p privateNodeHost: %w", err)
+		}
+	} else {
+		edgeNodeHost, err = libp2p.New(
+			libp2p.Security(noise.ID, noise.New),
+			libp2p.ListenAddrs(listenAddr),
+			libp2p.AddrsFactory(addrsFactory),
+			libp2p.Identity(key),
+			libp2p.NATPortMap(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create libp2p edgeNodeHost: %w", err)
+		}
 	}
 
 	clt := &RelayClient{
 		logger:     logger,
-		host:       privateSrvHost,
+		host:       edgeNodeHost,
 		closeCh:    make(chan struct{}),
 		protocols:  map[string]Protocol{},
 		relayPeers: make(map[peer.ID]*RelayPeerInfo),
@@ -764,7 +777,7 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *
 		minerAgent: minerAgent,
 	}
 
-	clt.logger.Info("LibP2P Relay client running", "addr", privateSrvHost.Addrs()[0].String()+"/p2p/"+privateSrvHost.ID().String())
+	clt.logger.Info("LibP2P Relay client running", "addr", edgeNodeHost.Addrs()[0].String()+"/p2p/"+edgeNodeHost.ID().String())
 
 	if setupErr := clt.setupRelaynodes(relaynodes); setupErr != nil {
 		return nil, fmt.Errorf("unable to parse relaynode data, %w", setupErr)

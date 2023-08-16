@@ -590,7 +590,7 @@ func NewApplicationEndpoint(
 
 			event.AddNewApp(endpoint.application)
 			endpoint.stream.push(event)
-			endpoint.logger.Info("endpoint----> status", "ModelHash", endpoint.application.ModelHash, "Mac", endpoint.application.Mac, "CpuInfo", endpoint.application.CpuInfo, "GpuInfo", endpoint.application.GpuInfo, "MemInfo", endpoint.application.MemInfo)
+			endpoint.logger.Debug("endpoint----> status", "ModelHash", endpoint.application.ModelHash, "Mac", endpoint.application.Mac, "CpuInfo", endpoint.application.CpuInfo, "GpuInfo", endpoint.application.GpuInfo, "MemInfo", endpoint.application.MemInfo)
 		}
 		ticker.Stop()
 	}()

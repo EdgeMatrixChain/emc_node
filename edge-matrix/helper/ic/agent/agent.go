@@ -191,7 +191,6 @@ func (agent *Agent) UpdateRaw(canisterID, methodName string, arg []byte, timeout
 		return nil, err
 	}
 	//poll requestID to get result
-	//todo:这个时间写成配置之后
 	return agent.poll(canisterID, *requestID, time.Second, time.Second*time.Duration(timeout))
 
 }
