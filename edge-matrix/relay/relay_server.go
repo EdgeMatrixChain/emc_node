@@ -86,7 +86,7 @@ func (s *RelayServer) GetNotifyBundle() *network.NotifyBundle {
 	return &network.NotifyBundle{
 		ConnectedF: func(net network.Network, conn network.Conn) {
 			peerID := conn.RemotePeer()
-			s.logger.Info("Conn", "peer", peerID, "direction", conn.Stat().Direction)
+			s.logger.Info("Conn", "peer", peerID, "direction", conn.Stat().Direction, "RemoteMultiaddr", conn.RemoteMultiaddr().String())
 			s.host.Peerstore().AddAddr(peerID, conn.RemoteMultiaddr(), peerstore.PermanentAddrTTL)
 		},
 	}

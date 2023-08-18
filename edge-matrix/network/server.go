@@ -138,8 +138,6 @@ func NewServer(logger hclog.Logger, config *Config, discProto string, identityPr
 		libp2p.ListenAddrs(listenAddr),
 		libp2p.AddrsFactory(addrsFactory),
 		libp2p.Identity(key),
-		libp2p.NATPortMap(),
-		libp2p.EnableNATService(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create libp2p stack: %w", err)

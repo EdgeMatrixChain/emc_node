@@ -743,7 +743,6 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *
 			libp2p.AddrsFactory(addrsFactory),
 			libp2p.EnableRelay(),
 			libp2p.Identity(key),
-			libp2p.NATPortMap(),
 			libp2p.ForceReachabilityPrivate(),
 		)
 		if err != nil {
@@ -755,7 +754,6 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *
 			libp2p.ListenAddrs(listenAddr),
 			libp2p.AddrsFactory(addrsFactory),
 			libp2p.Identity(key),
-			libp2p.NATPortMap(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create libp2p edgeNodeHost: %w", err)

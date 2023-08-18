@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	kb "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
+	"regexp"
 	"sync"
 )
 
@@ -80,28 +82,58 @@ func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*p
 
 	from := grpcContext.PeerID
 	addr := ""
+	innerIp := false
 	addrInfo := d.baseServer.GetPeerAddrInfo(from)
 	if len(addrInfo.Addrs) > 0 {
 		addr = addrInfo.Addrs[0].String()
+		innerIp = isInnerIp(addrInfo.Addrs[0])
 	}
 	d.logger.Debug("-------->Alive status", "from", from, "name", status.Name, "app_origin", status.AppOrigin, "addr", addr, "relay", status.Relay)
-	d.syncAppPeerClient.PublishApplicationStatus(&appProto.AppStatus{
-		Name:         status.Name,
-		NodeId:       from.String(),
-		Uptime:       status.Uptime,
-		StartupTime:  status.StartupTime,
-		Relay:        status.Relay,
-		Addr:         addr,
-		AppOrigin:    status.AppOrigin,
-		Mac:          status.Mac,
-		CpuInfo:      status.CpuInfo,
-		GpuInfo:      status.GpuInfo,
-		MemInfo:      status.MemInfo,
-		ModelHash:    status.ModelHash,
-		AveragePower: status.AveragePower,
-	})
+	if !innerIp || status.Relay != "" {
+		d.syncAppPeerClient.PublishApplicationStatus(&appProto.AppStatus{
+			Name:         status.Name,
+			NodeId:       from.String(),
+			Uptime:       status.Uptime,
+			StartupTime:  status.StartupTime,
+			Relay:        status.Relay,
+			Addr:         addr,
+			AppOrigin:    status.AppOrigin,
+			Mac:          status.Mac,
+			CpuInfo:      status.CpuInfo,
+			GpuInfo:      status.GpuInfo,
+			MemInfo:      status.MemInfo,
+			ModelHash:    status.ModelHash,
+			AveragePower: status.AveragePower,
+		})
+	}
 
 	return &proto.AliveStatusResp{
 		Success: true,
 	}, nil
+}
+
+func isInnerIp(ma multiaddr.Multiaddr) (innerIp bool) {
+	innerIp = false
+	ip4Addr, err := ma.ValueForProtocol(multiaddr.P_IP4)
+	if err != nil {
+		ip4Addr = ""
+	}
+
+	re := regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)\.(\d+)`)
+	submatches := re.FindStringSubmatch(ip4Addr)
+	if len(submatches) > 0 {
+		// 127.0.0.1
+		// 10.0.0.0/8
+		// 172.16.0.0/12
+		// 169.254.0.0/16
+		// 192.168.0.0/16
+		if submatches[0] == "127.0.0.1" ||
+			submatches[1] == "10" ||
+			(submatches[1] == "172" && submatches[2] >= "16" && submatches[2] <= "31") ||
+			(submatches[1] == "169" && submatches[2] == "254") ||
+			(submatches[1] == "192" && submatches[2] == "168") {
+			innerIp = true
+		}
+	}
+	return innerIp
 }

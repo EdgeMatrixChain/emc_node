@@ -349,10 +349,6 @@ func NewServer(config *Config) (*Server, error) {
 			if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes); err != nil {
 				return nil, err
 			}
-		} else {
-			//if err := m.edgeNetwork.Start("Edge", m.config.Chain.Bootnodes, true); err != nil {
-			//	return nil, err
-			//}
 		}
 	}
 
