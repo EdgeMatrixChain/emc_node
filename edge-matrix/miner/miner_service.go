@@ -118,6 +118,10 @@ func (s *MinerService) MinerRegiser(ctx context.Context, req *proto.MinerRegiste
 				result = err.Error()
 			}
 		case NodeTypeValidator:
+			err := s.minerAgent.RegisterValidatorNode(s.host.ID().String(), req.Principal)
+			if err != nil {
+				result = err.Error()
+			}
 		case NodeTypeComputing:
 			err := s.minerAgent.RegisterComputingNode(s.host.ID().String(), req.Principal)
 			if err != nil {
@@ -136,6 +140,10 @@ func (s *MinerService) MinerRegiser(ctx context.Context, req *proto.MinerRegiste
 				result = err.Error()
 			}
 		case NodeTypeValidator:
+			err := s.minerAgent.UnregisterValidatorNode(s.host.ID().String())
+			if err != nil {
+				result = err.Error()
+			}
 		case NodeTypeComputing:
 			err := s.minerAgent.UnRegisterComputingNode(s.host.ID().String())
 			if err != nil {

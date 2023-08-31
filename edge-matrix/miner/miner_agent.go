@@ -278,6 +278,45 @@ func (m *MinerAgent) AddRouter(minerPrincipal string) error {
 	return errors.New("AddRouter fail")
 }
 
+func (m *MinerAgent) RegisterValidatorNode(nodeId string, minerPrincipal string) error {
+	methodName := "registerValidatorNode"
+
+	p, err := principal.Decode(minerPrincipal)
+	if err != nil {
+		return err
+	}
+	var argType []idl.Type
+	argType = append(argType, new(idl.Text))
+	argType = append(argType, new(idl.Principal))
+
+	argValue := []interface{}{
+		nodeId,
+		p}
+	arg, _ := idl.Encode(argType, argValue)
+	m.logger.Debug("RegisterValidatorNode", "argType", argType, "argValue", argValue)
+
+	types, result, err := m.agent.Update(m.canister, methodName, arg, 30)
+	if err != nil {
+		return err
+	}
+	m.logger.Debug("RegisterValidatorNode", "types", types[0].String(), "result", result)
+	if len(result) < 1 {
+		return errors.New("result is empty")
+	}
+
+	if result != nil && len(result) > 0 {
+		respVariant := result[0].(map[string]interface{})
+		updateResult := UpdateResult{}
+		utils.Decode(&updateResult, respVariant)
+		if updateResult.Ok.Int64() > 0 {
+			m.logger.Info("RegisterNode ok")
+			return nil
+		} else {
+			return errors.New(updateResult.Err.Index)
+		}
+	}
+	return errors.New("RegisterNode fail")
+}
 func (m *MinerAgent) RegisterRouterNode(nodeId string, minerPrincipal string) error {
 	methodName := "registerRouterNode"
 
@@ -355,6 +394,41 @@ func (m *MinerAgent) UnRegisterComputingNode(nodeId string) error {
 }
 
 // call miner canister's unRegisterNode method(update)
+func (m *MinerAgent) UnregisterValidatorNode(nodeId string) error {
+	methodName := "unregisterValidatorNode"
+
+	var argType []idl.Type
+	argType = append(argType, new(idl.Text))
+
+	argValue := []interface{}{
+		nodeId,
+	}
+	arg, _ := idl.Encode(argType, argValue)
+	m.logger.Debug("UnregisterValidatorNode", "argType", argType, "argValue", argValue)
+
+	types, result, err := m.agent.Update(m.canister, methodName, arg, 30)
+	if err != nil {
+		return err
+	}
+	m.logger.Debug("UnregisterValidatorNode", "types", types[0].String(), "result", result)
+	if len(result) < 1 {
+		return errors.New("result is empty")
+	}
+
+	if result != nil && len(result) > 0 {
+		respVariant := result[0].(map[string]interface{})
+		updateResult := UpdateResult{}
+		utils.Decode(&updateResult, respVariant)
+		if updateResult.Ok.Int64() > 0 {
+			m.logger.Info("UnregisterValidatorNode ok")
+			return nil
+		} else {
+			return errors.New(updateResult.Err.Index)
+		}
+	}
+	return errors.New("UnregisterValidatorNode fail")
+}
+
 func (m *MinerAgent) UnRegisterRouterNode(nodeId string) error {
 	methodName := "unregisterRouterNode"
 
