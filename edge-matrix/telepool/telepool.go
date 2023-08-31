@@ -288,6 +288,7 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 			return "", err
 		}
 		if call.Endpoint != "/api" {
+			// do not gossip tele
 			host := p.edgeNetwork.GetHost()
 
 			relayAddr, addr := p.getAppPeerAddr(call.PeerId)
