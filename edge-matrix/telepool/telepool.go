@@ -287,7 +287,7 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 		if err := json.Unmarshal(input, &call); err != nil {
 			return "", err
 		}
-		if call.Endpoint == "/poc_cpu_request" || call.Endpoint == "/poc_cpu_validate" {
+		if call.Endpoint != "/apiAdd" {
 			host := p.edgeNetwork.GetHost()
 
 			relayAddr, addr := p.getAppPeerAddr(call.PeerId)
