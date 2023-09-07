@@ -2,9 +2,12 @@ package application
 
 import (
 	"crypto/ecdsa"
+	cryptorand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/emc-protocol/edge-matrix/application/hub"
 	"github.com/emc-protocol/edge-matrix/application/proof"
 	"github.com/emc-protocol/edge-matrix/application/proof/helper"
 	"github.com/emc-protocol/edge-matrix/application/proof/sd"
@@ -72,6 +75,7 @@ type Endpoint struct {
 
 	application     *Application
 	minerAgent      *miner.MinerAgent
+	hubAgent        *hub.HubAgent
 	jsonRpcClient   *rpc.JsonRpcClient
 	blockchainStore blockchainStore
 
@@ -242,12 +246,13 @@ func (e *Endpoint) doPocTask() {
 
 		pocData := tt.GetPocCpuDataInfo()
 		inputString := ""
-		if e.pocGpuValidateFlag && e.appUrl != "" && e.appOrigin == proof.AppOriginSD {
+		if e.pocGpuValidateFlag && e.appOrigin == proof.AppOriginSD {
 			// Do poc by gpu
 			pocSD := sd.NewPocSD(e.appUrl)
 			prompt := pocData.Seed
+			modelName := pocData.ModelName
 			seedNum, _ := pocSD.MakeSeedByHashString(pocData.Seed)
-			sdModelHash, imageHash, md5sum, infoString, err := pocSD.ProofByTxt2img(prompt, seedNum)
+			sdModelHash, imageHash, md5sum, infoString, err := pocSD.ProofByTxt2imgWithModel(prompt, seedNum, modelName)
 			if err != nil {
 				e.logger.Error("doPocTask -->ProofByTxt2img", "err", err.Error())
 			}
@@ -368,21 +373,27 @@ func (e *Endpoint) doPocTask() {
 	}
 }
 
-//func (e *Endpoint) UpdateApplicationPeer(app *Application) {
-//	if app == nil {
-//		return
-//	}
-//	e.applicationPeersMap.Set(app.PeerID, *app)
-//}
-
 func (e *Endpoint) GetEndpointApplication() *Application {
 	return e.application
 }
 
 func (e *Endpoint) doPocRequest() {
-	if !e.pocGpuValidateFlag || e.appUrl == "" {
+	if e.appOrigin == "" {
 		return
 	}
+
+	// check bind status
+	err, bindFlag := e.getAppNode()
+	if err != nil {
+		e.logger.Error("doPocRequest -->getAppNode", "err", err.Error())
+		return
+	}
+	if !bindFlag {
+		e.logger.Error("doPocRequest -->getAppNode", "bindFlag", bindFlag)
+		return
+	}
+	e.logger.Info("doPocRequest -->getAppNode", "bindFlag", bindFlag)
+
 	// check miner status
 	_, _, wallet, _, _, err := e.minerAgent.MyNode(e.h.ID().String())
 	if err != nil {
@@ -390,7 +401,7 @@ func (e *Endpoint) doPocRequest() {
 		return
 	}
 	if wallet == "" {
-		e.logger.Info("doPocRequest -->wallet princial=nil")
+		e.logger.Info("doPocRequest -->Wallet princial=nil")
 		return
 	}
 
@@ -417,6 +428,24 @@ func (e *Endpoint) doPocRequest() {
 	if len(validators) < 1 {
 		return
 	}
+
+	// Do test poc by gpu
+	err, pocModels := e.doSDModelTest()
+	if err != nil {
+		e.logger.Error("SD Models Test", "err", err.Error())
+		return
+	}
+
+	if len(pocModels) < 1 {
+		e.logger.Error("endpoint.miner -->pocModels", "len", 0)
+		return
+	}
+
+	pocModelNames := make([]string, 0)
+	for _, modelName := range pocModels {
+		pocModelNames = append(pocModelNames, modelName)
+	}
+
 	for _, validatorNodeID := range validators {
 		// post status by sendTelegram
 		redoMax := 1
@@ -474,9 +503,19 @@ func (e *Endpoint) doPocRequest() {
 				e.logger.Error("endpoint.miner -->Response", "err", obj.Err)
 				continue
 			}
+			pocModelName := ""
+			if len(pocModelNames) > 0 {
+				randNum, _ := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(len(pocModelNames))))
+				pocModelName = pocModelNames[randNum.Int64()]
+			} else {
+				e.logger.Error("endpoint.miner -->pocModelNames len=0")
+				continue
+			}
+
 			e.AddPocTask(&proof.PocCpuData{
 				Validator: obj.Validator,
 				Seed:      obj.Seed,
+				ModelName: pocModelName,
 			}, proof.PriorityRequestedPoc)
 			e.logger.Info("endpoint.miner -->AddPocTask")
 		}
@@ -499,6 +538,114 @@ func (e *Endpoint) doSDTest() (error, string, string, string, string) {
 	}
 	return nil, sdModelHash, imageHash, md5sum, infoString
 }
+
+func (e *Endpoint) doAppNodeBind() error {
+	pocSD := sd.NewPocSD(e.appUrl)
+	err := pocSD.BindAppNode(e.h.ID().String())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *Endpoint) getAppNode() (error, bool) {
+	pocSD := sd.NewPocSD(e.appUrl)
+	err, nodeId := pocSD.GetAppNode()
+	if err != nil {
+		return err, false
+	}
+	if e.h.ID().String() == nodeId {
+		return nil, true
+	}
+	return nil, false
+}
+
+func (e *Endpoint) doSDModelTest() (error, []string) {
+	pocSD := sd.NewPocSD(e.appUrl)
+	// fetch checkpoint models
+	cpModels, err := pocSD.SdModels()
+	if err != nil {
+		return errors.New("test SdModels err:" + err.Error()), nil
+	}
+
+	needReload := false
+	localModels := make(map[string]string, 0)
+	checkpointModels := make(map[string]string, 0)
+	pocModels := make([]string, 0)
+
+	for _, model := range cpModels {
+		if model.Sha256 == "" {
+			e.logger.Info("test model:" + model.ModelName)
+			needReload = true
+			// get modelHash
+			hashString := "0xc09008b138b5ad15bebbd28539b6f3c62a1bcc75ee6a09c34ab6b27e96d05c19"
+			bi, _ := pocSD.MakeSeedByHashString(hashString)
+			_, _, _, _, err := pocSD.ProofByTxt2imgWithModel(hashString, bi, model.ModelName)
+			if err != nil {
+				return errors.New("test model:" + model.ModelName + ", err:" + err.Error()), nil
+			}
+		} else {
+			localModels[model.Sha256] = model.ModelName
+			checkpointModels[model.Sha256] = model.ModelName
+		}
+	}
+	if needReload {
+		response, err := pocSD.SdModels()
+		if err != nil {
+			return errors.New("test SdModels err:" + err.Error()), nil
+		}
+		for _, model := range response {
+			if model.Sha256 != "" {
+				localModels[model.Sha256] = model.ModelName
+				checkpointModels[model.Sha256] = model.ModelName
+			}
+		}
+	}
+
+	// fetch loras models
+	loraModels, err := pocSD.SdLoras()
+	if err != nil {
+		return errors.New("test SdLoras err:" + err.Error()), nil
+	}
+	for _, loral := range loraModels {
+		localModels[loral.Metadata.Sshs_model_hash] = loral.Metadata.Ss_output_name
+	}
+
+	// fetch white list from canister
+	missedModelHash := ""
+	wlModels, err := e.hubAgent.ListModelsByeType("StableDiffusion")
+	for _, modelHash := range wlModels {
+		if _, ok := localModels[modelHash]; !ok {
+			missedModelHash = missedModelHash + " " + modelHash
+		} else {
+			if modelName, ok := checkpointModels[modelHash]; ok {
+				pocModels = append(pocModels, modelName)
+			}
+		}
+	}
+	if len(missedModelHash) > 0 {
+		return errors.New("missed modelHash:" + missedModelHash), nil
+	}
+
+	return nil, pocModels
+}
+
+func (e *Endpoint) fetchSDCheckpointModels() (error, []string) {
+	pocSD := sd.NewPocSD(e.appUrl)
+	// fetch checkpoint models
+	checkpointModels := make([]string, 0)
+	response, err := pocSD.SdModels()
+	if err != nil {
+		return err, nil
+	}
+	for _, model := range response {
+		if model.Sha256 != "" {
+			checkpointModels = append(checkpointModels, model.ModelName)
+		}
+	}
+	return nil, checkpointModels
+}
+
 func NewApplicationEndpoint(
 	logger hclog.Logger,
 	privateKey *ecdsa.PrivateKey,
@@ -508,6 +655,7 @@ func NewApplicationEndpoint(
 	appOrigin string,
 	blockchainStore blockchainStore,
 	minerAgent *miner.MinerAgent,
+	hubAgent *hub.HubAgent,
 	jsonRpcClient *rpc.JsonRpcClient,
 	isEdgeMode bool) (*Endpoint, error) {
 	endpoint := &Endpoint{
@@ -519,6 +667,7 @@ func NewApplicationEndpoint(
 		tag:                 ProtoTagEcApp,
 		stream:              &eventStream{},
 		minerAgent:          minerAgent,
+		hubAgent:            hubAgent,
 		jsonRpcClient:       jsonRpcClient,
 		pocQueue:            proof.NewPocQueue(),
 		pocSubmitQueue:      proof.NewPocSubmitQueue(),
@@ -565,10 +714,25 @@ func NewApplicationEndpoint(
 		Version:     versioning.Version + " Build" + versioning.Build,
 	}
 	// Do test poc by gpu
-	if len(endpoint.appUrl) > 0 {
+	if endpoint.appOrigin == proof.AppOriginSD {
+		// bind app node
+		err := endpoint.doAppNodeBind()
+		if err != nil {
+			endpoint.logger.Error("doAppNodeBind", "err", err.Error())
+			return nil, err
+		}
+
+		// Do test poc by gpu
+		err, pocModels := endpoint.doSDModelTest()
+		if err != nil {
+			endpoint.logger.Error("SD Models Test", "err", err.Error())
+			return nil, err
+		}
+		endpoint.logger.Info("endpoint----> Models Test", "pocModels", pocModels)
+
 		err, sdModelHash, _, _, _ := endpoint.doSDTest()
 		if err != nil {
-			endpoint.logger.Error("App Test", "err", err.Error())
+			endpoint.logger.Error("SD App Test", "err", err.Error())
 		}
 		if sdModelHash != "" {
 			// update application mode hash

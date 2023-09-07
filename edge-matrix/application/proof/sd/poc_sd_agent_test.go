@@ -3,11 +3,54 @@ package sd
 import (
 	"fmt"
 	"github.com/brett-lempereur/ish"
+	"github.com/emc-protocol/edge-matrix/application/hub"
 	"github.com/emc-protocol/edge-matrix/helper/hex"
+	"github.com/emc-protocol/edge-matrix/helper/ic/agent"
+	"github.com/emc-protocol/edge-matrix/helper/ic/utils/identity"
+	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/helper/xor"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
+
+const (
+	TestPrivKey = "7c4b45acadbcd3fa0312ff99ab002ca0cfdab0587a01dbb02f13da282ebfc6a4"
+)
+
+func TestSdModels(t *testing.T) {
+	pocSD := NewPocSD("http://36.155.7.132:7860")
+	response, err := pocSD.SdModels()
+	if err != nil {
+		t.Error(err)
+	}
+	for _, model := range response {
+		t.Log(model.ModelName, ":", model.Hash)
+	}
+}
+
+func TestSdLoras(t *testing.T) {
+	pocSD := NewPocSD("http://36.155.7.132:7860")
+	response, err := pocSD.SdLoras()
+	if err != nil {
+		t.Error(err)
+	}
+	for _, loral := range response {
+		t.Log(loral.Metadata.Ss_output_name, ":", loral.Metadata.Sshs_model_hash)
+	}
+}
+
+func TestProofByTxt2imgWithModel(t *testing.T) {
+	pocSD := NewPocSD("http://36.155.7.132:7860")
+	hashString := "0xc09008b138b5ad15bebbd28539b6f3c62a1bcc75ee6a09c34ab6b27e96d05c19"
+	bi, _ := pocSD.MakeSeedByHashString(hashString)
+	sdModelHash, imageHash, md5sum, infoString, err := pocSD.ProofByTxt2imgWithModel(hashString, bi, "darkSushi25D25D_v20")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log("sdModelHash:", sdModelHash, "imageHash", imageHash, "md5sum:", md5sum, "info", infoString)
+	//assert.Equal(t, "e6415c4892", sdModelHash)
+}
 
 func TestProofByTxt2img(t *testing.T) {
 	pocSD := NewPocSD("http://192.168.31.15:7860")
@@ -101,4 +144,90 @@ func TestDifferenceBit(t *testing.T) {
 		return
 	}
 	t.Log("differenceBitCount:", differenceBitCount)
+}
+
+func TestSDModelTest(t *testing.T) {
+	pocSD := NewPocSD("http://36.155.7.132:7860")
+	// fetch checkpoint models
+	cpModels, err := pocSD.SdModels()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log("cpModels:", cpModels)
+	needReload := false
+	localModels := make(map[string]string, 0)
+	checkpointModels := make(map[string]string, 0)
+	pocModels := make([]string, 0)
+
+	for _, model := range cpModels {
+		if model.Sha256 == "" {
+			needReload = true
+			// get modelHash
+			hashString := "0xc09008b138b5ad15bebbd28539b6f3c62a1bcc75ee6a09c34ab6b27e96d05c19"
+			bi, _ := pocSD.MakeSeedByHashString(hashString)
+			_, _, _, _, err := pocSD.ProofByTxt2imgWithModel(hashString, bi, model.ModelName)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+		} else {
+			localModels[model.Sha256] = model.ModelName
+			checkpointModels[model.Sha256] = model.ModelName
+		}
+	}
+	if needReload {
+		response, err := pocSD.SdModels()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		for _, model := range response {
+			if model.Sha256 != "" {
+				localModels[model.Sha256] = model.ModelName
+				checkpointModels[model.Sha256] = model.ModelName
+			}
+		}
+	}
+	t.Log("checkpointModels:", checkpointModels)
+
+	// fetch loras models
+	loraModels, err := pocSD.SdLoras()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for _, loral := range loraModels {
+		localModels[loral.Metadata.Sshs_model_hash] = loral.Metadata.Ss_output_name
+	}
+
+	// fetch white list from canister
+	missedModelHash := ""
+	icAgent := agent.NewWithHost("https://ic0.app", false, TestPrivKey)
+	privKeyBytes, err := hex.DecodeHex(TestPrivKey)
+	if err != nil {
+		return
+	}
+	identity := identity.New(false, privKeyBytes)
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
+
+	hubAgent := hub.NewHubAgent(hclog.NewNullLogger(), icAgent)
+	wlModels, err := hubAgent.ListModelsByeType("StableDiffusion")
+	t.Log("wlModels:", wlModels)
+	for _, modelHash := range wlModels {
+		if _, ok := localModels[modelHash]; !ok {
+			missedModelHash = missedModelHash + " " + modelHash
+		} else {
+			if modelName, ok := checkpointModels[modelHash]; ok {
+				pocModels = append(pocModels, modelName)
+			}
+		}
+
+	}
+	t.Log("pocModels:", pocModels)
+	if len(missedModelHash) > 0 {
+		t.Error("missed modelHash:" + missedModelHash)
+		return
+	}
 }

@@ -34,6 +34,8 @@ message AliveStatus {
   float average_power = 12;
   // gpu info
   string gpu_info = 13;
+  // version
+  string version = 14;
 }
 
 message AliveStatusResp {

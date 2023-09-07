@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application"
+	"github.com/emc-protocol/edge-matrix/application/hub"
 	"github.com/emc-protocol/edge-matrix/blockchain"
 	"github.com/emc-protocol/edge-matrix/chain"
 	cmdConfig "github.com/emc-protocol/edge-matrix/command/server/config"
@@ -319,6 +320,8 @@ func NewServer(config *Config) (*Server, error) {
 	icAgent := agent.NewWithHost(config.IcHost, false, hex.EncodeToString(decodedPrivKey.Seed()))
 	minerAgent := miner.NewMinerAgent(m.logger, icAgent, config.MinerCanister)
 
+	hubAgent := hub.NewHubAgent(hclog.NewNullLogger(), icAgent)
+
 	// init miner grpc service
 	_, err = m.initMinerService(minerAgent, coreNetwork.GetHost(), m.secretsManager)
 	if err != nil {
@@ -391,7 +394,7 @@ func NewServer(config *Config) (*Server, error) {
 		}
 
 		jsonRpcClient := rpc.NewJsonRpcClient(m.config.EmcHost)
-		endpoint, err := application.NewApplicationEndpoint(m.logger, key, endpointHost, m.config.AppName, m.config.AppUrl, m.config.AppOrigin, m.blockchain, minerAgent, jsonRpcClient, m.runningMode == RunningModeEdge)
+		endpoint, err := application.NewApplicationEndpoint(m.logger, key, endpointHost, m.config.AppName, m.config.AppUrl, m.config.AppOrigin, m.blockchain, minerAgent, hubAgent, jsonRpcClient, m.runningMode == RunningModeEdge)
 		if err != nil {
 			return nil, err
 		}

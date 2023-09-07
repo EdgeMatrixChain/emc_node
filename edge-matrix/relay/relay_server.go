@@ -8,7 +8,6 @@ import (
 	"github.com/emc-protocol/edge-matrix/secrets"
 	"github.com/hashicorp/go-hclog"
 	"github.com/libp2p/go-libp2p"
-	kb "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -87,7 +86,7 @@ func (s *RelayServer) GetNotifyBundle() *network.NotifyBundle {
 		ConnectedF: func(net network.Network, conn network.Conn) {
 			peerID := conn.RemotePeer()
 			s.logger.Info("Conn", "peer", peerID, "direction", conn.Stat().Direction, "RemoteMultiaddr", conn.RemoteMultiaddr().String())
-			s.host.Peerstore().AddAddr(peerID, conn.RemoteMultiaddr(), peerstore.PermanentAddrTTL)
+			s.host.Peerstore().AddAddr(peerID, conn.RemoteMultiaddr(), peerstore.AddressTTL)
 		},
 	}
 }
@@ -112,30 +111,30 @@ func (s *RelayServer) wrapStream(id string, handle func(network.Stream)) {
 // setupAlive Sets up the live service for the node
 func (s *RelayServer) SetupAliveService(syncAppPeerClient application.SyncAppPeerClient) error {
 	// Set up a fresh routing table
-	keyID := kb.ConvertPeerID(s.host.ID())
-
-	routingTable, err := kb.NewRoutingTable(
-		defaultBucketSize,
-		keyID,
-		time.Minute,
-		s.host.Peerstore(),
-		10*time.Second,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Set the PeerAdded event handler
-	routingTable.PeerAdded = func(p peer.ID) {
-		//info := s.host.Peerstore().PeerInfo(p)
-		//s.peers[p] = &info
-	}
-
-	// Set the PeerRemoved event handler
-	routingTable.PeerRemoved = func(p peer.ID) {
-		//s.dialQueue.DeleteTask(p)
-	}
+	//keyID := kb.ConvertPeerID(s.host.ID())
+	//
+	//routingTable, err := kb.NewRoutingTable(
+	//	defaultBucketSize,
+	//	keyID,
+	//	time.Minute,
+	//	s.host.Peerstore(),
+	//	10*time.Second,
+	//	nil,
+	//)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Set the PeerAdded event handler
+	//routingTable.PeerAdded = func(p peer.ID) {
+	//	//info := s.host.Peerstore().PeerInfo(p)
+	//	//s.peers[p] = &info
+	//}
+	//
+	//// Set the PeerRemoved event handler
+	//routingTable.PeerRemoved = func(p peer.ID) {
+	//	//s.dialQueue.DeleteTask(p)
+	//}
 
 	// Register the network notify bundle handlers
 	s.host.Network().Notify(s.GetNotifyBundle())
@@ -143,7 +142,7 @@ func (s *RelayServer) SetupAliveService(syncAppPeerClient application.SyncAppPee
 	// Create an instance of the alive service
 	aliveService := NewAliveService(
 		s,
-		routingTable,
+		//routingTable,
 		s.logger,
 		syncAppPeerClient,
 	)

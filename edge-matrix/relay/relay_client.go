@@ -14,7 +14,6 @@ import (
 	"github.com/emc-protocol/edge-matrix/secrets"
 	"github.com/hashicorp/go-hclog"
 	"github.com/libp2p/go-libp2p"
-	kb "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -357,30 +356,30 @@ func setupLibp2pKey(secretsManager secrets.SecretsManager) (crypto.PrivKey, erro
 // setupAlive Sets up the live service for the node
 func (s *RelayClient) StartAlive(subscription application.Subscription) error {
 	// Set up a fresh routing table
-	keyID := kb.ConvertPeerID(s.host.ID())
-
-	routingTable, err := kb.NewRoutingTable(
-		defaultBucketSize,
-		keyID,
-		time.Minute,
-		s.host.Peerstore(),
-		10*time.Second,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Set the PeerAdded event handler
-	routingTable.PeerAdded = func(p peer.ID) {
-		//info := s.host.Peerstore().PeerInfo(p)
-		//s.addToDialQueue(&info, common.PriorityRandomDial)
-	}
-
-	// Set the PeerRemoved event handler
-	routingTable.PeerRemoved = func(p peer.ID) {
-		//s.dialQueue.DeleteTask(p)
-	}
+	//keyID := kb.ConvertPeerID(s.host.ID())
+	//
+	//routingTable, err := kb.NewRoutingTable(
+	//	defaultBucketSize,
+	//	keyID,
+	//	time.Minute,
+	//	s.host.Peerstore(),
+	//	10*time.Second,
+	//	nil,
+	//)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Set the PeerAdded event handler
+	//routingTable.PeerAdded = func(p peer.ID) {
+	//	//info := s.host.Peerstore().PeerInfo(p)
+	//	//s.addToDialQueue(&info, common.PriorityRandomDial)
+	//}
+	//
+	//// Set the PeerRemoved event handler
+	//routingTable.PeerRemoved = func(p peer.ID) {
+	//	//s.dialQueue.DeleteTask(p)
+	//}
 
 	// Register the network notify bundle handlers
 	s.host.Network().Notify(s.GetNotifyBundle())
@@ -612,6 +611,7 @@ func (d *RelayClient) sayHello(
 			MemInfo:      d.application.MemInfo,
 			ModelHash:    d.application.ModelHash,
 			AveragePower: d.application.AveragePower,
+			Version:      d.application.Version,
 		},
 	)
 	if err != nil {
@@ -722,25 +722,19 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *
 		return nil, err
 	}
 
-	addrsFactory := func(addrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
-		if config.NatAddr != nil {
-			addr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", config.NatAddr.String(), config.Addr.Port))
+	if config.NatAddr != nil {
+		addr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", config.NatAddr.String(), config.Addr.Port))
 
-			if addr != nil {
-				addrs = []multiaddr.Multiaddr{addr}
-			}
-		} else if config.DNS != nil {
-			addrs = []multiaddr.Multiaddr{config.DNS}
+		if addr != nil {
+			listenAddr = addr
 		}
-
-		return addrs
 	}
+
 	var edgeNodeHost host.Host
 	if relayOn {
 		edgeNodeHost, err = libp2p.New(
 			libp2p.Security(noise.ID, noise.New),
 			libp2p.ListenAddrs(listenAddr),
-			libp2p.AddrsFactory(addrsFactory),
 			libp2p.EnableRelay(),
 			libp2p.Identity(key),
 			libp2p.ForceReachabilityPrivate(),
@@ -752,7 +746,6 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *
 		edgeNodeHost, err = libp2p.New(
 			libp2p.Security(noise.ID, noise.New),
 			libp2p.ListenAddrs(listenAddr),
-			libp2p.AddrsFactory(addrsFactory),
 			libp2p.Identity(key),
 		)
 		if err != nil {

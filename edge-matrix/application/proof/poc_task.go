@@ -12,6 +12,7 @@ type PocCpuRequest struct {
 type PocCpuData struct {
 	Validator string
 	Seed      string
+	ModelName string
 }
 
 type PocSubmitTask struct {

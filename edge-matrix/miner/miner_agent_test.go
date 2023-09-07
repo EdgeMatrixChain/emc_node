@@ -16,6 +16,16 @@ const (
 	TestPrivKey = "ed1cb741ef10f2e353c6c395f0b91270e762e55cf30d03ab6fa340ff306fb9d9"
 )
 
+func Test_Idendity(t *testing.T) {
+	privKeyBytes, err := hex.DecodeHex(TestPrivKey)
+	if err != nil {
+		return
+	}
+	identity := identity.New(false, privKeyBytes)
+	p := principal.NewSelfAuthenticating(identity.PubKeyBytes())
+	t.Log("identity:", p.Encode(), len(identity.PubKeyBytes()))
+}
+
 func Test_RegisterNode(t *testing.T) {
 	//icAgent := agent.NewWithHost("http://127.0.0.1:8081", false, TestPrivKey)
 	icAgent := agent.NewWithHost(DEFAULT_IC_HOST, false, TestPrivKey)

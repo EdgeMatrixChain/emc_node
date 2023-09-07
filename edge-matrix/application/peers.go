@@ -41,6 +41,8 @@ type AppPeer struct {
 	AveragePower float32
 	//gpu info
 	GpuInfo string
+	// version
+	Version string
 }
 
 func (p *AppPeer) IsBetter(t *AppPeer) bool {

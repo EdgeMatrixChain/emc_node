@@ -67,4 +67,6 @@ message AppStatus {
   float average_power = 14;
   // gpu info
   string gpu_info = 15;
+  // version
+  string version = 16;
 }

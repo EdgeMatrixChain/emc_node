@@ -8,7 +8,6 @@ import (
 	"github.com/emc-protocol/edge-matrix/network/grpc"
 	"github.com/emc-protocol/edge-matrix/relay/proto"
 	"github.com/hashicorp/go-hclog"
-	kb "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"regexp"
@@ -34,9 +33,9 @@ type AliveService struct {
 	proto.UnimplementedAliveServer
 	pendingPeerConnections sync.Map // Map that keeps track of the pending status of peers; peerID -> bool
 
-	baseServer   networkingServer // The interface towards the base networking server
-	logger       hclog.Logger     // The AliveService logger
-	routingTable *kb.RoutingTable // Kademlia 'k-bucket' routing table that contains connected nodes info
+	baseServer networkingServer // The interface towards the base networking server
+	logger     hclog.Logger     // The AliveService logger
+	//routingTable *kb.RoutingTable // Kademlia 'k-bucket' routing table that contains connected nodes info
 
 	syncAppPeerClient application.SyncAppPeerClient
 	closeCh           chan struct{} // Channel used for stopping the AliveService
@@ -45,14 +44,14 @@ type AliveService struct {
 // NewAliveService creates a new instance of the alive service
 func NewAliveService(
 	server networkingServer,
-	routingTable *kb.RoutingTable,
+	//routingTable *kb.RoutingTable,
 	logger hclog.Logger,
 	syncAppPeerClient application.SyncAppPeerClient,
 ) *AliveService {
 	return &AliveService{
-		logger:            logger.Named("discovery"),
-		baseServer:        server,
-		routingTable:      routingTable,
+		logger:     logger.Named("AliveService"),
+		baseServer: server,
+		//routingTable:      routingTable,
 		syncAppPeerClient: syncAppPeerClient,
 		closeCh:           make(chan struct{}),
 	}
@@ -64,14 +63,14 @@ func (d *AliveService) Close() {
 }
 
 // RoutingTableSize returns the size of the routing table
-func (d *AliveService) RoutingTableSize() int {
-	return d.routingTable.Size()
-}
+//func (d *AliveService) RoutingTableSize() int {
+//	return d.routingTable.Size()
+//}
 
 // RoutingTablePeers fetches the peers from the routing table
-func (d *AliveService) RoutingTablePeers() []peer.ID {
-	return d.routingTable.ListPeers()
-}
+//func (d *AliveService) RoutingTablePeers() []peer.ID {
+//	return d.routingTable.ListPeers()
+//}
 
 func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*proto.AliveStatusResp, error) {
 	// Extract the requesting peer ID from the gRPC context
@@ -104,6 +103,7 @@ func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*p
 			MemInfo:      status.MemInfo,
 			ModelHash:    status.ModelHash,
 			AveragePower: status.AveragePower,
+			Version:      status.Version,
 		})
 	}
 

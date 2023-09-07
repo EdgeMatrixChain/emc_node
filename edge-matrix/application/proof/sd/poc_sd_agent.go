@@ -30,10 +30,36 @@ func NewPocSD(sdPath string) *PocSD {
 	return poc
 }
 
+type sdModel struct {
+	Title     string `json:"title"`
+	ModelName string `json:"model_name"`
+	Hash      string `json:"hash"`
+	Sha256    string `json:"sha256"`
+	Filename  string `json:"filename"`
+	Config    string `json:"config"`
+}
+
+type sdLoral struct {
+	Name     string          `json:"name"`
+	Alias    string          `json:"alias"`
+	Path     string          `json:"path"`
+	Metadata sdLoralMetadata `json:"metadata"`
+}
+
+type sdLoralMetadata struct {
+	Ss_output_name  string `json:"ss_output_name"`
+	Sshs_model_hash string `json:"sshs_model_hash"`
+}
+
 type txt2imgResponse struct {
 	Images []string `json:"images"`
 	Info   string   `json:"info"`
 }
+
+type GetAppNodeResponse struct {
+	NodeId string `json:"data"`
+}
+
 type txt2imgResponseInfo struct {
 	Prompt                string      `json:"prompt"`
 	AllPrompts            []string    `json:"all_prompts"`
@@ -108,6 +134,114 @@ func (p *PocSD) MakeSeedByHashString(hashString string) (seedNum int64, err erro
 	return
 }
 
+func (p *PocSD) ProofByTxt2imgWithModel(prompt string, seed int64, modelName string) (sdModelHash string, imageHash string, md5sum string, infoString string, err error) {
+	sdModelHash = ""
+	md5sum = ""
+	imageHash = ""
+	err = nil
+	apiUrl := p.sdPath + "/sdapi/v1/txt2img"
+	txt2imgReq := ` {
+      "enable_hr": false,
+      "denoising_strength": 0,
+      "firstphase_width": 0,
+      "firstphase_height": 0,
+      "hr_scale": 2,
+      "hr_upscaler": "",
+      "hr_second_pass_steps": 0,
+      "hr_resize_x": 0,
+      "hr_resize_y": 0,
+      "prompt": "%s",
+      "styles": [
+        ""
+      ],
+      "seed": %d,
+      "subseed": %d,
+      "subseed_strength": 0,
+      "seed_resize_from_h": -1,
+      "seed_resize_from_w": -1,
+      "sampler_name": "",
+      "batch_size": 1,
+      "n_iter": 1,
+      "steps": 50,
+      "cfg_scale": 7,
+      "width": 512,
+      "height": 512,
+      "restore_faces": false,
+      "tiling": false,
+      "do_not_save_samples": false,
+      "do_not_save_grid": false,
+      "negative_prompt": "",
+      "eta": 0,
+      "s_churn": 0,
+      "s_tmax": 0,
+      "s_tmin": 0,
+      "s_noise": 1,
+      "override_settings": {"sd_model_checkpoint":"%s"},
+      "override_settings_restore_afterwards": true,
+      "sampler_index": "Euler",
+      "send_images": true,
+      "save_images": false,
+      "alwayson_scripts": {}
+    }`
+	postJson := fmt.Sprintf(txt2imgReq, prompt, seed, seed, modelName)
+	jsonBytes, err := p.httpClient.SendPostJsonRequest(apiUrl, []byte(postJson))
+	if err != nil {
+		err = errors.New("ProofByTxt2imgWithModel error:" + err.Error())
+		return
+	}
+	//log.Println(string(jsonBytes))
+	response := &txt2imgResponse{}
+	err = json.Unmarshal(jsonBytes, response)
+	if err != nil {
+		err = errors.New("Response json.Unmarshal error")
+		return
+	}
+
+	if len(response.Info) < 1 {
+		err = errors.New("Response Info error")
+		return
+	}
+	info := &txt2imgResponseInfo{}
+	infoString = response.Info
+	err = json.Unmarshal([]byte(infoString), info)
+	if err != nil {
+		err = errors.New("Response json.Unmarshal data.Info  error")
+		return
+	}
+	sdModelHash = info.SdModelHash
+
+	if response.Images == nil || len(response.Images) < 1 {
+		err = errors.New("Response Images error")
+		return
+	}
+	decodedBytes, err := base64.StdEncoding.DecodeString(response.Images[0])
+	if err != nil {
+		err = errors.New("Base64 decode error")
+		return
+	}
+
+	sum := md5.Sum(decodedBytes)
+	md5sum = fmt.Sprintf("%x", sum)
+
+	r := bytes.NewReader(decodedBytes)
+
+	img, _, err := image.Decode(r)
+	if err != nil {
+		return
+	}
+
+	// generate Perceptual or Average hash
+	hasher := ish.NewAverageHash(8, 8)
+	dh, err := hasher.Hash(img)
+	if err != nil {
+		return
+	} else {
+		imageHash = hex.EncodeToString(dh)
+	}
+
+	return
+}
+
 func (p *PocSD) ProofByTxt2img(prompt string, seed int64) (sdModelHash string, imageHash string, md5sum string, infoString string, err error) {
 	sdModelHash = ""
 	md5sum = ""
@@ -159,7 +293,10 @@ func (p *PocSD) ProofByTxt2img(prompt string, seed int64) (sdModelHash string, i
     }`
 	postJson := fmt.Sprintf(txt2imgReq, prompt, seed, seed)
 	jsonBytes, err := p.httpClient.SendPostJsonRequest(apiUrl, []byte(postJson))
-	//log.Println(string(jsonBytes))
+	if err != nil {
+		err = errors.New("ProofByTxt2img error:" + err.Error())
+		return
+	}
 	response := &txt2imgResponse{}
 	err = json.Unmarshal(jsonBytes, response)
 	if err != nil {
@@ -207,6 +344,68 @@ func (p *PocSD) ProofByTxt2img(prompt string, seed int64) (sdModelHash string, i
 		return
 	} else {
 		imageHash = hex.EncodeToString(dh)
+	}
+
+	return
+}
+
+func (p *PocSD) BindAppNode(nodeId string) (err error) {
+	err = nil
+	apiUrl := p.sdPath + "/hubapi/v1/bindNode"
+	bindReq := `{
+      "nodeId":"%s"
+    }`
+	postJson := fmt.Sprintf(bindReq, nodeId)
+	_, err = p.httpClient.SendPostJsonRequest(apiUrl, []byte(postJson))
+	if err != nil {
+		err = errors.New("BindNode error:" + err.Error())
+		return
+	}
+	return
+}
+
+func (p *PocSD) GetAppNode() (err error, nodeId string) {
+	err = nil
+	nodeId = ""
+	apiUrl := p.sdPath + "/hubapi/v1/getNode"
+	jsonBytes, err := p.httpClient.SendGetRequest(apiUrl)
+	if err != nil {
+		err = errors.New("BindNode error:" + err.Error())
+		return
+	}
+	response := &GetAppNodeResponse{}
+	err = json.Unmarshal(jsonBytes, response)
+	if err != nil {
+		err = errors.New("GetAppNodeResponse json.Unmarshal error")
+		return
+	}
+	nodeId = response.NodeId
+	return
+}
+
+func (p *PocSD) SdLoras() (models []sdLoral, err error) {
+	err = nil
+	apiUrl := p.sdPath + "/sdapi/v1/loras"
+	jsonBytes, err := p.httpClient.SendGetRequest(apiUrl)
+	//log.Println(string(jsonBytes))
+	err = json.Unmarshal(jsonBytes, &models)
+	if err != nil {
+		err = errors.New("Response json.Unmarshal error")
+		return
+	}
+
+	return
+}
+
+func (p *PocSD) SdModels() (models []sdModel, err error) {
+	err = nil
+	apiUrl := p.sdPath + "/sdapi/v1/sd-models"
+	jsonBytes, err := p.httpClient.SendGetRequest(apiUrl)
+	//log.Println(string(jsonBytes))
+	err = json.Unmarshal(jsonBytes, &models)
+	if err != nil {
+		err = errors.New("Response json.Unmarshal error")
+		return
 	}
 
 	return

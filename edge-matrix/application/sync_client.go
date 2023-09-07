@@ -250,6 +250,7 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		GpuInfo:      status.GpuInfo,
 		ModelHash:    status.ModelHash,
 		AveragePower: status.AveragePower,
+		Version:      status.Version,
 	}
 	event.AddNewApp(app)
 	m.stream.push(event) // push to jsonRpc
@@ -274,6 +275,7 @@ func (m *syncAppPeerClient) handleGossipAppStatusUpdate(obj interface{}, from pe
 		MemInfo:      status.MemInfo,
 		ModelHash:    status.ModelHash,
 		AveragePower: status.AveragePower,
+		Version:      status.Version,
 	}
 }
 

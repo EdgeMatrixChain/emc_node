@@ -287,46 +287,46 @@ func (p *TelegramPool) AddTele(tele *types.Telegram) (string, error) {
 		if err := json.Unmarshal(input, &call); err != nil {
 			return "", err
 		}
-		if call.Endpoint != "/api" {
-			// do not gossip tele
-			host := p.edgeNetwork.GetHost()
+		//if call.Endpoint != "/api" {
+		// do not gossip tele
+		host := p.edgeNetwork.GetHost()
 
-			relayAddr, addr := p.getAppPeerAddr(call.PeerId)
-			p.logger.Debug("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, "addr", addr, "Relay", relayAddr)
-			if relayAddr != "" || addr != "" {
-				clientHost, err2 := p.newTempHost()
-				if err2 != nil {
-					return "", err2
-				}
-				defer clientHost.Close()
-
-				host = clientHost
-				err := p.addAddrToHost(call.PeerId, host, addr, relayAddr)
-				if err != nil {
-					return "", err
-				}
+		relayAddr, addr := p.getAppPeerAddr(call.PeerId)
+		p.logger.Debug("edge call", "PeerId", call.PeerId, "Endpoint", call.Endpoint, "addr", addr, "Relay", relayAddr)
+		if relayAddr != "" || addr != "" {
+			clientHost, err2 := p.newTempHost()
+			if err2 != nil {
+				return "", err2
 			}
+			defer clientHost.Close()
 
-			respBuf, callErr := application.Call(host, application.ProtoTagEcApp, call)
-			if callErr != nil {
-				return "", callErr
-			}
-
-			err := resp.UnmarshalRLP(respBuf)
+			host = clientHost
+			err := p.addAddrToHost(call.PeerId, host, addr, relayAddr)
 			if err != nil {
 				return "", err
 			}
-			tele.RespFrom = resp.From
-			tele.RespR = resp.R
-			tele.RespV = resp.V
-			tele.RespS = resp.S
-			tele.RespHash = resp.Hash
-			if len(resp.RespString) > 0 {
-				return resp.RespString, nil
-			} else {
-				return "", nil
-			}
 		}
+
+		respBuf, callErr := application.Call(host, application.ProtoTagEcApp, call)
+		if callErr != nil {
+			return "", callErr
+		}
+
+		err := resp.UnmarshalRLP(respBuf)
+		if err != nil {
+			return "", err
+		}
+		tele.RespFrom = resp.From
+		tele.RespR = resp.R
+		tele.RespV = resp.V
+		tele.RespS = resp.S
+		tele.RespHash = resp.Hash
+		if len(resp.RespString) > 0 {
+			return resp.RespString, nil
+		} else {
+			return "", nil
+		}
+		//}
 	}
 
 	if tele.RespV == nil {
