@@ -167,6 +167,52 @@ func (s *systemService) PeersList(
 	return resp, nil
 }
 
+// PeersRelayList implements the 'peers relaylist' operator service
+func (s *systemService) PeersRelayList(
+	ctx context.Context,
+	req *empty.Empty,
+) (*proto.PeersListResponse, error) {
+	if s.server.relayClient == nil {
+		return nil, nil
+	}
+
+	resp := &proto.PeersListResponse{
+		Peers: []*proto.Peer{},
+	}
+
+	peers := s.server.relayClient.GetBootnodes()
+	for _, p := range peers {
+		addrs := []string{}
+		for _, addr := range p.Addrs {
+			addrs = append(addrs, addr.String())
+		}
+
+		resp.Peers = append(resp.Peers, &proto.Peer{
+			Id:    p.ID.String(),
+			Addrs: addrs,
+		})
+	}
+
+	resp.Peers = append(resp.Peers, &proto.Peer{
+		Id: "-----------------------------------------------------",
+	})
+
+	relayPeers := s.server.relayClient.RelayPeers()
+	if relayPeers != nil && len(relayPeers) > 0 {
+		addrs := []string{}
+		for _, addr := range relayPeers[0].Info.Addrs {
+			addrs = append(addrs, addr.String())
+		}
+
+		resp.Peers = append(resp.Peers, &proto.Peer{
+			Id:    relayPeers[0].Info.ID.String(),
+			Addrs: addrs,
+		})
+	}
+
+	return resp, nil
+}
+
 // RelayStatus implements the 'peers relay' operator service
 func (s *systemService) RelayStatus(
 	ctx context.Context,

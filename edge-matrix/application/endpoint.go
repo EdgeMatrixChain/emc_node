@@ -582,7 +582,8 @@ func (e *Endpoint) doSDModelTest() (error, []string) {
 			bi, _ := pocSD.MakeSeedByHashString(hashString)
 			_, _, _, _, err := pocSD.ProofByTxt2imgWithModel(hashString, bi, model.ModelName)
 			if err != nil {
-				return errors.New("test model:" + model.ModelName + ", err:" + err.Error()), nil
+				e.logger.Error("test model:"+model.ModelName, "err", err.Error())
+				//return errors.New("test model:" + model.ModelName + ", err:" + err.Error()), nil
 			}
 		} else {
 			localModels[model.Sha256] = model.ModelName

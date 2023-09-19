@@ -5,6 +5,7 @@ import (
 	"github.com/emc-protocol/edge-matrix/command/peers/add"
 	"github.com/emc-protocol/edge-matrix/command/peers/list"
 	"github.com/emc-protocol/edge-matrix/command/peers/relay"
+	"github.com/emc-protocol/edge-matrix/command/peers/relaylist"
 	"github.com/emc-protocol/edge-matrix/command/peers/status"
 	"github.com/spf13/cobra"
 )
@@ -32,5 +33,7 @@ func registerSubcommands(baseCmd *cobra.Command) {
 		list.GetCommand(),
 		// peers add
 		add.GetCommand(),
+		// relaylist
+		relaylist.GetCommand(),
 	)
 }

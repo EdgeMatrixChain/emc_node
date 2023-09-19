@@ -362,12 +362,13 @@ func NewServer(config *Config) (*Server, error) {
 		if m.edgeNetwork != nil {
 			endpointHost = m.edgeNetwork.GetHost()
 		}
-		if m.runningMode == RunningModeEdge {
-			relayNetConfig := config.EdgeNetwork
-			relayNetConfig.Chain = m.config.Chain
-			relayNetConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
-			relayNetConfig.SecretsManager = m.secretsManager
 
+		relayNetConfig := config.EdgeNetwork
+		relayNetConfig.Chain = m.config.Chain
+		relayNetConfig.DataDir = filepath.Join(m.config.DataDir, "libp2p")
+		relayNetConfig.SecretsManager = m.secretsManager
+
+		if m.runningMode == RunningModeEdge {
 			// start edge network relay reserv
 			relayClient, err := relay.NewRelayClient(logger, relayNetConfig, minerAgent, m.config.RelayOn)
 			if err != nil {
@@ -442,7 +443,7 @@ func NewServer(config *Config) (*Server, error) {
 				if err != nil {
 					return nil, err
 				}
-				relayServer, err := relay.NewRelayServer(logger, m.secretsManager, relayListenAddr)
+				relayServer, err := relay.NewRelayServer(logger, m.secretsManager, relayListenAddr, relayNetConfig, config.RelayDiscovery)
 				logger.Info("LibP2P Relay server running", "addr", relayListenAddr.String()+"/p2p/"+relayServer.GetHost().ID().String())
 
 				// setup relay libp2p network

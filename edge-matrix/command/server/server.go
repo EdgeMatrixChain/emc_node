@@ -182,6 +182,13 @@ func setFlags(cmd *cobra.Command) {
 		"should the client start in relay mode (default false)",
 	)
 
+	cmd.Flags().BoolVar(
+		&params.rawConfig.RelayDiscovery,
+		relayDiscoveryFlag,
+		false,
+		"should the server start in relay discovery mode (default false)",
+	)
+
 	cmd.Flags().StringVar(
 		&params.rawConfig.AppName,
 		appNameFlag,
@@ -189,12 +196,6 @@ func setFlags(cmd *cobra.Command) {
 		"the name used for application",
 	)
 
-	cmd.Flags().StringVar(
-		&params.rawConfig.AppUrl,
-		appUrlFlag,
-		"",
-		"the url used for application native api calling",
-	)
 	cmd.Flags().StringVar(
 		&params.rawConfig.AppOrigin,
 		appOriginFlag,

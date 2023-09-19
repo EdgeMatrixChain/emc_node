@@ -29,6 +29,8 @@ type SystemClient interface {
 	PeersAdd(ctx context.Context, in *PeersAddRequest, opts ...grpc.CallOption) (*PeersAddResponse, error)
 	// PeersList returns the list of peers
 	PeersList(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PeersListResponse, error)
+	// PeersRelayList returns the list of relay nodes
+	PeersRelayList(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PeersListResponse, error)
 	// PeersInfo returns the info of a peer
 	PeersStatus(ctx context.Context, in *PeersStatusRequest, opts ...grpc.CallOption) (*Peer, error)
 	// PeersInfo returns the info of relay peer
@@ -70,6 +72,15 @@ func (c *systemClient) PeersAdd(ctx context.Context, in *PeersAddRequest, opts .
 func (c *systemClient) PeersList(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PeersListResponse, error) {
 	out := new(PeersListResponse)
 	err := c.cc.Invoke(ctx, "/v1.System/PeersList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) PeersRelayList(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*PeersListResponse, error) {
+	out := new(PeersListResponse)
+	err := c.cc.Invoke(ctx, "/v1.System/PeersRelayList", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +188,8 @@ type SystemServer interface {
 	PeersAdd(context.Context, *PeersAddRequest) (*PeersAddResponse, error)
 	// PeersList returns the list of peers
 	PeersList(context.Context, *emptypb.Empty) (*PeersListResponse, error)
+	// PeersRelayList returns the list of relay nodes
+	PeersRelayList(context.Context, *emptypb.Empty) (*PeersListResponse, error)
 	// PeersInfo returns the info of a peer
 	PeersStatus(context.Context, *PeersStatusRequest) (*Peer, error)
 	// PeersInfo returns the info of relay peer
@@ -202,6 +215,9 @@ func (UnimplementedSystemServer) PeersAdd(context.Context, *PeersAddRequest) (*P
 }
 func (UnimplementedSystemServer) PeersList(context.Context, *emptypb.Empty) (*PeersListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PeersList not implemented")
+}
+func (UnimplementedSystemServer) PeersRelayList(context.Context, *emptypb.Empty) (*PeersListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PeersRelayList not implemented")
 }
 func (UnimplementedSystemServer) PeersStatus(context.Context, *PeersStatusRequest) (*Peer, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PeersStatus not implemented")
@@ -281,6 +297,24 @@ func _System_PeersList_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SystemServer).PeersList(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_PeersRelayList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).PeersRelayList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/v1.System/PeersRelayList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).PeersRelayList(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -399,6 +433,10 @@ var System_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PeersList",
 			Handler:    _System_PeersList_Handler,
+		},
+		{
+			MethodName: "PeersRelayList",
+			Handler:    _System_PeersRelayList_Handler,
 		},
 		{
 			MethodName: "PeersStatus",

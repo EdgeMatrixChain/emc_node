@@ -1,1 +1,1 @@
-./edge-matrix server --chain genesis.json --data-dir edge_data  --grpc-address 0.0.0.0:50000 --libp2p 0.0.0.0:50001 --jsonrpc 0.0.0.0:50002  --base-libp2p 0.0.0.0:50003  --running-mode edge  --poc-gpu --app-url http://127.0.0.1:7860 --app-name SD-MyNodeName --app-origin StableDiffusion --relay-on
+./edge-matrix server --chain genesis.json --data-dir edge_data  --grpc-address 0.0.0.0:50000 --libp2p 0.0.0.0:50001 --jsonrpc 0.0.0.0:50002  --base-libp2p 0.0.0.0:50003  --running-mode edge  --poc-gpu --app-name SD-MyNodeName --app-origin StableDiffusion --relay-on

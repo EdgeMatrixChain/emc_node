@@ -44,7 +44,8 @@ type Config struct {
 
 	LogFilePath string
 
-	RelayOn bool
+	RelayOn        bool
+	RelayDiscovery bool
 
 	NumBlockConfirmations uint64
 

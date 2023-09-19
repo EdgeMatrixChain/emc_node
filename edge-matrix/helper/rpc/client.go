@@ -12,7 +12,7 @@ import (
 	"math/big"
 )
 
-const DEFAULT_RPC_URL = "https://oregon.edgematrix.xyz"
+const DEFAULT_RPC_URL = "https://rpc.edgematrix.pro"
 const TESTNET_ID = 2
 const MAINET_ID = 1
 

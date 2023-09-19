@@ -40,4 +40,5 @@ message AliveStatus {
 
 message AliveStatusResp {
   bool success = 1;
+  string discovery = 2;
 }

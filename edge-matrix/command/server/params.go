@@ -44,9 +44,10 @@ const (
 	numBlockConfirmationsFlag = "num-block-confirmations"
 
 	relayOnFlag        = "relay-on"
+	relayDiscoveryFlag = "relay-discovery"
 	runningModeFlag    = "running-mode"
 	appNameFlag        = "app-name"
-	appUrlFlag         = "app-url"
+	//appUrlFlag         = "app-url"
 	appOriginFlag      = "app-origin"
 	icHostFlag         = "ic-host"
 	minerCanistertFlag = "miner-canister"
@@ -209,11 +210,12 @@ func (p *serverParams) generateConfig() *server.Config {
 		LogFilePath:        p.logFileLocation,
 
 		RelayOn:               p.rawConfig.RelayOn,
+		RelayDiscovery:        p.rawConfig.RelayDiscovery,
 		NumBlockConfirmations: p.rawConfig.NumBlockConfirmations,
 
 		RunningMode: p.rawConfig.RunningMode,
 		AppName:     p.rawConfig.AppName,
-		AppUrl:      p.rawConfig.AppUrl,
+		AppUrl:      "http://127.0.0.1:9527",
 		AppOrigin:   p.rawConfig.AppOrigin,
 
 		IcHost:        p.rawConfig.IcHost,

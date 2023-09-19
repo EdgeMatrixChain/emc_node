@@ -16,6 +16,9 @@ service System {
   // PeersList returns the list of peers
   rpc PeersList(google.protobuf.Empty) returns (PeersListResponse);
 
+  // PeersRelayList returns the list of relay nodes
+  rpc PeersRelayList(google.protobuf.Empty) returns (PeersListResponse);
+
   // PeersInfo returns the info of a peer
   rpc PeersStatus(PeersStatusRequest) returns (Peer);
 

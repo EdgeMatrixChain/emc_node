@@ -75,6 +75,10 @@ type RelayPeerInfo struct {
 	reservation *client.Reservation
 }
 
+func (s *RelayClient) GetBootnodes() []*peer.AddrInfo {
+	return s.relaynodes.getRelaynodes()
+}
+
 func (s *RelayClient) GetRandomBootnode() *peer.AddrInfo {
 	nonConnectedNodes := make([]*peer.AddrInfo, 0)
 
@@ -117,6 +121,50 @@ func (s *RelayClient) setupRelaynodes(relaynodes []string) error {
 		if bootnode.ID == s.host.ID() {
 			s.logger.Info("Omitting relaynode with same ID as host", "id", bootnode.ID)
 
+			continue
+		}
+
+		relaynodesArr = append(relaynodesArr, bootnode)
+		relaynodesMap[bootnode.ID] = bootnode
+	}
+
+	s.relaynodes = &relaynodesWrapper{
+		relaynodeArr:       relaynodesArr,
+		relaynodesMap:      relaynodesMap,
+		relaynodeConnCount: 0,
+	}
+
+	return nil
+}
+
+// addRelaynodes add relayer nodes
+func (s *RelayClient) addRelaynodes(relaynodes []string) error {
+	// Check the relaynode config is present
+	if relaynodes == nil {
+		return ErrNoRelaynodes
+	}
+
+	// Check if at least one relaynode is specified
+	if len(relaynodes) < 1 {
+		return ErrNoRelaynodes
+	}
+
+	relaynodesArr := s.relaynodes.relaynodeArr
+	relaynodesMap := s.relaynodes.relaynodesMap
+
+	for _, rawAddr := range relaynodes {
+		bootnode, err := common.StringToAddrInfo(rawAddr)
+		if err != nil {
+			return fmt.Errorf("failed to parse relaynode %s: %w", rawAddr, err)
+		}
+
+		if bootnode.ID == s.host.ID() {
+			s.logger.Info("Omitting relaynode with same ID as host", "id", bootnode.ID)
+
+			continue
+		}
+
+		if s.hasRelayPeer(bootnode.ID) {
 			continue
 		}
 
@@ -577,22 +625,22 @@ func (s *RelayClient) CloseProtocolStream(protocol string, peerID peer.ID) error
 }
 
 // sayHello call Hello to bootnode
-func (d *RelayClient) sayHello(
+func (s *RelayClient) sayHello(
 	peerID peer.ID,
-) (bool, error) {
+) (bool, string, error) {
 
-	if d.application == nil {
-		return false, errors.New("no application info")
+	if s.application == nil {
+		return false, "", errors.New("no application info")
 	}
 
-	clt, clientErr := d.NewAliveClient(peerID)
+	clt, clientErr := s.NewAliveClient(peerID)
 	if clientErr != nil {
-		return false, fmt.Errorf("unable to create new alive client connection, %w", clientErr)
+		return false, "", fmt.Errorf("unable to create new alive client connection, %w", clientErr)
 	}
-	d.logger.Info("Keep alive", "to", peerID.String())
+	s.logger.Info("Keep alive", "to", peerID.String())
 	//get latest app status
 	relay := ""
-	relayPeerInfo := d.GetRelayPeerInfo()
+	relayPeerInfo := s.GetRelayPeerInfo()
 	if relayPeerInfo != nil && relayPeerInfo.Info != nil {
 		relay = fmt.Sprintf("%s/p2p/%s", relayPeerInfo.Info.Info.Addrs[0].String(), relayPeerInfo.Info.Info.ID.String())
 	}
@@ -600,36 +648,36 @@ func (d *RelayClient) sayHello(
 	resp, err := clt.Hello(
 		context.Background(),
 		&proto.AliveStatus{
-			Name:         d.application.Name,
-			StartupTime:  d.application.StartupTime,
-			Uptime:       d.application.Uptime,
+			Name:         s.application.Name,
+			StartupTime:  s.application.StartupTime,
+			Uptime:       s.application.Uptime,
 			Relay:        relay,
-			AppOrigin:    d.application.AppOrigin,
-			Mac:          d.application.Mac,
-			CpuInfo:      d.application.CpuInfo,
-			GpuInfo:      d.application.GpuInfo,
-			MemInfo:      d.application.MemInfo,
-			ModelHash:    d.application.ModelHash,
-			AveragePower: d.application.AveragePower,
-			Version:      d.application.Version,
+			AppOrigin:    s.application.AppOrigin,
+			Mac:          s.application.Mac,
+			CpuInfo:      s.application.CpuInfo,
+			GpuInfo:      s.application.GpuInfo,
+			MemInfo:      s.application.MemInfo,
+			ModelHash:    s.application.ModelHash,
+			AveragePower: s.application.AveragePower,
+			Version:      s.application.Version,
 		},
 	)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	if closeErr := d.CloseProtocolStream(EdgeAliveProto, peerID); closeErr != nil {
-		return false, closeErr
+	if closeErr := s.CloseProtocolStream(EdgeAliveProto, peerID); closeErr != nil {
+		return false, "", closeErr
 	}
 
-	return resp.Success, nil
+	return resp.Success, resp.Discovery, nil
 }
 
 // startAliveService starts the AliveService loop,
 // in which random peers are dialed for their peer sets,
 // and random bootnodes are dialed for their peer sets
-func (d *RelayClient) startAliveService() {
-	go d.keepAliveToBootnodes()
+func (s *RelayClient) startAliveService() {
+	go s.keepAliveToBootnodes()
 	bootnodeAliveTicker := time.NewTicker(bootnodeAliveInterval)
 
 	defer func() {
@@ -638,18 +686,18 @@ func (d *RelayClient) startAliveService() {
 
 	for {
 		select {
-		case <-d.closeCh:
+		case <-s.closeCh:
 			return
 		case <-bootnodeAliveTicker.C:
-			go d.keepAliveToBootnodes()
+			go s.keepAliveToBootnodes()
 		}
 	}
 }
 
 // keepAliveToBootnodes queries a random (unconnected) bootnode for new peers
 // and adds them to the routing table
-func (d *RelayClient) keepAliveToBootnodes() {
-	d.logger.Info("keepAliveToBootnodes doing...")
+func (s *RelayClient) keepAliveToBootnodes() {
+	s.logger.Info("keepAliveToBootnodes doing...")
 
 	var (
 		bootnode *peer.AddrInfo // the reference bootnode
@@ -658,21 +706,27 @@ func (d *RelayClient) keepAliveToBootnodes() {
 	// Try to find a suitable bootnode to use as a reference peer
 	for bootnode == nil {
 		// Get a random unconnected bootnode from the bootnode set
-		bootnode = d.GetRandomBootnode()
+		bootnode = s.GetRandomBootnode()
 		if bootnode == nil {
 			return
 		}
 
-		for d.application == nil {
+		for s.application == nil {
 			time.Sleep(1 * time.Second)
 		}
-		_, err := d.sayHello(bootnode.ID)
+		success, discovery, err := s.sayHello(bootnode.ID)
 		if err != nil {
-			d.logger.Error("Unable to execute bootnode peer alive call",
+			s.logger.Error("Unable to execute bootnode peer alive call",
 				"bootnode", bootnode.ID.String(),
 				"err", err.Error(),
 			)
 			bootnode = nil
+		}
+		s.logger.Info("keepAliveToBootnodes result", "success", success, "discovery", discovery)
+
+		// add a new found relay node
+		if discovery != "" {
+			s.addRelaynodes([]string{discovery})
 		}
 	}
 }
@@ -711,7 +765,6 @@ func (m *RelayClient) startApplicationEventProcess(subscrption application.Subsc
 // NewRelayClient returns a new instance of the relay client
 func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *miner.MinerAgent, relayOn bool) (*RelayClient, error) {
 	logger = logger.Named("relay-client")
-	relaynodes := config.Chain.Relaynodes
 	key, err := setupLibp2pKey(config.SecretsManager)
 	if err != nil {
 		return nil, err
@@ -770,6 +823,7 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *
 
 	clt.logger.Info("LibP2P Relay client running", "addr", edgeNodeHost.Addrs()[0].String()+"/p2p/"+edgeNodeHost.ID().String())
 
+	relaynodes := config.Chain.Relaynodes
 	if setupErr := clt.setupRelaynodes(relaynodes); setupErr != nil {
 		return nil, fmt.Errorf("unable to parse relaynode data, %w", setupErr)
 	}

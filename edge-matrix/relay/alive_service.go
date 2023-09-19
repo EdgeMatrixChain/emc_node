@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/emc-protocol/edge-matrix/application"
 	appProto "github.com/emc-protocol/edge-matrix/application/proto"
+	"github.com/emc-protocol/edge-matrix/network/common"
 	"github.com/emc-protocol/edge-matrix/network/grpc"
 	"github.com/emc-protocol/edge-matrix/relay/proto"
 	"github.com/hashicorp/go-hclog"
@@ -24,6 +25,8 @@ type networkingServer interface {
 
 	// GetPeerAddrInfo fetches the AddrInfo of a peer
 	GetPeerAddrInfo(peerID peer.ID) peer.AddrInfo
+
+	GetRandomBootnode() *peer.AddrInfo
 }
 
 // BOOTNODE QUERIES //
@@ -107,8 +110,14 @@ func (d *AliveService) Hello(ctx context.Context, status *proto.AliveStatus) (*p
 		})
 	}
 
+	newRelayNode := d.baseServer.GetRandomBootnode()
+	discovery := ""
+	if newRelayNode != nil {
+		discovery = common.AddrInfoToString(newRelayNode)
+	}
 	return &proto.AliveStatusResp{
-		Success: true,
+		Success:   true,
+		Discovery: discovery,
 	}, nil
 }
 

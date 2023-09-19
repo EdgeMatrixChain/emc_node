@@ -34,9 +34,10 @@ type Config struct {
 
 	NumBlockConfirmations uint64 `json:"num_block_confirmations" yaml:"num_block_confirmations"`
 
-	RelayOn       bool   `json:"relay_on,omitempty" yaml:"relay_on,omitempty"`
-	RunningMode   string `json:"running_mode,omitempty" yaml:"running_mode,omitempty"`
-	AppUrl        string `json:"app_url,omitempty" yaml:"app_url,omitempty"`
+	RelayOn        bool   `json:"relay_on,omitempty" yaml:"relay_on,omitempty"`
+	RelayDiscovery bool   `json:"relay_discovery,omitempty" yaml:"relay_discovery,omitempty"`
+	RunningMode    string `json:"running_mode,omitempty" yaml:"running_mode,omitempty"`
+	//AppUrl         string `json:"app_url,omitempty" yaml:"app_url,omitempty"`
 	AppName       string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
 	AppOrigin     string `json:"app_origin,omitempty" yaml:"app_origin,omitempty"`
 	IcHost        string `json:"ic_host,omitempty" yaml:"ic_host,omitempty"`
@@ -141,6 +142,7 @@ func DefaultConfig() *Config {
 		JSONRPCBatchRequestLimit: DefaultJSONRPCBatchRequestLimit,
 		JSONRPCBlockRangeLimit:   DefaultJSONRPCBlockRangeLimit,
 		RelayOn:                  false,
+		RelayDiscovery:           false,
 		NumBlockConfirmations:    DefaultNumBlockConfirmations,
 		RunningMode:              DefaultRunningMode,
 	}
