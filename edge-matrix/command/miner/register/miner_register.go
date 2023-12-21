@@ -10,7 +10,7 @@ import (
 func GetCommand() *cobra.Command {
 	minerSnapshotCmd := &cobra.Command{
 		Use:     "register",
-		Short:   "register a Principal to be added or removed to the IC miner contract",
+		Short:   "register a Principal to be added or removed to the EMC Hub",
 		PreRunE: runPreRun,
 		Run:     runCommand,
 	}

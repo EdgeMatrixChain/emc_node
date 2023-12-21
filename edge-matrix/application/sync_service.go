@@ -20,7 +20,7 @@ type syncAppService struct {
 
 	applicationStore ApplicationStore
 	blockchainStore  blockchainStore
-	minerAgent       *miner.MinerAgent
+	minerAgent       *miner.MinerHubAgent
 	network          *network.Server
 	stream           *grpc.GrpcStream // reference to the grpc stream
 
@@ -39,7 +39,7 @@ func NewSyncAppPeerService(
 	network *network.Server,
 	applicationStore ApplicationStore,
 	blockchainStore blockchainStore,
-	minerAgent *miner.MinerAgent,
+	minerAgent *miner.MinerHubAgent,
 ) SyncAppPeerService {
 	return &syncAppService{
 		logger:           logger,

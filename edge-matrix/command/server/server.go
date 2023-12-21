@@ -2,8 +2,6 @@ package server
 
 import (
 	"fmt"
-	"github.com/emc-protocol/edge-matrix/miner"
-
 	"github.com/emc-protocol/edge-matrix/command"
 	"github.com/emc-protocol/edge-matrix/command/helper"
 	"github.com/emc-protocol/edge-matrix/command/server/config"
@@ -196,39 +194,19 @@ func setFlags(cmd *cobra.Command) {
 		"the name used for application",
 	)
 
-	cmd.Flags().StringVar(
-		&params.rawConfig.AppOrigin,
-		appOriginFlag,
-		"",
-		"the origin name of application",
-	)
+	//cmd.Flags().StringVar(
+	//	&params.rawConfig.AppOrigin,
+	//	appOriginFlag,
+	//	"",
+	//	"the origin name of application",
+	//)
 
-	cmd.Flags().BoolVar(
-		&params.rawConfig.PocCpu,
-		pocCpuFlag,
-		false,
-		"should the POC in cpu mode (default false)",
-	)
-	cmd.Flags().BoolVar(
-		&params.rawConfig.PocGpu,
-		pocGpuFlag,
-		false,
-		"should the POC in gpu mode (default false)",
-	)
-
-	cmd.Flags().StringVar(
-		&params.rawConfig.IcHost,
-		icHostFlag,
-		"https://ic0.app",
-		"the url used for IC api calling",
-	)
-
-	cmd.Flags().StringVar(
-		&params.rawConfig.MinerCanister,
-		minerCanistertFlag,
-		miner.DEFAULT_MINER_CANISTER_ID,
-		"the canister used for miner",
-	)
+	//cmd.Flags().StringVar(
+	//	&params.rawConfig.IcHost,
+	//	icHostFlag,
+	//	"https://ic0.app",
+	//	"the url used for IC api calling",
+	//)
 
 	cmd.Flags().Uint64Var(
 		&params.rawConfig.TelePool.MaxSlots,

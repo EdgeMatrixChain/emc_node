@@ -54,12 +54,7 @@ type Config struct {
 	AppOrigin   string
 	RunningMode string
 
-	IcHost        string
-	MinerCanister string
-	EmcHost       string
-
-	PocCpu bool
-	PocGpu bool
+	EmcHost string
 }
 
 // Telemetry holds the config details for metric services

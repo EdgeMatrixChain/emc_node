@@ -50,10 +50,6 @@ func (p *serverParams) initRawParams() error {
 		return err
 	}
 
-	if err := p.initMinerCanisterId(); err != nil {
-		return err
-	}
-
 	if err := p.initBlockTime(); err != nil {
 		return err
 	}
@@ -75,14 +71,6 @@ func (p *serverParams) initBlockTime() error {
 func (p *serverParams) initDataDirLocation() error {
 	if p.rawConfig.DataDir == "" {
 		return errDataDirectoryUndefined
-	}
-
-	return nil
-}
-
-func (p *serverParams) initMinerCanisterId() error {
-	if p.rawConfig.MinerCanister == "" {
-		return errMinerCanisterUndefined
 	}
 
 	return nil

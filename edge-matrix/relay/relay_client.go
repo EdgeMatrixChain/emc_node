@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application"
-	"github.com/emc-protocol/edge-matrix/miner"
 	emcNetwork "github.com/emc-protocol/edge-matrix/network"
 	"github.com/emc-protocol/edge-matrix/network/common"
 	"github.com/emc-protocol/edge-matrix/network/grpc"
@@ -65,7 +64,6 @@ type RelayClient struct {
 
 	relaynodes *relaynodesWrapper // reference of all relaynodes for the node
 
-	minerAgent  *miner.MinerAgent        // refrence of minerAgent
 	application *application.Application // reference of application
 }
 
@@ -763,7 +761,7 @@ func (m *RelayClient) startApplicationEventProcess(subscrption application.Subsc
 }
 
 // NewRelayClient returns a new instance of the relay client
-func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *miner.MinerAgent, relayOn bool) (*RelayClient, error) {
+func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, relayOn bool) (*RelayClient, error) {
 	logger = logger.Named("relay-client")
 	key, err := setupLibp2pKey(config.SecretsManager)
 	if err != nil {
@@ -818,7 +816,6 @@ func NewRelayClient(logger hclog.Logger, config *emcNetwork.Config, minerAgent *
 			relaynodesMap:      make(map[peer.ID]*peer.AddrInfo),
 			relaynodeConnCount: 0,
 		},
-		minerAgent: minerAgent,
 	}
 
 	clt.logger.Info("LibP2P Relay client running", "addr", edgeNodeHost.Addrs()[0].String()+"/p2p/"+edgeNodeHost.ID().String())

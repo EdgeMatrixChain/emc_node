@@ -48,12 +48,8 @@ const (
 	runningModeFlag    = "running-mode"
 	appNameFlag        = "app-name"
 	//appUrlFlag         = "app-url"
-	appOriginFlag      = "app-origin"
-	icHostFlag         = "ic-host"
-	minerCanistertFlag = "miner-canister"
-
-	pocCpuFlag = "poc-cpu"
-	pocGpuFlag = "poc-gpu"
+	//appOriginFlag = "app-origin"
+	icHostFlag = "ic-host"
 )
 
 // Flags that are deprecated, but need to be preserved for
@@ -216,13 +212,7 @@ func (p *serverParams) generateConfig() *server.Config {
 		RunningMode: p.rawConfig.RunningMode,
 		AppName:     p.rawConfig.AppName,
 		AppUrl:      "http://127.0.0.1:9527",
-		AppOrigin:   p.rawConfig.AppOrigin,
 
-		IcHost:        p.rawConfig.IcHost,
-		MinerCanister: p.rawConfig.MinerCanister,
-		EmcHost:       p.rawConfig.EmcHost,
-
-		PocCpu: p.rawConfig.PocCpu,
-		PocGpu: p.rawConfig.PocGpu,
+		EmcHost: p.rawConfig.EmcHost,
 	}
 }

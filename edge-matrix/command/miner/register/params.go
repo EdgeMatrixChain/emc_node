@@ -5,8 +5,11 @@ import (
 	"errors"
 	"github.com/emc-protocol/edge-matrix/command"
 	"github.com/emc-protocol/edge-matrix/command/helper"
+	"github.com/emc-protocol/edge-matrix/helper/hex"
 	"github.com/emc-protocol/edge-matrix/miner"
 	minerOp "github.com/emc-protocol/edge-matrix/miner/proto"
+	"github.com/emc-protocol/edge-matrix/types"
+	"regexp"
 )
 
 const (
@@ -27,9 +30,9 @@ const (
 )
 
 var (
-	errInvalidCommitType   = errors.New("invalid commit type")
-	errInvalidNodeType     = errors.New("invalid node type")
-	errInvalidPrincipalLen = errors.New("invalid principal length")
+	errInvalidCommitType = errors.New("invalid commit type")
+	errInvalidNodeType   = errors.New("invalid node type")
+	errInvalidPrincipal  = errors.New("invalid ethereum address")
 )
 
 var (
@@ -58,7 +61,7 @@ func (p *registerParams) validateFlags() error {
 	}
 	if p.commit == setOpt {
 		if !isValidPrincipal(p.principal) {
-			return errInvalidPrincipalLen
+			return errInvalidPrincipal
 		}
 	}
 	return nil
@@ -74,7 +77,13 @@ func isValidNodeType(node string) bool {
 }
 
 func isValidPrincipal(principal string) bool {
-	return len(principal) == 63
+	re := regexp.MustCompile("^0x[0-9a-fA-F]{40}$")
+	isHex := re.MatchString(principal)
+	if !isHex {
+		return false
+	}
+	bytes := hex.DropHexPrefix([]byte(principal))
+	return len(bytes) == 2*types.AddressLength
 }
 
 func (p *registerParams) registerMinerAddress(grpcAddress string) error {

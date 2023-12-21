@@ -5,24 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application"
-	"github.com/emc-protocol/edge-matrix/application/hub"
 	"github.com/emc-protocol/edge-matrix/blockchain"
 	"github.com/emc-protocol/edge-matrix/chain"
 	cmdConfig "github.com/emc-protocol/edge-matrix/command/server/config"
 	"github.com/emc-protocol/edge-matrix/consensus"
 	"github.com/emc-protocol/edge-matrix/crypto"
-	"github.com/emc-protocol/edge-matrix/helper/hex"
-	"github.com/emc-protocol/edge-matrix/helper/ic/agent"
-	"github.com/emc-protocol/edge-matrix/helper/ic/utils/identity"
-	"github.com/emc-protocol/edge-matrix/helper/ic/utils/principal"
 	"github.com/emc-protocol/edge-matrix/helper/progress"
-	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
 	minerProto "github.com/emc-protocol/edge-matrix/miner/proto"
 	"github.com/emc-protocol/edge-matrix/relay"
 	"github.com/emc-protocol/edge-matrix/rtc"
 	rtcCrypto "github.com/emc-protocol/edge-matrix/rtc/crypto"
-	"github.com/emc-protocol/edge-matrix/secrets/helper"
 	"github.com/emc-protocol/edge-matrix/state"
 	itrie "github.com/emc-protocol/edge-matrix/state/immutable-trie"
 	"github.com/emc-protocol/edge-matrix/state/runtime"
@@ -299,28 +292,23 @@ func NewServer(config *Config) (*Server, error) {
 			}
 		}
 	}
-
-	// init IC agent
-	if !m.secretsManager.HasSecret(secrets.ICPIdentityKey) {
-		_, err := helper.InitICPIdentityKey(m.secretsManager)
-		if err != nil {
-			return nil, err
-		}
-	}
-	icPrivKey, err := m.secretsManager.GetSecret(secrets.ICPIdentityKey)
+	keyBytes, err := m.secretsManager.GetSecret(secrets.ValidatorKey)
 	if err != nil {
 		return nil, err
 	}
 
-	decodedPrivKey, err := crypto.BytesToEd25519PrivateKey(icPrivKey)
-	icIdentity := identity.New(false, decodedPrivKey.Seed())
-	p := principal.NewSelfAuthenticating(icIdentity.PubKeyBytes())
-	m.logger.Info("Init IC Agent", "node IC identity", p.Encode())
+	key, err := crypto.BytesToECDSAPrivateKey(keyBytes)
+	if err != nil {
+		return nil, err
+	}
+	//networkPrivKey, err := m.secretsManager.GetSecret(secrets.NetworkKey)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//decodedNetworkPrivKey, err := crypto.BytesToECDSAPrivateKey(networkPrivKey)
 
-	icAgent := agent.NewWithHost(config.IcHost, false, hex.EncodeToString(decodedPrivKey.Seed()))
-	minerAgent := miner.NewMinerAgent(m.logger, icAgent, config.MinerCanister)
-
-	hubAgent := hub.NewHubAgent(hclog.NewNullLogger(), icAgent)
+	minerAgent := miner.NewMinerHubAgent(m.logger, m.secretsManager)
 
 	// init miner grpc service
 	_, err = m.initMinerService(minerAgent, coreNetwork.GetHost(), m.secretsManager)
@@ -370,7 +358,7 @@ func NewServer(config *Config) (*Server, error) {
 
 		if m.runningMode == RunningModeEdge {
 			// start edge network relay reserv
-			relayClient, err := relay.NewRelayClient(logger, relayNetConfig, minerAgent, m.config.RelayOn)
+			relayClient, err := relay.NewRelayClient(logger, relayNetConfig, m.config.RelayOn)
 			if err != nil {
 				return nil, err
 			}
@@ -384,26 +372,10 @@ func NewServer(config *Config) (*Server, error) {
 			}
 		}
 
-		keyBytes, err := m.secretsManager.GetSecret(secrets.ValidatorKey)
+		endpoint, err := application.NewApplicationEndpoint(m.logger, key, endpointHost, m.config.AppName, m.config.AppUrl, m.blockchain, minerAgent, m.runningMode == RunningModeEdge)
 		if err != nil {
 			return nil, err
 		}
-
-		key, err := crypto.BytesToECDSAPrivateKey(keyBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		jsonRpcClient := rpc.NewJsonRpcClient(m.config.EmcHost)
-		endpoint, err := application.NewApplicationEndpoint(m.logger, key, endpointHost, m.config.AppName, m.config.AppUrl, m.config.AppOrigin, m.blockchain, minerAgent, hubAgent, jsonRpcClient, m.runningMode == RunningModeEdge)
-		if err != nil {
-			return nil, err
-		}
-		m.logger.Info("POC", "cpu", m.config.PocCpu)
-		endpoint.EnablePocCpuValidate(m.config.PocCpu)
-
-		m.logger.Info("POC", "gpu", m.config.PocGpu)
-		endpoint.EnablePocGpuValidate(m.config.PocGpu)
 
 		endpoint.SetSigner(application.NewEIP155Signer(chain.AllForksEnabled.At(0), uint64(m.config.Chain.Params.ChainID)))
 
@@ -417,7 +389,7 @@ func NewServer(config *Config) (*Server, error) {
 
 		if m.runningMode == RunningModeFull {
 			// setup app status syncer
-			syncAppclient := application.NewSyncAppPeerClient(m.logger, m.edgeNetwork, minerAgent, m.edgeNetwork.GetHost(), jsonRpcClient, key, endpoint)
+			syncAppclient := application.NewSyncAppPeerClient(m.logger, m.edgeNetwork, minerAgent, m.edgeNetwork.GetHost(), endpoint)
 			m.syncAppPeerClient = syncAppclient
 
 			syncer := application.NewSyncer(
@@ -640,7 +612,7 @@ func (s *Server) setupConsensus() error {
 }
 
 // initMinerService sets up the Miner grpc service
-func (s *Server) initMinerService(minerAgent *miner.MinerAgent, host host.Host, secretsManager secrets.SecretsManager) (*miner.MinerService, error) {
+func (s *Server) initMinerService(minerAgent *miner.MinerHubAgent, host host.Host, secretsManager secrets.SecretsManager) (*miner.MinerService, error) {
 	if s.grpcServer != nil {
 		minerService := miner.NewMinerService(s.logger, minerAgent, host, secretsManager)
 		minerProto.RegisterMinerServer(s.grpcServer, minerService)

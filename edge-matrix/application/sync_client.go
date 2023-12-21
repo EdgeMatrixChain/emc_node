@@ -2,11 +2,9 @@ package application
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"github.com/emc-protocol/edge-matrix/application/proto"
-	"github.com/emc-protocol/edge-matrix/helper/rpc"
 	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/network"
 	"github.com/emc-protocol/edge-matrix/network/event"
@@ -32,7 +30,7 @@ type syncAppPeerClient struct {
 	logger           hclog.Logger // logger used for console logging
 	network          Network      // reference to the network module
 	host             host.Host
-	minerAgent       *miner.MinerAgent
+	minerAgent       *miner.MinerHubAgent
 	applicationStore ApplicationStore
 
 	//subscription           Subscription          // reference to the application subscription
@@ -43,9 +41,7 @@ type syncAppPeerClient struct {
 	peerStatusUpdateCh     chan *AppPeer         // peer status update channel
 	peerConnectionUpdateCh chan *event.PeerEvent // peer connection update channel
 
-	jsonRpcClient *rpc.JsonRpcClient
-	privateKey    *ecdsa.PrivateKey
-	endpoint      *Endpoint
+	endpoint *Endpoint
 
 	shouldEmitData bool // flag for emitting data in the topic
 	closeCh        chan struct{}
@@ -453,10 +449,8 @@ type SyncAppPeerClient interface {
 func NewSyncAppPeerClient(
 	logger hclog.Logger,
 	network Network,
-	minerAgent *miner.MinerAgent,
+	minerAgent *miner.MinerHubAgent,
 	host host.Host,
-	jsonRpcClient *rpc.JsonRpcClient,
-	privateKey *ecdsa.PrivateKey,
 	applicationStore ApplicationStore,
 ) SyncAppPeerClient {
 	c := &syncAppPeerClient{
@@ -471,8 +465,6 @@ func NewSyncAppPeerClient(
 		closed:                 new(uint64),
 		minerAgent:             minerAgent,
 		host:                   host,
-		jsonRpcClient:          jsonRpcClient,
-		privateKey:             privateKey,
 		applicationStore:       applicationStore,
 	}
 	c.stream.push(&Event{})

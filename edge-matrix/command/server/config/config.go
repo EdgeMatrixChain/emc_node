@@ -38,14 +38,9 @@ type Config struct {
 	RelayDiscovery bool   `json:"relay_discovery,omitempty" yaml:"relay_discovery,omitempty"`
 	RunningMode    string `json:"running_mode,omitempty" yaml:"running_mode,omitempty"`
 	//AppUrl         string `json:"app_url,omitempty" yaml:"app_url,omitempty"`
-	AppName       string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
-	AppOrigin     string `json:"app_origin,omitempty" yaml:"app_origin,omitempty"`
-	IcHost        string `json:"ic_host,omitempty" yaml:"ic_host,omitempty"`
-	MinerCanister string `json:"miner_canister,omitempty" yaml:"miner_canister,omitempty"`
-	EmcHost       string `json:"emc_host,omitempty" yaml:"emc_host,omitempty"`
-
-	PocCpu bool `json:"poc_cpu,omitempty" yaml:"poc_cpu,omitempty"`
-	PocGpu bool `json:"poc_gpu,omitempty" yaml:"poc_gpu,omitempty"`
+	AppName string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
+	//AppOrigin string `json:"app_origin,omitempty" yaml:"app_origin,omitempty"`
+	EmcHost string `json:"emc_host,omitempty" yaml:"emc_host,omitempty"`
 }
 
 // Telemetry holds the config details for metric services.
