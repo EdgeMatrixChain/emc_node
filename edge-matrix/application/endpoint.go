@@ -114,7 +114,7 @@ func (e *Endpoint) doAppNodeBind() error {
 
 func (e *Endpoint) getAppOrigin() (error, string) {
 	agent := appAgent.NewAppAgent(e.appUrl)
-	err, appOrigin := agent.GetAppNode()
+	err, appOrigin := agent.GetAppOrigin()
 	if err != nil {
 		return err, ""
 	}

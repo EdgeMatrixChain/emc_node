@@ -20,8 +20,8 @@ func NewAppAgent(appPath string) *AppAgent {
 	return poc
 }
 
-type GetAppNodeResponse struct {
-	NodeId string `json:"data"`
+type GetDataResponse struct {
+	Data string `json:"data"`
 }
 
 func (p *AppAgent) BindAppNode(nodeId string) (err error) {
@@ -48,31 +48,31 @@ func (p *AppAgent) GetAppNode() (err error, nodeId string) {
 		err = errors.New("GetAppNode error:" + err.Error())
 		return
 	}
-	response := &GetAppNodeResponse{}
+	response := &GetDataResponse{}
 	err = json.Unmarshal(jsonBytes, response)
 	if err != nil {
-		err = errors.New("GetAppNodeResponse json.Unmarshal error")
+		err = errors.New("GetDataResponse json.Unmarshal error")
 		return
 	}
-	nodeId = response.NodeId
+	nodeId = response.Data
 	return
 }
 
-func (p *AppAgent) GetAppOrigin() (err error, nodeId string) {
+func (p *AppAgent) GetAppOrigin() (err error, appOrigin string) {
 	err = nil
-	nodeId = ""
+	appOrigin = ""
 	apiUrl := p.appPath + "/hubapi/v1/getOrigin"
 	jsonBytes, err := p.httpClient.SendGetRequest(apiUrl)
 	if err != nil {
 		err = errors.New("GetAppOrigin error:" + err.Error())
 		return
 	}
-	response := &GetAppNodeResponse{}
+	response := &GetDataResponse{}
 	err = json.Unmarshal(jsonBytes, response)
 	if err != nil {
 		err = errors.New("GetAppOriginResponse json.Unmarshal error")
 		return
 	}
-	nodeId = response.NodeId
+	appOrigin = response.Data
 	return
 }
