@@ -121,6 +121,15 @@ func (e *Endpoint) getAppOrigin() (error, string) {
 	return nil, appOrigin
 }
 
+func (e *Endpoint) getAppIdl() (error, string) {
+	agent := appAgent.NewAppAgent(e.appUrl)
+	err, appOrigin := agent.GetAppOrigin()
+	if err != nil {
+		return err, ""
+	}
+	return nil, appOrigin
+}
+
 func (e *Endpoint) validAppNode() (error, bool) {
 	agent := appAgent.NewAppAgent(e.appUrl)
 	err, nodeId := agent.GetAppNode()
@@ -382,12 +391,22 @@ func NewApplicationEndpoint(
 
 		http.HandleFunc("/idl", func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
-			idlData, err := os.ReadFile("idl.json")
-			if nil != err {
-				// TODO Fetch idl json text through GET #{appUrl}/idl
-				idlData = []byte("{}")
+			err, appIdl := endpoint.getAppIdl()
+			if err != nil {
+				// TODO Fetch idl json text through GET #{appUrl}/getAppIdl
+				endpoint.logger.Debug(fmt.Sprintf("/getAppIdl =>resp: %s", err.Error()))
+				idlData, err := os.ReadFile("idl.json")
+				if nil != err {
+					idlData = []byte("[]")
+				}
+				writeResponse(w, idlData, endpoint)
+			} else {
+				if len(appIdl) > 0 {
+					writeResponse(w, []byte(appIdl), endpoint)
+				} else {
+					writeResponse(w, []byte("[]"), endpoint)
+				}
 			}
-			writeResponse(w, idlData, endpoint)
 		})
 
 		server := &http.Server{}

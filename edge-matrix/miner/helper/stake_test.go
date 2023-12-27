@@ -8,21 +8,21 @@ import (
 	"testing"
 )
 
-func Test_GetLockedAmount(t *testing.T) {
-	client, err := ethclient.Dial("https://arbitrum-goerli.publicnode.com")
+func Test_GetNodeStakeAmount(t *testing.T) {
+	client, err := ethclient.Dial("https://sepolia-rollup.arbitrum.io/rpc")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	address := common.HexToAddress("0xDC1E36492317D1A79c6e7DfA772e0D91930d99ea")
+	address := common.HexToAddress("0xbfbc3BF85FBA818fc49A0354D2C84623cE711b63")
 	instance, err := NewStake(address, client)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	amount, err := instance.GetLockedAmount(&bind.CallOpts{
+	amount, err := instance.BalanceOfNode(&bind.CallOpts{
 		Pending: false,
-	}, common.HexToAddress("0xd5e1c4e65860e7131082b14799d6251a9a33a163"))
+	}, "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC")
 	if err != nil {
 		log.Fatal(err)
 	}

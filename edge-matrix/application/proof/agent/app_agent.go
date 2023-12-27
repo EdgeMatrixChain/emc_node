@@ -76,3 +76,22 @@ func (p *AppAgent) GetAppOrigin() (err error, appOrigin string) {
 	appOrigin = response.Data
 	return
 }
+
+func (p *AppAgent) GetAppIdl() (err error, appOrigin string) {
+	err = nil
+	appOrigin = ""
+	apiUrl := p.appPath + "/hubapi/v1/getIdl"
+	jsonBytes, err := p.httpClient.SendGetRequest(apiUrl)
+	if err != nil {
+		err = errors.New("GetAppIdl error:" + err.Error())
+		return
+	}
+	response := &GetDataResponse{}
+	err = json.Unmarshal(jsonBytes, response)
+	if err != nil {
+		err = errors.New("GetAppOriginResponse json.Unmarshal error")
+		return
+	}
+	appOrigin = response.Data
+	return
+}
