@@ -10,7 +10,7 @@ import (
 func GetCommand() *cobra.Command {
 	minerSnapshotCmd := &cobra.Command{
 		Use:     "register",
-		Short:   "register a Principal to be added or removed to the EMC Hub",
+		Short:   "register a Principal (ethereum wallet address) to be added or removed to the EMC Hub",
 		PreRunE: runPreRun,
 		Run:     runCommand,
 	}
@@ -27,7 +27,7 @@ func setFlags(cmd *cobra.Command) {
 		&params.principal,
 		principalFlag,
 		"",
-		"the principal of the miner to be register for",
+		"the principal (ethereum wallet address) of the miner to be register for",
 	)
 
 	cmd.Flags().StringVar(

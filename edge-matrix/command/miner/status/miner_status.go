@@ -13,7 +13,7 @@ import (
 func GetCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Returns the current miner status of the IC",
+		Short: "Returns the current miner status",
 		Run:   runCommand,
 	}
 }

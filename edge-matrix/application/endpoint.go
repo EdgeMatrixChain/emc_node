@@ -37,7 +37,6 @@ const (
 )
 
 const (
-	DefaultBlockNumSyncDuration  = 2 * time.Second
 	DefaultAppStatusSyncDuration = 15 * time.Second
 )
 
@@ -202,34 +201,36 @@ func NewApplicationEndpoint(
 		Version:     versioning.Version + " Build" + versioning.Build,
 	}
 
-	// TODO check miner status
-	go func() {
-		ticker := time.NewTicker(DefaultAppStatusSyncDuration)
-		for {
-			<-ticker.C
-			event := &Event{}
-			// bind app node
-			err := endpoint.doAppNodeBind()
-			if err != nil {
-				endpoint.logger.Error("doAppNodeBind", "err", err.Error())
+	// check app status
+	if isEdgeMode {
+		go func() {
+			ticker := time.NewTicker(DefaultAppStatusSyncDuration)
+			for {
+				<-ticker.C
+				event := &Event{}
+				// bind app node
+				err := endpoint.doAppNodeBind()
+				if err != nil {
+					endpoint.logger.Error("doAppNodeBind", "err", err.Error())
+				}
+
+				err, appOrigin := endpoint.getAppOrigin()
+				if err != nil {
+					endpoint.logger.Error("getAppOrigin", "err", err.Error())
+				}
+
+				endpoint.application.AppOrigin = appOrigin
+				endpoint.application.Uptime = uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime
+				endpoint.application.MemInfo = helper.GetMemInfo()
+				endpoint.application.GpuInfo = helper.GetGpuInfo()
+
+				event.AddNewApp(endpoint.application)
+				endpoint.stream.push(event)
+				endpoint.logger.Debug("endpoint----> status", "AppOrigin", endpoint.application.AppOrigin, "Mac", endpoint.application.Mac, "CpuInfo", endpoint.application.CpuInfo, "GpuInfo", endpoint.application.GpuInfo, "MemInfo", endpoint.application.MemInfo)
 			}
-
-			err, appOrigin := endpoint.getAppOrigin()
-			if err != nil {
-				endpoint.logger.Error("getAppOrigin", "err", err.Error())
-			}
-
-			endpoint.application.AppOrigin = appOrigin
-			endpoint.application.Uptime = uint64(time.Now().UnixMilli()) - endpoint.application.StartupTime
-			endpoint.application.MemInfo = helper.GetMemInfo()
-			endpoint.application.GpuInfo = helper.GetGpuInfo()
-
-			event.AddNewApp(endpoint.application)
-			endpoint.stream.push(event)
-			endpoint.logger.Debug("endpoint----> status", "AppOrigin", endpoint.application.AppOrigin, "Mac", endpoint.application.Mac, "CpuInfo", endpoint.application.CpuInfo, "GpuInfo", endpoint.application.GpuInfo, "MemInfo", endpoint.application.MemInfo)
-		}
-		ticker.Stop()
-	}()
+			ticker.Stop()
+		}()
+	}
 
 	go func() {
 		http.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {

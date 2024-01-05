@@ -249,67 +249,67 @@ func (m *MinerHubAgent) RegisterRouterNode(nodeId string, minerPrincipal string)
 
 // UnRegisterComputingNode
 func (m *MinerHubAgent) UnRegisterComputingNode(nodeId string) error {
-	privateKey := m.getPrivateKey()
-	address, err := crypto.GetAddressFromKey(privateKey)
-	if err != nil {
-		return errors.New("RegisterComputingNode fail: unable to extract key")
-	}
-
-	randnum := rand.Intn(1e6)
-	message := address.String() + "," + nodeId + "," + string(randnum)
-	keccak256 := crypto.Keccak256([]byte(message))
-
-	signature, err := crypto.Sign(
-		privateKey,
-		keccak256,
-	)
-	if err != nil {
-		return errors.New("RegisterComputingNode fail: " + err.Error())
-	}
-
-	signatureHexString := hex.EncodeToString(signature)
-	keccak256HexString := hex.EncodeToString(keccak256)
-
-	m.logger.Info("UnRegisterComputingNode", "nodeId", nodeId, "public key", address.String(), "message", message, "keccak256", keccak256HexString, "signature", signatureHexString)
-
-	var entity struct {
-		NodeId    string `json:"nodeId"`
-		PublicKey string `json:"publicKey"`
-		Kecack256 string `json:"kecack256"`
-		Signature string `json:"signature"`
-	}
-	entity.NodeId = nodeId
-	entity.Signature = signatureHexString
-	entity.Kecack256 = keccak256HexString
-	entity.PublicKey = address.String()
-
-	entityJsonBytes, err := json.Marshal(entity)
-	if err != nil {
-		return err
-	}
-	respBytes, err := m.httpClient.SendPostJsonRequest(DEFAULT_HUB_HOST+"/api/v1/nodesign/remove", entityJsonBytes)
-	if err != nil {
-		return errors.New("UnRegisterComputingNode fail: " + err.Error())
-	}
-
-	if len(respBytes) > 0 {
-		m.logger.Debug("UnRegisterComputingNode", "resp", string(respBytes))
-
-		var response struct {
-			Result int    `json:"_result"`
-			Desc   string `json:"_desc"`
-		}
-		err := json.Unmarshal(respBytes, &response)
-		if err != nil {
-			return errors.New("UnRegisterComputingNode fail: " + err.Error())
-		}
-
-		if response.Result == 0 {
-			return nil
-		} else {
-			return errors.New("UnRegisterComputingNode fail: " + response.Desc)
-		}
-	}
+	//privateKey := m.getPrivateKey()
+	//address, err := crypto.GetAddressFromKey(privateKey)
+	//if err != nil {
+	//	return errors.New("RegisterComputingNode fail: unable to extract key")
+	//}
+	//
+	//randnum := rand.Intn(1e6)
+	//message := address.String() + "," + nodeId + "," + string(randnum)
+	//keccak256 := crypto.Keccak256([]byte(message))
+	//
+	//signature, err := crypto.Sign(
+	//	privateKey,
+	//	keccak256,
+	//)
+	//if err != nil {
+	//	return errors.New("RegisterComputingNode fail: " + err.Error())
+	//}
+	//
+	//signatureHexString := hex.EncodeToString(signature)
+	//keccak256HexString := hex.EncodeToString(keccak256)
+	//
+	//m.logger.Info("UnRegisterComputingNode", "nodeId", nodeId, "public key", address.String(), "message", message, "keccak256", keccak256HexString, "signature", signatureHexString)
+	//
+	//var entity struct {
+	//	NodeId    string `json:"nodeId"`
+	//	PublicKey string `json:"publicKey"`
+	//	Kecack256 string `json:"kecack256"`
+	//	Signature string `json:"signature"`
+	//}
+	//entity.NodeId = nodeId
+	//entity.Signature = signatureHexString
+	//entity.Kecack256 = keccak256HexString
+	//entity.PublicKey = address.String()
+	//
+	//entityJsonBytes, err := json.Marshal(entity)
+	//if err != nil {
+	//	return err
+	//}
+	//respBytes, err := m.httpClient.SendPostJsonRequest(DEFAULT_HUB_HOST+"/api/v1/nodesign/remove", entityJsonBytes)
+	//if err != nil {
+	//	return errors.New("UnRegisterComputingNode fail: " + err.Error())
+	//}
+	//
+	//if len(respBytes) > 0 {
+	//	m.logger.Debug("UnRegisterComputingNode", "resp", string(respBytes))
+	//
+	//	var response struct {
+	//		Result int    `json:"_result"`
+	//		Desc   string `json:"_desc"`
+	//	}
+	//	err := json.Unmarshal(respBytes, &response)
+	//	if err != nil {
+	//		return errors.New("UnRegisterComputingNode fail: " + err.Error())
+	//	}
+	//
+	//	if response.Result == 0 {
+	//		return nil
+	//	} else {
+	//		return errors.New("UnRegisterComputingNode fail: " + response.Desc)
+	//	}
+	//}
 
 	return errors.New("UnRegisterComputingNode fail")
 }
