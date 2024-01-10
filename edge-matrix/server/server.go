@@ -416,6 +416,9 @@ func NewServer(config *Config) (*Server, error) {
 					return nil, err
 				}
 				relayServer, err := relay.NewRelayServer(logger, m.secretsManager, relayListenAddr, relayNetConfig, config.RelayDiscovery)
+				if err != nil {
+					return nil, err
+				}
 				logger.Info("LibP2P Relay server running", "addr", relayListenAddr.String()+"/p2p/"+relayServer.GetHost().ID().String())
 
 				// setup relay libp2p network

@@ -18,18 +18,13 @@ type MinerStatusResult struct {
 
 func (r *MinerStatusResult) GetOutput() string {
 	var buffer bytes.Buffer
-	registerFlag := "no"
-	if r.Registered {
-		registerFlag = "yes"
-	}
 	buffer.WriteString("\n[MINER STATUS]\n")
 	buffer.WriteString(helper.FormatKV([]string{
 		fmt.Sprintf("NetName |%s", r.NetName),
 		fmt.Sprintf("NodeID |%s", r.NodeID),
 		fmt.Sprintf("NodeType |%s", r.NodeType),
 		fmt.Sprintf("NodeIdentity |%s", r.NodeIdentity),
-		fmt.Sprintf("Principal |%s", r.Principal),
-		fmt.Sprintf("Registered |%s", registerFlag),
+		fmt.Sprintf("Owner |%s", r.Principal),
 	}))
 	buffer.WriteString("\n")
 

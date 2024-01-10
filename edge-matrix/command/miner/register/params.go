@@ -14,7 +14,7 @@ import (
 
 const (
 	commitFlag    = "commit"
-	principalFlag = "principal"
+	principalFlag = "owner"
 	nodeFlag      = "node"
 )
 

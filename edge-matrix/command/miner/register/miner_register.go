@@ -10,7 +10,7 @@ import (
 func GetCommand() *cobra.Command {
 	minerSnapshotCmd := &cobra.Command{
 		Use:     "register",
-		Short:   "register a Principal (ethereum wallet address) to be added or removed to the EMC Hub",
+		Short:   "register node owner (ethereum wallet address) to be added or removed to the EMC Hub",
 		PreRunE: runPreRun,
 		Run:     runCommand,
 	}
@@ -27,7 +27,7 @@ func setFlags(cmd *cobra.Command) {
 		&params.principal,
 		principalFlag,
 		"",
-		"the principal (ethereum wallet address) of the miner to be register for",
+		"the owner (ethereum wallet address) of the node to be register for",
 	)
 
 	cmd.Flags().StringVar(
@@ -35,7 +35,7 @@ func setFlags(cmd *cobra.Command) {
 		nodeFlag,
 		"",
 		fmt.Sprintf(
-			"requested node type to the miner's principal. Possible values: [%s, %s, %s]",
+			"requested node type to the node. Possible values: [%s, %s, %s]",
 			validatorNodeOpt,
 			routeNodeOpt,
 			computingNodeOpt,
@@ -47,7 +47,7 @@ func setFlags(cmd *cobra.Command) {
 		commitFlag,
 		"",
 		fmt.Sprintf(
-			"requested change to the miner's principal. Possible values: [%s, %s]",
+			"requested change to the node's owner. Possible values: [%s, %s]",
 			setOpt,
 			removeOpt,
 		),

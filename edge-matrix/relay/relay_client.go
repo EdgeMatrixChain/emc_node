@@ -714,13 +714,13 @@ func (s *RelayClient) keepAliveToBootnodes() {
 		}
 		success, discovery, err := s.sayHello(bootnode.ID)
 		if err != nil {
-			s.logger.Error("Unable to execute bootnode peer alive call",
+			s.logger.Debug("Unable to execute bootnode peer alive call",
 				"bootnode", bootnode.ID.String(),
 				"err", err.Error(),
 			)
 			bootnode = nil
 		}
-		s.logger.Info("keepAliveToBootnodes result", "success", success, "discovery", discovery)
+		s.logger.Debug("keepAliveToBootnodes result", "success", success, "discovery", discovery)
 
 		// add a new found relay node
 		if discovery != "" {
