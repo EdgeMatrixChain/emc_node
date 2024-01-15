@@ -43,7 +43,7 @@ GitHub repository: https://github.com/EMCProtocol-dev/edgematrixjs-monorepo
 GitHub repository: https://github.com/EMCProtocol-dev/emc_go_sdk
 
 ##  AI Sample for Stable Diffusion nodes
-Address: https://6tq33-2iaaa-aaaap-qbhpa-cai.icp0.io/
+Address: https://2ohnc-miaaa-aaaap-qbl2a-cai.icp0.io/
 
 GitHub repository: https://github.com/EMCProtocol-dev/EMC-SD
 
