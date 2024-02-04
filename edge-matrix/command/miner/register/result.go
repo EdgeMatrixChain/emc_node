@@ -15,7 +15,7 @@ type MinerRegisterResult struct {
 func (r *MinerRegisterResult) GetOutput() string {
 	var buffer bytes.Buffer
 
-	buffer.WriteString("\n[MINER REGISTER]\n")
+	buffer.WriteString("\n[NODE REGISTER]\n")
 	buffer.WriteString(r.Message())
 	buffer.WriteString("\n")
 
@@ -25,7 +25,7 @@ func (r *MinerRegisterResult) GetOutput() string {
 func (r *MinerRegisterResult) Message() string {
 	if r.Commit == setOpt {
 		return fmt.Sprintf(
-			"Commit for the add/update node [%s] owner [%s] to the miner set\n%s \n",
+			"Commit for the add/update node [%s] owner [%s] to the node pool\n%s \n",
 			r.NodeType,
 			r.Principal,
 			r.ResultMessge,
@@ -33,7 +33,7 @@ func (r *MinerRegisterResult) Message() string {
 	}
 
 	return fmt.Sprintf(
-		"Commit for the removal node from the miner set\n%s \n",
+		"Commit for the removal node from the node poll\n%s \n",
 		r.ResultMessge,
 	)
 }

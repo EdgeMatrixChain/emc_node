@@ -18,7 +18,7 @@ type MinerStatusResult struct {
 
 func (r *MinerStatusResult) GetOutput() string {
 	var buffer bytes.Buffer
-	buffer.WriteString("\n[MINER STATUS]\n")
+	buffer.WriteString("\n[NODE STATUS]\n")
 	buffer.WriteString(helper.FormatKV([]string{
 		fmt.Sprintf("NetName |%s", r.NetName),
 		fmt.Sprintf("NodeID |%s", r.NodeID),

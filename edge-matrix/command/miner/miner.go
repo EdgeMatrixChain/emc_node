@@ -10,8 +10,8 @@ import (
 
 func GetCommand() *cobra.Command {
 	minerCmd := &cobra.Command{
-		Use:   "miner",
-		Short: "Top level Miner command for interacting with the Miner contracts. Only accepts subcommands.",
+		Use:   "node",
+		Short: "Top level Node command for interacting with the emc. Only accepts subcommands.",
 	}
 
 	helper.RegisterGRPCAddressFlag(minerCmd)

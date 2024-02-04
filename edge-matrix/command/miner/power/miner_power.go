@@ -13,7 +13,7 @@ import (
 func GetCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "power",
-		Short: "Returns the miner's e-power be generated today",
+		Short: "Returns the node's e-power be generated today",
 		Run:   runCommand,
 	}
 }

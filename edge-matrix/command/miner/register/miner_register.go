@@ -10,7 +10,7 @@ import (
 func GetCommand() *cobra.Command {
 	minerSnapshotCmd := &cobra.Command{
 		Use:     "register",
-		Short:   "register node owner (ethereum wallet address) to be added or removed to the EMC Hub",
+		Short:   "register node owner (ethereum address) to be added or removed to the EMC Hub",
 		PreRunE: runPreRun,
 		Run:     runCommand,
 	}
@@ -27,7 +27,7 @@ func setFlags(cmd *cobra.Command) {
 		&params.principal,
 		principalFlag,
 		"",
-		"the owner (ethereum wallet address) of the node to be register for",
+		"the owner (ethereum address) of the node to be register for",
 	)
 
 	cmd.Flags().StringVar(
