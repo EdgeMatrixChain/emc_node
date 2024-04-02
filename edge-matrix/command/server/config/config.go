@@ -37,8 +37,8 @@ type Config struct {
 	RelayOn        bool   `json:"relay_on,omitempty" yaml:"relay_on,omitempty"`
 	RelayDiscovery bool   `json:"relay_discovery,omitempty" yaml:"relay_discovery,omitempty"`
 	RunningMode    string `json:"running_mode,omitempty" yaml:"running_mode,omitempty"`
-	//AppUrl         string `json:"app_url,omitempty" yaml:"app_url,omitempty"`
-	AppName string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
+	AppUrl         string `json:"app_url,omitempty" yaml:"app_url,omitempty"`
+	AppName        string `json:"app_name,omitempty" yaml:"app_name,omitempty"`
 	//AppOrigin string `json:"app_origin,omitempty" yaml:"app_origin,omitempty"`
 	EmcHost string `json:"emc_host,omitempty" yaml:"emc_host,omitempty"`
 }
