@@ -3,7 +3,6 @@ module github.com/emc-protocol
 go 1.19
 
 require (
-	github.com/brett-lempereur/ish v0.0.0-20161214150457-bbdc45bcf55d
 	github.com/ethereum/go-ethereum v1.12.2
 	github.com/jaypipes/ghw v0.12.0
 	github.com/libp2p/go-libp2p v0.27.7
@@ -84,7 +83,6 @@ require (
 	github.com/aviate-labs/leb128 v0.3.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
 	github.com/fxamacker/cbor/v2 v2.4.0
-	github.com/hashicorp/vault/sdk v0.6.0
 	github.com/valyala/fasthttp v1.37.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.43.1
 )
@@ -103,7 +101,6 @@ require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
-	github.com/bamiaux/rez v0.0.0-20170731184118-29f4463c688b // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
@@ -150,6 +147,7 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.5.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.2 // indirect
+	github.com/hashicorp/vault/sdk v0.6.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/holiman/uint256 v1.2.3 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
@@ -214,7 +212,6 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
 	github.com/tinylib/msgp v1.1.2 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
@@ -234,7 +231,6 @@ require (
 	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
-	golang.org/x/image v0.6.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect
