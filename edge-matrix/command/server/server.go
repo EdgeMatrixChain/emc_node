@@ -194,6 +194,13 @@ func setFlags(cmd *cobra.Command) {
 		"the name used for application",
 	)
 
+	cmd.Flags().StringVar(
+		&params.rawConfig.AppUrl,
+		appUrlFlag,
+		"http://172.17.0.1:9527",
+		"the url for application",
+	)
+
 	//cmd.Flags().StringVar(
 	//	&params.rawConfig.AppOrigin,
 	//	appOriginFlag,

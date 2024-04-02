@@ -47,7 +47,7 @@ const (
 	relayDiscoveryFlag = "relay-discovery"
 	runningModeFlag    = "running-mode"
 	appNameFlag        = "app-name"
-	//appUrlFlag         = "app-url"
+	appUrlFlag         = "app-url"
 	//appOriginFlag = "app-origin"
 	icHostFlag = "ic-host"
 )
@@ -211,7 +211,7 @@ func (p *serverParams) generateConfig() *server.Config {
 
 		RunningMode: p.rawConfig.RunningMode,
 		AppName:     p.rawConfig.AppName,
-		AppUrl:      "http://127.0.0.1:9527",
+		AppUrl:      p.rawConfig.AppUrl,
 
 		EmcHost: p.rawConfig.EmcHost,
 	}
