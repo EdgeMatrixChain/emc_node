@@ -239,12 +239,140 @@ func (m *MinerHubAgent) AddRouter(minerPrincipal string) error {
 }
 
 func (m *MinerHubAgent) RegisterValidatorNode(nodeId string, minerPrincipal string) error {
+	privateKey := m.getPrivateKey()
+	address, err := crypto.GetAddressFromKey(privateKey)
+	if err != nil {
+		return errors.New("RegisterValidatorNode fail: unable to extract key")
+	}
 
-	return errors.New("RegisterNode fail")
+	randnum := rand.Intn(1e6)
+	message := address.String() + "," + minerPrincipal + "," + nodeId + "," + string(randnum)
+	keccak256 := crypto.Keccak256([]byte(message))
+
+	signature, err := crypto.Sign(
+		privateKey,
+		keccak256,
+	)
+	if err != nil {
+		return errors.New("RegisterValidatorNode fail: " + err.Error())
+	}
+
+	signatureHexString := hex.EncodeToString(signature)
+	keccak256HexString := hex.EncodeToString(keccak256)
+
+	m.logger.Info("RegisterValidatorNode", "nodeId", nodeId, "public key", address.String(), "principal", minerPrincipal, "message", message, "keccak256", keccak256HexString, "signature", signatureHexString)
+
+	var entity struct {
+		NodeId    string `json:"nodeId"`
+		NodeType  string `json:"nodeType"`
+		PublicKey string `json:"publicKey"`
+		Principal string `json:"principal"`
+		Kecack256 string `json:"kecack256"`
+		Signature string `json:"signature"`
+	}
+	entity.NodeId = nodeId
+	entity.Principal = minerPrincipal
+	entity.NodeType = "validator"
+	entity.Signature = signatureHexString
+	entity.Kecack256 = keccak256HexString
+	entity.PublicKey = address.String()
+
+	entityJsonBytes, err := json.Marshal(entity)
+	if err != nil {
+		return err
+	}
+	respBytes, err := m.httpClient.SendPostJsonRequest(DEFAULT_HUB_HOST+"/api/v1/nodesign/add", entityJsonBytes)
+	if err != nil {
+		return errors.New("RegisterValidatorNode fail: " + err.Error())
+	}
+
+	if len(respBytes) > 0 {
+		m.logger.Debug("RegisterValidatorNode", "resp", string(respBytes))
+
+		var response struct {
+			Result int    `json:"_result"`
+			Desc   string `json:"_desc"`
+		}
+		err := json.Unmarshal(respBytes, &response)
+		if err != nil {
+			return errors.New("RegisterValidatorNode fail: " + err.Error())
+		}
+
+		if response.Result == 0 {
+			return nil
+		} else {
+			return errors.New("RegisterValidatorNode fail: " + response.Desc)
+		}
+	}
+	return errors.New("RegisterValidatorNode fail")
 }
 func (m *MinerHubAgent) RegisterRouterNode(nodeId string, minerPrincipal string) error {
+	privateKey := m.getPrivateKey()
+	address, err := crypto.GetAddressFromKey(privateKey)
+	if err != nil {
+		return errors.New("RegisterRouterNode fail: unable to extract key")
+	}
 
-	return errors.New("RegisterNode fail")
+	randnum := rand.Intn(1e6)
+	message := address.String() + "," + minerPrincipal + "," + nodeId + "," + string(randnum)
+	keccak256 := crypto.Keccak256([]byte(message))
+
+	signature, err := crypto.Sign(
+		privateKey,
+		keccak256,
+	)
+	if err != nil {
+		return errors.New("RegisterComputingNode fail: " + err.Error())
+	}
+
+	signatureHexString := hex.EncodeToString(signature)
+	keccak256HexString := hex.EncodeToString(keccak256)
+
+	m.logger.Info("RegisterRouterNode", "nodeId", nodeId, "public key", address.String(), "principal", minerPrincipal, "message", message, "keccak256", keccak256HexString, "signature", signatureHexString)
+
+	var entity struct {
+		NodeId    string `json:"nodeId"`
+		NodeType  string `json:"nodeType"`
+		PublicKey string `json:"publicKey"`
+		Principal string `json:"principal"`
+		Kecack256 string `json:"kecack256"`
+		Signature string `json:"signature"`
+	}
+	entity.NodeId = nodeId
+	entity.Principal = minerPrincipal
+	entity.NodeType = "router"
+	entity.Signature = signatureHexString
+	entity.Kecack256 = keccak256HexString
+	entity.PublicKey = address.String()
+
+	entityJsonBytes, err := json.Marshal(entity)
+	if err != nil {
+		return err
+	}
+	respBytes, err := m.httpClient.SendPostJsonRequest(DEFAULT_HUB_HOST+"/api/v1/nodesign/add", entityJsonBytes)
+	if err != nil {
+		return errors.New("RegisterRouterNode fail: " + err.Error())
+	}
+
+	if len(respBytes) > 0 {
+		m.logger.Debug("RegisterRouterNode", "resp", string(respBytes))
+
+		var response struct {
+			Result int    `json:"_result"`
+			Desc   string `json:"_desc"`
+		}
+		err := json.Unmarshal(respBytes, &response)
+		if err != nil {
+			return errors.New("RegisterRouterNode fail: " + err.Error())
+		}
+
+		if response.Result == 0 {
+			return nil
+		} else {
+			return errors.New("RegisterRouterNode fail: " + response.Desc)
+		}
+	}
+	return errors.New("RegisterRouterNode fail")
 }
 
 // UnRegisterComputingNode
