@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"github.com/emc-protocol/edge-matrix/application/proof"
 	"github.com/emc-protocol/edge-matrix/application/proto"
 	"github.com/emc-protocol/edge-matrix/miner"
 	"github.com/emc-protocol/edge-matrix/network"
@@ -11,7 +10,6 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/hashicorp/go-hclog"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"time"
 )
 
 type syncAppService struct {
@@ -85,24 +83,24 @@ func (s *syncAppService) GetData(
 	req *proto.GetDataRequest,
 	stream proto.SyncApp_GetDataServer,
 ) error {
-	var data = make(map[string][]byte)
-	target := proof.DefaultHashProofTarget
-	loops := proof.DefaultHashProofCount
-	i := 0
-	for i < loops {
-		seed := fmt.Sprintf("%s,%d", req.GetDataHash(), i)
-		_, bytes, err := proof.ProofByCalcHash(seed, target, time.Second*5)
-		if err != nil {
-			break
-		}
-		data[seed] = bytes
-		i += 1
-	}
-
-	// if client closes stream, context.Canceled is given
-	if err := stream.Send(toProtoData(data)); err != nil {
-		return nil
-	}
+	//var data = make(map[string][]byte)
+	//target := proof.DefaultHashProofTarget
+	//loops := proof.DefaultHashProofCount
+	//i := 0
+	//for i < loops {
+	//	seed := fmt.Sprintf("%s,%d", req.GetDataHash(), i)
+	//	_, bytes, err := proof.ProofByCalcHash(seed, target, time.Second*5)
+	//	if err != nil {
+	//		break
+	//	}
+	//	data[seed] = bytes
+	//	i += 1
+	//}
+	//
+	//// if client closes stream, context.Canceled is given
+	//if err := stream.Send(toProtoData(data)); err != nil {
+	//	return nil
+	//}
 
 	return nil
 }
