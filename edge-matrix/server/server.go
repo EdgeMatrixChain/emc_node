@@ -397,7 +397,8 @@ func NewServer(config *Config) (*Server, error) {
 				syncAppclient,
 				application.NewSyncAppPeerService(m.logger, m.edgeNetwork, endpoint, m.blockchain, minerAgent),
 				m.edgeNetwork.GetHost(),
-				m.blockchain)
+				m.blockchain,
+				endpoint)
 			// start app status syncer
 			err = syncer.Start(true)
 			if err != nil {

@@ -1,6 +1,7 @@
 package application
 
 import (
+	appProto "github.com/emc-protocol/edge-matrix/application/proto"
 	"github.com/emc-protocol/edge-matrix/types"
 	"github.com/emc-protocol/edge-matrix/validators"
 	"github.com/hashicorp/go-hclog"
@@ -12,6 +13,10 @@ import (
 const (
 	appSyncerProto = "/appsyncer/0.1"
 	syncerName     = "appsyncer"
+)
+
+const (
+	DefaultAppStatusPublishDuration = 15 * 60 * time.Second
 )
 
 type blockchainStore interface {
@@ -47,8 +52,9 @@ type syncer struct {
 	// Channel to notify Sync that a new status arrived
 	newStatusCh chan struct{}
 
-	blockchainStore blockchainStore
-	host            host.Host
+	blockchainStore  blockchainStore
+	host             host.Host
+	applicationStore ApplicationStore
 
 	peersBlockNumMap map[peer.ID]uint64
 }
@@ -76,6 +82,7 @@ func NewSyncer(
 	syncAppPeerService SyncAppPeerService,
 	host host.Host,
 	blockchainStore blockchainStore,
+	applicationStore ApplicationStore,
 ) Syncer {
 	return &syncer{
 		logger:             logger.Named(syncerName),
@@ -85,6 +92,7 @@ func NewSyncer(
 		peerMap:            new(PeerMap),
 		host:               host,
 		blockchainStore:    blockchainStore,
+		applicationStore:   applicationStore,
 		peersBlockNumMap:   make(map[peer.ID]uint64),
 	}
 }
@@ -117,9 +125,43 @@ func (s *syncer) Start(topicSubFlag bool) error {
 
 	go s.startPeerStatusUpdateProcess()
 	//go s.startPeerConnectionEventProcess()
+	go func() {
+		s.doPublishAppStatus()
+		ticker := time.NewTicker(DefaultAppStatusPublishDuration)
+		for {
+			<-ticker.C
+			s.doPublishAppStatus()
+		}
+		ticker.Stop()
+	}()
 
 	return nil
 
+}
+
+func (s *syncer) doPublishAppStatus() {
+	addr := ""
+	if len(s.host.Addrs()) > 0 {
+		addr = s.host.Addrs()[0].String()
+	}
+	s.syncAppPeerClient.PublishApplicationStatus(&appProto.AppStatus{
+		Name:         s.applicationStore.GetEndpointApplication().Name,
+		NodeId:       s.applicationStore.GetEndpointApplication().PeerID.String(),
+		Uptime:       s.applicationStore.GetEndpointApplication().Uptime,
+		StartupTime:  s.applicationStore.GetEndpointApplication().StartupTime,
+		Relay:        "",
+		Addr:         addr,
+		AppOrigin:    s.applicationStore.GetEndpointApplication().AppOrigin,
+		Mac:          s.applicationStore.GetEndpointApplication().Mac,
+		CpuInfo:      s.applicationStore.GetEndpointApplication().CpuInfo,
+		GpuInfo:      s.applicationStore.GetEndpointApplication().GpuInfo,
+		MemInfo:      s.applicationStore.GetEndpointApplication().MemInfo,
+		ModelHash:    s.applicationStore.GetEndpointApplication().ModelHash,
+		AveragePower: s.applicationStore.GetEndpointApplication().AveragePower,
+		Version:      s.applicationStore.GetEndpointApplication().Version,
+	})
+
+	s.logger.Debug("AppPeerStatus published ", "NodeID", s.applicationStore.GetEndpointApplication().PeerID.String(), "Addr", addr, "Mac", s.applicationStore.GetEndpointApplication().Mac)
 }
 
 // startPeerStatusUpdateProcess subscribes peer status change event and updates peer map
